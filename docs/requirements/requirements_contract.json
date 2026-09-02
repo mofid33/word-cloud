@@ -1,0 +1,493 @@
+{
+  "schema_version": "1.0.0",
+  "phase": {
+    "number": 1,
+    "name": "Requirements Freeze",
+    "status": "FROZEN"
+  },
+  "product": {
+    "name": "Persian Semantic Text Analytics Service",
+    "primary_output": "structured_json",
+    "visualization_outputs": [
+      "png",
+      "svg"
+    ],
+    "wordcloud_is_primary_product": false,
+    "supported_profiles": [
+      "COURSE",
+      "SOLDIER_CONCERN",
+      "MEDIA"
+    ]
+  },
+  "architecture": {
+    "layers": [
+      "Host",
+      "Application",
+      "Core",
+      "Infrastructure"
+    ],
+    "dependency_flow": [
+      "Controller",
+      "Service",
+      "Repository",
+      "PsqlDbContext"
+    ],
+    "constructor_injection_required": true,
+    "inject_required_for": [
+      "dependent_controller",
+      "service",
+      "repository",
+      "infrastructure_provider"
+    ],
+    "thin_controller_required": true,
+    "business_logic_location": "src/core/services",
+    "persistence_query_location": "repository",
+    "sqlalchemy_model_location": "src/infrastructure/models",
+    "dto_location_pattern": "src/application/{feature}/dtos",
+    "async_method_suffix": "_async",
+    "base_repository_for_generic_crud": true,
+    "manual_provider_registration_when_discovery_exists": false,
+    "unnecessary_interfaces_allowed": false,
+    "extra_architectural_layers_allowed_without_explicit_request": false,
+    "new_model_requires_alembic_registration": true,
+    "schema_change_requires_migration": true
+  },
+  "input": {
+    "analysis_types": [
+      "COURSE",
+      "SOLDIER_CONCERN",
+      "MEDIA"
+    ],
+    "execution_modes": [
+      "auto",
+      "sync",
+      "async"
+    ],
+    "document": {
+      "required_fields": [
+        "document_id",
+        "text"
+      ],
+      "metadata_supported": true
+    },
+    "limits": {
+      "max_documents_per_analysis": 5000,
+      "max_characters_per_document": 500000,
+      "max_total_characters_per_analysis": 10000000,
+      "configuration_driven": true
+    }
+  },
+  "execution": {
+    "supports_sync": true,
+    "supports_async": true,
+    "supports_auto": true,
+    "sync_threshold": {
+      "max_documents": 20,
+      "max_total_characters": 100000
+    },
+    "auto_rule": {
+      "sync_when_within_both_thresholds": true,
+      "async_otherwise": true
+    },
+    "explicit_sync_above_threshold_allowed": false,
+    "large_corpus_flow": [
+      "FastAPI",
+      "Create Analysis",
+      "Queue",
+      "Worker",
+      "Core Services",
+      "Repository",
+      "Result"
+    ],
+    "worker_may_duplicate_business_logic": false
+  },
+  "persian_nlp": {
+    "unicode_normalization": true,
+    "arabic_persian_character_normalization": true,
+    "zwnj_normalization": true,
+    "whitespace_normalization": true,
+    "noise_handling": true,
+    "tokenization": true,
+    "lemmatization_configurable": true,
+    "pos_processing_configurable": true,
+    "general_stopwords": true,
+    "domain_stopwords": true,
+    "protected_terms": true,
+    "synonym_terms": true,
+    "canonical_terms": true,
+    "separate_candidate_representation": true,
+    "separate_embedding_representation": true
+  },
+  "candidate_extraction": {
+    "minimum_ngram": 1,
+    "maximum_ngram": 3,
+    "noun_phrases_when_available": true,
+    "filtering_configurable": true
+  },
+  "semantic": {
+    "hard_coded_to_single_model": false,
+    "providers": [
+      "EmbeddingProvider",
+      "RerankerProvider",
+      "TopicModelProvider"
+    ],
+    "preferred_pipeline": [
+      "Candidates",
+      "Bi-Encoder",
+      "Top-N",
+      "Cross-Encoder",
+      "Hybrid Ranking"
+    ],
+    "final_model_requires_persian_benchmark": true,
+    "heavy_models_loaded_per_request": false,
+    "heavy_provider_may_be_singleton": true
+  },
+  "ranking": {
+    "single_formula_for_all_profiles": false,
+    "weights_configurable": true,
+    "production_weights_must_be_evaluated": true,
+    "production_weights_may_be_finalized_by_guess": false,
+    "deduplication": [
+      "exact",
+      "normalized_lexical",
+      "canonical",
+      "semantic"
+    ],
+    "diversity_required": true
+  },
+  "profiles": {
+    "COURSE": {
+      "document_model": "long_document_or_sections",
+      "required_capabilities": [
+        "long_document_analysis",
+        "section_analysis",
+        "chunk_aware_analysis",
+        "keyphrase_extraction",
+        "statistical_ranking",
+        "semantic_ranking",
+        "hybrid_ranking",
+        "topic_extraction",
+        "section_coverage",
+        "topic_timeline",
+        "structured_json",
+        "wordcloud"
+      ],
+      "scoring_signals": [
+        "semantic_relevance",
+        "frequency",
+        "chunk_coverage",
+        "section_coverage",
+        "phrase_quality"
+      ]
+    },
+    "SOLDIER_CONCERN": {
+      "each_concern_is_independent_document": true,
+      "merge_all_concerns_into_single_document": false,
+      "required_capabilities": [
+        "multi_document_analysis",
+        "document_frequency",
+        "document_coverage",
+        "concern_prevalence",
+        "semantic_clustering",
+        "topic_extraction",
+        "representative_keyphrases",
+        "overall_wordcloud",
+        "topic_wordcloud"
+      ],
+      "scoring_signals": [
+        "document_frequency",
+        "document_coverage",
+        "semantic_relevance",
+        "topic_prevalence"
+      ],
+      "cross_document_repetition_is_positive_signal": true,
+      "raw_text_persistence_allowed": false
+    },
+    "MEDIA": {
+      "document_roles": [
+        "published_content",
+        "audience_feedback"
+      ],
+      "analyze_roles_separately_before_gap_analysis": true,
+      "scraping_in_scope": false,
+      "required_capabilities": [
+        "content_topics",
+        "audience_topics",
+        "mention_prevalence",
+        "coverage",
+        "semantic_relevance",
+        "engagement_normalization",
+        "trend_analysis",
+        "emerging_topics",
+        "stable_topics",
+        "declining_topics",
+        "content_audience_gap",
+        "structured_json",
+        "wordcloud"
+      ],
+      "scoring_signals": [
+        "mention_share",
+        "semantic_relevance",
+        "coverage",
+        "normalized_engagement",
+        "trend_growth",
+        "recency"
+      ]
+    }
+  },
+  "topics": {
+    "required_fields": [
+      "topic_id",
+      "label",
+      "prevalence",
+      "coverage",
+      "keywords"
+    ],
+    "provider_replaceable": true,
+    "course_supports_section_coverage": true,
+    "course_supports_timeline": true,
+    "media_supports_trend": true
+  },
+  "trend": {
+    "required_for_media": true,
+    "timestamp_aware": true,
+    "states": [
+      "emerging",
+      "stable",
+      "declining"
+    ],
+    "exact_algorithm_deferred_to_phase": 11
+  },
+  "output": {
+    "primary_format": "json",
+    "required_sections": [
+      "analysis",
+      "keywords",
+      "topics",
+      "metrics",
+      "profile_result"
+    ],
+    "analysis_fields": [
+      "analysis_id",
+      "analysis_type",
+      "status",
+      "reference",
+      "model_version",
+      "scoring_version",
+      "created_at",
+      "started_at",
+      "completed_at",
+      "error"
+    ],
+    "keyword_fields": [
+      "text",
+      "canonical_text",
+      "rank",
+      "final_score",
+      "statistical_score",
+      "semantic_score",
+      "coverage",
+      "frequency"
+    ],
+    "topic_fields": [
+      "topic_id",
+      "label",
+      "prevalence",
+      "coverage",
+      "keywords"
+    ]
+  },
+  "visualization": {
+    "secondary_output": true,
+    "formats": [
+      "png",
+      "svg"
+    ],
+    "uses_final_ranked_score": true,
+    "persian_supported": true,
+    "rtl_supported": true,
+    "persian_shaping_required": true
+  },
+  "persistence": {
+    "required": true,
+    "reasons": [
+      "history",
+      "reproducibility",
+      "trend",
+      "model_version_tracking",
+      "scoring_version_tracking"
+    ],
+    "base_entities": [
+      "WordCloudAnalysis",
+      "AnalysisDocument",
+      "AnalysisKeyword",
+      "AnalysisTopic",
+      "AnalysisTopicKeyword"
+    ],
+    "raw_text_persisted_by_default": false,
+    "soldier_raw_text_persistence_forbidden": true,
+    "trend_entity_may_be_added": true
+  },
+  "privacy": {
+    "raw_text_logging_allowed": false,
+    "raw_text_in_exception_message_allowed": false,
+    "raw_text_in_metric_labels_allowed": false,
+    "raw_text_in_tracing_attributes_allowed": false,
+    "soldier_raw_text_storage_allowed": false,
+    "request_may_disable_soldier_privacy_policy": false,
+    "allowed_operational_log_fields": [
+      "analysis_id",
+      "document_id",
+      "analysis_type",
+      "status",
+      "duration",
+      "counts",
+      "model_version",
+      "scoring_version",
+      "sanitized_error_code"
+    ]
+  },
+  "reproducibility": {
+    "required": true,
+    "required_metadata": [
+      "model_version",
+      "scoring_version",
+      "analysis_type",
+      "processing_timestamps",
+      "analysis_metrics"
+    ],
+    "future_supported_metadata": [
+      "preprocessing_version",
+      "provider_version",
+      "configuration_fingerprint"
+    ]
+  },
+  "configuration": {
+    "configuration_driven_values": [
+      "input_limits",
+      "sync_thresholds",
+      "model_selection",
+      "device",
+      "batch_sizes",
+      "rerank_top_n",
+      "profile_scoring_weights",
+      "stopwords",
+      "domain_stopwords",
+      "protected_terms",
+      "canonical_terms",
+      "deduplication_thresholds",
+      "diversity"
+    ]
+  },
+  "environments": {
+    "single_codebase": true,
+    "laptop_supported": true,
+    "laptop_cpu_ready": true,
+    "production_supported": true,
+    "production_gpu_configurable": true,
+    "separate_business_logic_for_cpu_and_gpu": false
+  },
+  "evaluation": {
+    "gold_datasets": [
+      "COURSE",
+      "SOLDIER_CONCERN",
+      "MEDIA"
+    ],
+    "ranking_metrics": [
+      "Precision@5",
+      "Precision@10",
+      "Recall@10",
+      "NDCG@10"
+    ],
+    "topic_metrics": [
+      "Topic Coherence",
+      "Topic Diversity"
+    ],
+    "human_evaluation_required": true,
+    "performance_metrics": [
+      "P50",
+      "P95",
+      "Throughput",
+      "RAM",
+      "VRAM"
+    ],
+    "final_model_selected_by_benchmark": true,
+    "final_weights_selected_by_evaluation": true,
+    "absolute_quality_thresholds_frozen_in_phase_1": false,
+    "regression_gate": {
+      "enabled_after_baseline_acceptance": true,
+      "relative_max_regression": 0.03,
+      "blocking_metrics": [
+        "Precision@10",
+        "NDCG@10"
+      ],
+      "explicit_approval_required_for_override": true
+    }
+  },
+  "testing": {
+    "directories": [
+      "tests/unit",
+      "tests/integration",
+      "tests/evaluation"
+    ],
+    "required_test_categories_over_project_lifecycle": [
+      "unit",
+      "integration",
+      "api",
+      "repository",
+      "database",
+      "di",
+      "discovery",
+      "nlp_evaluation",
+      "regression",
+      "performance"
+    ],
+    "unit_tests_alone_sufficient_for_nlp": false
+  },
+  "analysis_lifecycle": {
+    "statuses": [
+      "pending",
+      "processing",
+      "completed",
+      "failed"
+    ]
+  },
+  "out_of_scope": [
+    "web_scraping",
+    "social_media_scraping",
+    "news_crawling",
+    "content_acquisition_pipeline",
+    "foundation_model_training",
+    "generic_chatbot"
+  ],
+  "deferred_decisions": [
+    "exact_embedding_model",
+    "exact_reranker_model",
+    "exact_topic_model",
+    "final_profile_weights",
+    "exact_mmr_lambda",
+    "exact_semantic_deduplication_threshold",
+    "exact_production_latency_slo",
+    "exact_worker_technology",
+    "exact_queue_technology",
+    "exact_gpu_model",
+    "exact_database_indexes",
+    "exact_api_routes",
+    "exact_http_error_codes"
+  ],
+  "definition_of_done": {
+    "requirements_specification_exists": true,
+    "machine_readable_contract_exists": true,
+    "profiles_frozen": true,
+    "input_limits_frozen": true,
+    "sync_async_policy_frozen": true,
+    "persistence_policy_frozen": true,
+    "privacy_policy_frozen": true,
+    "evaluation_requirements_frozen": true,
+    "architecture_constraints_recorded": true,
+    "deferred_decisions_recorded": true,
+    "contract_tests_required": true,
+    "runtime_implementation_created_in_phase_1": false,
+    "todos_allowed": false
+  }
+}
