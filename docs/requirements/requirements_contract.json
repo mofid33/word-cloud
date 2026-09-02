@@ -53,6 +53,15 @@
     "schema_change_requires_migration": true
   },
   "input": {
+    "required_fields": [
+      "analysis_type",
+      "documents",
+      "execution_mode"
+    ],
+    "optional_fields": [
+      "reference",
+      "options"
+    ],
     "analysis_types": [
       "COURSE",
       "SOLDIER_CONCERN",

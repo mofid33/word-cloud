@@ -754,6 +754,26 @@ class RequirementsContractTests(unittest.TestCase):
             )
         )
 
+    def test_analysis_input_contract_is_frozen(self) -> None:
+        input_contract = self.contract["input"]
+
+        self.assertEqual(
+            set(input_contract["required_fields"]),
+            {
+                "analysis_type",
+                "documents",
+                "execution_mode",
+            },
+        )
+
+        self.assertEqual(
+            set(input_contract["optional_fields"]),
+            {
+                "reference",
+                "options",
+            },
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
