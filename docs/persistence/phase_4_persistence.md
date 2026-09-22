@@ -1,6 +1,6 @@
 # Phase 4 — Database & Persistence
 
-Status: IMPLEMENTED_AWAITING_REVERIFICATION
+Status: COMPLETE
 Correction: 2026-09-22
 
 ## Scope implemented
@@ -64,15 +64,14 @@ python -m unittest discover -s tests -p "test_*.py" -v
 ## Final verification evidence
 
 Verified locally on 2026-09-22:
-- PostgreSQL persistence behavior passed inside the final regression.
-- Constraint, cascade, privacy, atomic-write and rollback tests passed.
-- Alembic upgrade/downgrade test passed.
-- Full regression suite: 113 tests passed.
-- Failures: 0.
-- Errors: 0.
-
-The privacy correction above requires PostgreSQL and full-regression re-verification before Phase 4 is re-closed.
+- PostgreSQL persistence/migration suite: 9 tests passed;
+- SOLDIER privacy hardening tests passed;
+- constraint, cascade, atomic-write and rollback tests passed;
+- Alembic upgrade/downgrade test passed;
+- full regression suite: 126 tests passed;
+- failures: 0;
+- errors: 0.
 
 Current verification marker:
 
-`PHASE_4_IMPLEMENTED_AWAITING_REVERIFICATION`
+`PHASE_4_COMPLETE`

@@ -1,6 +1,6 @@
 # Phase 3 — API & DTO Contract
 
-Status: IMPLEMENTED_AWAITING_REVERIFICATION
+Status: COMPLETE
 Correction: 2026-09-22
 
 ## Executable routes
@@ -121,8 +121,17 @@ Coverage includes:
 - privacy-safe errors;
 - execution-mode resolution.
 
-The final gate must re-run the complete regression and PostgreSQL integration suite after this correction.
+## Final verification evidence
+
+Verified locally on 2026-09-22:
+- lifecycle API integration against PostgreSQL: 3 tests passed;
+- controller/API/unit coverage passed;
+- completed structured-result mapping passed;
+- full regression suite: 126 tests passed;
+- failures: 0;
+- errors: 0;
+- source and tests compiled successfully.
 
 Current marker:
 
-`PHASE_3_IMPLEMENTED_AWAITING_REVERIFICATION`
+`PHASE_3_COMPLETE`

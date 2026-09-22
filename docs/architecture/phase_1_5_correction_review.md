@@ -1,7 +1,7 @@
 # Phase 1–5 Finalization Review
 
 Date: 2026-09-22
-Status: CORRECTIONS_IMPLEMENTED_AWAITING_REVERIFICATION
+Status: COMPLETE — READY_FOR_PHASE_6
 
 ## References
 
@@ -36,7 +36,7 @@ Correction implemented:
 
 The create route currently creates a real pending lifecycle resource. Phase 10 and Phase 12 extend the same workflow with real processing/queue dispatch rather than replacing the HTTP contract.
 
-Status: IMPLEMENTED, awaiting regression re-verification.
+Status: CLOSED and verified.
 
 ## Phase 4
 
@@ -49,7 +49,7 @@ Correction implemented:
 - metadata/options/role/raw_text protections remain in place;
 - PostgreSQL integration coverage asserts these boundaries.
 
-Status: IMPLEMENTED, awaiting PostgreSQL and regression re-verification.
+Status: CLOSED and verified.
 
 ## Phase 5
 
@@ -57,7 +57,19 @@ Development/production configuration, DB settings, model/device/batch settings, 
 
 Status: CLOSED.
 
-## Required final gate
+## Final verification evidence
+
+Verified locally on 2026-09-22:
+- `python -m compileall -q src tests`: PASS;
+- lifecycle API integration against PostgreSQL: 3 tests, PASS;
+- persistence/migration integration: 9 tests, PASS;
+- full project regression: 126 tests, PASS;
+- failures: 0;
+- errors: 0.
+
+All known Phase 1–5 blockers identified in repeated audits are closed.
+
+## Reproduction commands
 
 ```powershell
 git pull origin main
@@ -80,4 +92,13 @@ Expected:
 - PostgreSQL persistence/migration tests pass;
 - full regression has zero failures and zero errors.
 
-Only after this gate passes should the repository marker return to `PHASE_1_5_COMPLETE_READY_FOR_PHASE_6`.
+Current phase status:
+- Phase 1 — CLOSED.
+- Phase 2 — CLOSED.
+- Phase 3 — CLOSED.
+- Phase 4 — CLOSED.
+- Phase 5 — CLOSED.
+
+Readiness marker:
+
+`PHASE_1_5_COMPLETE_READY_FOR_PHASE_6`
