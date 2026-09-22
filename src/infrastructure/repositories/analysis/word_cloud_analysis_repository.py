@@ -42,7 +42,7 @@ class WordCloudAnalysisRepository(BaseRepository[WordCloudAnalysis]):
             analysis_type=analysis_type,
             status="pending",
             execution_mode=execution_mode,
-            reference=reference,
+            reference=None if is_soldier_concern else reference,
             options={} if is_soldier_concern else dict(options or {}),
         )
         for document in documents:

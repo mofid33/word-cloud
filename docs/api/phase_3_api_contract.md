@@ -1,32 +1,26 @@
 # Phase 3 — API & DTO Contract
 
-Status: COMPLETE
-Implementation correction: 2026-09-22
+Status: IMPLEMENTED_AWAITING_REVERIFICATION
+Correction: 2026-09-22
 
-## Phase boundary
+## Executable routes
 
-Phase 3 freezes and implements the HTTP/DTO/validation boundary that can exist without inventing Phase 10 processing or Phase 12 queue behavior.
+Phase 3 now exposes an executable and testable HTTP contract:
 
-The executable Phase 3 endpoint is:
+- `POST /api/v1/analysis/validate`
+- `POST /api/v1/analysis`
+- `GET /api/v1/analysis/{analysis_id}`
+- `GET /api/v1/analysis/{analysis_id}/result`
 
-`POST /api/v1/analysis/validate`
+The create route performs the Phase 3/4 work that is real today: validation, execution-mode resolution and creation of a real persisted lifecycle resource with status `pending`.
 
-The final lifecycle routes are frozen for later runtime wiring:
+It does not fake Phase 10 processing or Phase 12 queue behavior. Later phases extend the same `AnalysisService.create_async` workflow behind this stable route:
+- Phase 10 adds real synchronous processing before the response can become completed.
+- Phase 12 adds real asynchronous queue dispatch while retaining the same lifecycle resource.
 
-- `POST /api/v1/analysis` — create/execute analysis.
-- `GET /api/v1/analysis/{analysis_id}` — retrieve lifecycle/status.
-- `GET /api/v1/analysis/{analysis_id}/result` — retrieve structured result.
+## Request contract
 
-These routes are intentionally not mounted before their real business behavior exists. Returning placeholder data, creating analyses that can never progress, or introducing fake queue/processor implementations would violate the project Definition of Done.
-
-Ownership after Phase 3:
-- Phase 10 wires the real synchronous profile-processing path and structured result mapping.
-- Phase 12 wires the real asynchronous queue/worker lifecycle.
-- Phase 13 adds visualization/image endpoints.
-
-## Implemented request contract
-
-Request fields:
+`AnalysisRequestDto`:
 - `analysis_type`: `COURSE | SOLDIER_CONCERN | MEDIA`
 - `documents`: non-empty list
 - `execution_mode`: `auto | sync | async`
@@ -38,30 +32,41 @@ Each document:
 - `text`: non-blank string
 - `metadata`: optional object
 
-DTOs live under:
-
-`src/application/analysis/dtos/analysis_dto.py`
-
 Unknown fields are rejected.
 
-## Validation and privacy contract
+## Validation and privacy
 
 Core validation enforces:
 - unique document IDs;
 - MEDIA role = `published_content` or `audience_feedback`;
 - document metadata must not repeat the document raw text;
-- Phase 1 hard input limits;
+- configuration-driven hard input limits;
 - explicit sync thresholds;
 - `auto` resolution to `sync` or `async`.
 
-FastAPI/Pydantic schema failures are normalized to a sanitized error envelope and do not echo raw request content.
+FastAPI/Pydantic errors are normalized to a sanitized envelope and raw request text is not echoed.
 
-## HTTP status behavior
+For `SOLDIER_CONCERN`, persistence applies an additional defense-in-depth boundary: raw text, request metadata, request options, role and free-form `reference` are not persisted.
 
-For the executable validation endpoint:
-- HTTP 200 — valid request.
-- HTTP 413 — configured hard input limit exceeded.
-- HTTP 422 — DTO, cross-field or execution-policy validation failure.
+## HTTP status contract
+
+Validation:
+- 200 — valid request.
+- 413 — hard input limit exceeded.
+- 422 — DTO/cross-field/execution-policy validation failure.
+
+Create:
+- 201 — lifecycle resource created successfully.
+- 413/422 — same request validation semantics as the validation endpoint.
+
+Status:
+- 200 — analysis exists.
+- 404 — analysis does not exist.
+
+Result:
+- 200 — completed structured result is available.
+- 404 — analysis does not exist.
+- 409 — analysis exists but no result is currently available.
 
 Stable error envelope:
 
@@ -74,47 +79,48 @@ Stable error envelope:
 }
 ```
 
-Reserved execution-route behavior is frozen as follows for future wiring:
-- create route resolves `auto`; sync completion returns HTTP 200 and async acceptance returns HTTP 202;
-- status route returns HTTP 200 for an existing analysis and HTTP 404 for an unknown analysis;
-- result route returns HTTP 200 only for a completed result, HTTP 409 when the lifecycle state cannot provide a result, and HTTP 404 for an unknown analysis;
-- hard-limit and validation failures retain HTTP 413/422 semantics;
-- raw text must never be included in error payloads.
+## Structured result contract
+
+The result response preserves the Phase 1 JSON-first groups:
+- `analysis`
+- `keywords`
+- `topics`
+- `metrics`
+- `profile_result`
+
+Keyword fields include:
+- text
+- canonical_text
+- rank
+- final_score
+- statistical_score
+- semantic_score
+- coverage
+- frequency
+
+Topic fields include:
+- topic_id
+- label
+- rank
+- prevalence
+- coverage
+- representative keywords with relevance score
 
 ## Tests
 
-Implemented tests cover:
+Coverage includes:
 - DTO validation;
-- controller discovery;
-- controller success/error mapping;
-- sanitized schema validation;
-- duplicate document IDs;
-- MEDIA role validation;
-- raw-text repetition in metadata;
-- hard limits;
-- explicit sync threshold rejection;
-- auto sync/async resolution;
-- HTTP 413/422 behavior.
+- validation endpoint;
+- create endpoint;
+- status 404;
+- result 409;
+- route discovery/OpenAPI;
+- stable 413/422/404/409 mapping;
+- privacy-safe errors;
+- execution-mode resolution.
 
-## Definition of Done
+The final gate must re-run the complete regression and PostgreSQL integration suite after this correction.
 
-Phase 3 is implementation-complete when:
-- the validation HTTP boundary is executable;
-- DTO validation and mapping are real;
-- stable HTTP error/status behavior is tested;
-- final lifecycle route shapes/status semantics are frozen without fake processing;
-- Phase 10/12 runtime work is not implemented prematurely;
-- all Phase 3 and regression tests pass locally.
+Current marker:
 
-## Final verification evidence
-
-Verified locally on 2026-09-22:
-- Foundation integration suite: 7 tests passed.
-- Full regression suite: 113 tests passed.
-- Failures: 0.
-- Errors: 0.
-- Source and tests compiled successfully.
-
-Current verification marker:
-
-`PHASE_3_COMPLETE`
+`PHASE_3_IMPLEMENTED_AWAITING_REVERIFICATION`

@@ -1,6 +1,6 @@
 # Phase 4 — Database & Persistence
 
-Status: COMPLETE
+Status: IMPLEMENTED_AWAITING_REVERIFICATION
 Correction: 2026-09-22
 
 ## Scope implemented
@@ -30,6 +30,7 @@ For `SOLDIER_CONCERN`:
 - `persist_raw_text=True` is rejected before any database write;
 - request document metadata is persisted as an empty object;
 - request analysis options are persisted as an empty object;
+- free-form request reference is persisted as NULL;
 - document role is not persisted;
 - only identifiers, lifecycle metadata and later derived analytics may be persisted.
 
@@ -68,6 +69,8 @@ Verified locally on 2026-09-22:
 - Failures: 0.
 - Errors: 0.
 
+The privacy correction above requires PostgreSQL and full-regression re-verification before Phase 4 is re-closed.
+
 Current verification marker:
 
-`PHASE_4_COMPLETE`
+`PHASE_4_IMPLEMENTED_AWAITING_REVERIFICATION`

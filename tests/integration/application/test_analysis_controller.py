@@ -1,5 +1,7 @@
 import asyncio
 import unittest
+from datetime import UTC, datetime
+from types import SimpleNamespace
 
 from fastapi import HTTPException
 
@@ -25,17 +27,55 @@ class _Config:
         return self._values[key]
 
 
+class _Repository:
+    def __init__(self):
+        self.analysis = None
+
+    async def create_pending_async(self, **kwargs):
+        now = datetime.now(UTC)
+        self.analysis = SimpleNamespace(
+            id="analysis-1",
+            analysis_type=kwargs["analysis_type"],
+            status="pending",
+            execution_mode=kwargs["execution_mode"],
+            reference=kwargs.get("reference"),
+            model_version=None,
+            scoring_version=None,
+            created_at=now,
+            started_at=None,
+            completed_at=None,
+            error_code=None,
+            error_message=None,
+            keywords=[],
+            topics=[],
+            metrics={},
+            profile_result={},
+        )
+        return self.analysis
+
+    async def get_aggregate_by_id_async(self, analysis_id: str):
+        if self.analysis is None or self.analysis.id != analysis_id:
+            return None
+        return self.analysis
+
+
 class AnalysisControllerTests(unittest.TestCase):
     def setUp(self) -> None:
         policy = AnalysisExecutionPolicyService(_Config())
-        self.controller = AnalysisController(AnalysisService(policy))
+        self.repository = _Repository()
+        self.controller = AnalysisController(
+            AnalysisService(policy, self.repository)
+        )
         self.router = self.controller.api()
 
-    def _endpoint(self):
+    def _endpoint(self, path: str, method: str):
         for route in self.router.routes:
-            if getattr(route, "path", None) == "/validate":
+            if (
+                getattr(route, "path", None) == path
+                and method in (getattr(route, "methods", None) or set())
+            ):
                 return route.endpoint
-        self.fail("POST /validate route was not discovered")
+        self.fail(f"{method} {path} route was not discovered")
 
     def test_validate_endpoint_success(self) -> None:
         payload = AnalysisRequestDto.model_validate(
@@ -48,7 +88,9 @@ class AnalysisControllerTests(unittest.TestCase):
             }
         )
 
-        response = asyncio.run(self._endpoint()(payload))
+        response = asyncio.run(
+            self._endpoint("/validate", "POST")(payload)
+        )
 
         self.assertTrue(response.valid)
         self.assertEqual(response.analysis_type.value, "COURSE")
@@ -69,7 +111,9 @@ class AnalysisControllerTests(unittest.TestCase):
         )
 
         with self.assertRaises(HTTPException) as context:
-            asyncio.run(self._endpoint()(payload))
+            asyncio.run(
+                self._endpoint("/validate", "POST")(payload)
+            )
 
         self.assertEqual(context.exception.status_code, 422)
         self.assertEqual(
@@ -90,7 +134,9 @@ class AnalysisControllerTests(unittest.TestCase):
         )
 
         with self.assertRaises(HTTPException) as context:
-            asyncio.run(self._endpoint()(payload))
+            asyncio.run(
+                self._endpoint("/validate", "POST")(payload)
+            )
 
         self.assertEqual(context.exception.status_code, 413)
         self.assertEqual(
@@ -115,12 +161,71 @@ class AnalysisControllerTests(unittest.TestCase):
         )
 
         with self.assertRaises(HTTPException) as context:
-            asyncio.run(self._endpoint()(payload))
+            asyncio.run(
+                self._endpoint("/validate", "POST")(payload)
+            )
 
         self.assertEqual(context.exception.status_code, 422)
         self.assertEqual(
             context.exception.detail["code"],
             "sync_threshold_exceeded",
+        )
+
+    def test_create_endpoint_returns_persisted_pending_resource(self) -> None:
+        payload = AnalysisRequestDto.model_validate(
+            {
+                "analysis_type": "COURSE",
+                "execution_mode": "auto",
+                "reference": "course-1",
+                "documents": [
+                    {"document_id": "doc-1", "text": "متن"},
+                ],
+            }
+        )
+
+        response = asyncio.run(
+            self._endpoint("", "POST")(payload)
+        )
+
+        self.assertEqual(response.analysis_id, "analysis-1")
+        self.assertEqual(response.status.value, "pending")
+        self.assertEqual(response.execution_mode.value, "sync")
+
+    def test_status_not_found_maps_to_404(self) -> None:
+        with self.assertRaises(HTTPException) as context:
+            asyncio.run(
+                self._endpoint("/{analysis_id}", "GET")("missing")
+            )
+
+        self.assertEqual(context.exception.status_code, 404)
+        self.assertEqual(
+            context.exception.detail["code"],
+            "analysis_not_found",
+        )
+
+    def test_pending_result_maps_to_409(self) -> None:
+        payload = AnalysisRequestDto.model_validate(
+            {
+                "analysis_type": "COURSE",
+                "execution_mode": "sync",
+                "documents": [
+                    {"document_id": "doc-1", "text": "متن"},
+                ],
+            }
+        )
+        asyncio.run(self._endpoint("", "POST")(payload))
+
+        with self.assertRaises(HTTPException) as context:
+            asyncio.run(
+                self._endpoint("/{analysis_id}/result", "GET")(
+                    "analysis-1"
+                )
+            )
+
+        self.assertEqual(context.exception.status_code, 409)
+        self.assertEqual(
+            context.exception.detail["code"],
+            "analysis_result_not_ready",
         )
 
 

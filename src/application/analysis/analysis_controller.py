@@ -4,6 +4,8 @@ from fastapi import APIRouter, HTTPException, status
 
 from src.application.analysis.dtos.analysis_dto import (
     AnalysisRequestDto,
+    AnalysisResultResponseDto,
+    AnalysisStatusResponseDto,
     AnalysisValidationResponseDto,
     ApiErrorEnvelopeDto,
 )
@@ -11,7 +13,9 @@ from src.core.services.analysis.analysis_execution_policy_service import (
     AnalysisExecutionPolicyError,
 )
 from src.core.services.analysis.analysis_service import (
+    AnalysisNotFoundError,
     AnalysisRequestValidationError,
+    AnalysisResultUnavailableError,
     AnalysisService,
 )
 from src.infrastructure.di.inject import inject
@@ -63,27 +67,8 @@ class AnalysisController:
                         for document in payload.documents
                     ],
                 )
-            except AnalysisExecutionPolicyError as exc:
-                http_status = (
-                    status.HTTP_413_CONTENT_TOO_LARGE
-                    if exc.code in _PAYLOAD_TOO_LARGE_CODES
-                    else status.HTTP_422_UNPROCESSABLE_CONTENT
-                )
-                raise HTTPException(
-                    status_code=http_status,
-                    detail={
-                        "code": exc.code,
-                        "message": exc.message,
-                    },
-                ) from exc
-            except AnalysisRequestValidationError as exc:
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                    detail={
-                        "code": exc.code,
-                        "message": exc.message,
-                    },
-                ) from exc
+            except (AnalysisExecutionPolicyError, AnalysisRequestValidationError) as exc:
+                self._raise_request_error(exc)
 
             return AnalysisValidationResponseDto(
                 analysis_type=result.analysis_type,
@@ -93,4 +78,128 @@ class AnalysisController:
                 total_characters=result.total_characters,
             )
 
+        @router.post(
+            "",
+            response_model=AnalysisStatusResponseDto,
+            status_code=status.HTTP_201_CREATED,
+            responses={
+                status.HTTP_413_CONTENT_TOO_LARGE: {
+                    "model": ApiErrorEnvelopeDto,
+                    "description": "Configured analysis input limit exceeded",
+                },
+                status.HTTP_422_UNPROCESSABLE_CONTENT: {
+                    "model": ApiErrorEnvelopeDto,
+                    "description": "Request contract or execution policy validation failed",
+                },
+            },
+            summary="Create an analysis lifecycle resource",
+        )
+        async def create_analysis(
+            payload: AnalysisRequestDto,
+        ) -> AnalysisStatusResponseDto:
+            try:
+                result = await self._analysis_service.create_async(
+                    analysis_type=payload.analysis_type.value,
+                    execution_mode=payload.execution_mode.value,
+                    documents=[
+                        document.model_dump()
+                        for document in payload.documents
+                    ],
+                    reference=payload.reference,
+                    options=payload.options,
+                )
+            except (AnalysisExecutionPolicyError, AnalysisRequestValidationError) as exc:
+                self._raise_request_error(exc)
+
+            return AnalysisStatusResponseDto.model_validate(result)
+
+        @router.get(
+            "/{analysis_id}",
+            response_model=AnalysisStatusResponseDto,
+            status_code=status.HTTP_200_OK,
+            responses={
+                status.HTTP_404_NOT_FOUND: {
+                    "model": ApiErrorEnvelopeDto,
+                    "description": "Analysis not found",
+                },
+            },
+            summary="Get analysis lifecycle status",
+        )
+        async def get_analysis_status(
+            analysis_id: str,
+        ) -> AnalysisStatusResponseDto:
+            try:
+                result = await self._analysis_service.get_status_async(
+                    analysis_id
+                )
+            except AnalysisNotFoundError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail={
+                        "code": exc.code,
+                        "message": exc.message,
+                    },
+                ) from exc
+
+            return AnalysisStatusResponseDto.model_validate(result)
+
+        @router.get(
+            "/{analysis_id}/result",
+            response_model=AnalysisResultResponseDto,
+            status_code=status.HTTP_200_OK,
+            responses={
+                status.HTTP_404_NOT_FOUND: {
+                    "model": ApiErrorEnvelopeDto,
+                    "description": "Analysis not found",
+                },
+                status.HTTP_409_CONFLICT: {
+                    "model": ApiErrorEnvelopeDto,
+                    "description": "Analysis result is not available",
+                },
+            },
+            summary="Get a completed structured analysis result",
+        )
+        async def get_analysis_result(
+            analysis_id: str,
+        ) -> AnalysisResultResponseDto:
+            try:
+                result = await self._analysis_service.get_result_async(
+                    analysis_id
+                )
+            except AnalysisNotFoundError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail={
+                        "code": exc.code,
+                        "message": exc.message,
+                    },
+                ) from exc
+            except AnalysisResultUnavailableError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail={
+                        "code": exc.code,
+                        "message": exc.message,
+                    },
+                ) from exc
+
+            return AnalysisResultResponseDto.model_validate(result)
+
         return router
+
+    @staticmethod
+    def _raise_request_error(
+        exc: AnalysisExecutionPolicyError | AnalysisRequestValidationError,
+    ) -> None:
+        http_status = (
+            status.HTTP_413_CONTENT_TOO_LARGE
+            if exc.code in _PAYLOAD_TOO_LARGE_CODES
+            else status.HTTP_422_UNPROCESSABLE_CONTENT
+        )
+        raise HTTPException(
+            status_code=http_status,
+            detail={
+                "code": exc.code,
+                "message": exc.message,
+            },
+        ) from exc

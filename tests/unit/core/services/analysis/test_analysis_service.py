@@ -1,12 +1,16 @@
 import asyncio
 import unittest
+from datetime import UTC, datetime
+from types import SimpleNamespace
 
 from src.core.services.analysis.analysis_execution_policy_service import (
     AnalysisExecutionPolicyError,
     AnalysisExecutionPolicyService,
 )
 from src.core.services.analysis.analysis_service import (
+    AnalysisNotFoundError,
     AnalysisRequestValidationError,
+    AnalysisResultUnavailableError,
     AnalysisService,
 )
 
@@ -25,10 +29,49 @@ class _Config:
         return self._values[key]
 
 
+class _Repository:
+    def __init__(self):
+        self.analysis = None
+        self.last_create = None
+
+    async def create_pending_async(self, **kwargs):
+        self.last_create = kwargs
+        now = datetime.now(UTC)
+        self.analysis = SimpleNamespace(
+            id="analysis-1",
+            analysis_type=kwargs["analysis_type"],
+            status="pending",
+            execution_mode=kwargs["execution_mode"],
+            reference=(
+                None
+                if kwargs["analysis_type"] == "SOLDIER_CONCERN"
+                else kwargs.get("reference")
+            ),
+            model_version=None,
+            scoring_version=None,
+            created_at=now,
+            started_at=None,
+            completed_at=None,
+            error_code=None,
+            error_message=None,
+            keywords=[],
+            topics=[],
+            metrics={},
+            profile_result={},
+        )
+        return self.analysis
+
+    async def get_aggregate_by_id_async(self, analysis_id: str):
+        if self.analysis is None or self.analysis.id != analysis_id:
+            return None
+        return self.analysis
+
+
 class AnalysisServiceTests(unittest.TestCase):
     def setUp(self) -> None:
         policy = AnalysisExecutionPolicyService(_Config())
-        self.service = AnalysisService(policy)
+        self.repository = _Repository()
+        self.service = AnalysisService(policy, self.repository)
 
     def test_rejects_duplicate_document_ids(self) -> None:
         async def run() -> None:
@@ -141,6 +184,53 @@ class AnalysisServiceTests(unittest.TestCase):
         self.assertEqual(
             context.exception.code,
             "max_document_characters_exceeded",
+        )
+
+    def test_create_persists_real_pending_resource_with_resolved_mode(self) -> None:
+        result = asyncio.run(
+            self.service.create_async(
+                analysis_type="COURSE",
+                execution_mode="auto",
+                documents=[
+                    {"document_id": "a", "text": "abc", "metadata": {}},
+                ],
+                reference="course-1",
+                options={"language": "fa"},
+            )
+        )
+
+        self.assertEqual(result.analysis_id, "analysis-1")
+        self.assertEqual(result.status, "pending")
+        self.assertEqual(result.execution_mode, "sync")
+        self.assertEqual(
+            self.repository.last_create["execution_mode"],
+            "sync",
+        )
+        self.assertFalse(
+            self.repository.last_create["persist_raw_text"]
+        )
+
+    def test_get_status_unknown_analysis_raises(self) -> None:
+        with self.assertRaises(AnalysisNotFoundError):
+            asyncio.run(self.service.get_status_async("missing"))
+
+    def test_result_is_conflict_until_analysis_is_completed(self) -> None:
+        asyncio.run(
+            self.service.create_async(
+                analysis_type="COURSE",
+                execution_mode="sync",
+                documents=[
+                    {"document_id": "a", "text": "abc", "metadata": {}},
+                ],
+            )
+        )
+
+        with self.assertRaises(AnalysisResultUnavailableError) as context:
+            asyncio.run(self.service.get_result_async("analysis-1"))
+
+        self.assertEqual(
+            context.exception.code,
+            "analysis_result_not_ready",
         )
 
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from enum import Enum
 from typing import Any
 
@@ -16,6 +17,13 @@ class ExecutionMode(str, Enum):
     AUTO = "auto"
     SYNC = "sync"
     ASYNC = "async"
+
+
+class AnalysisStatus(str, Enum):
+    PENDING = "pending"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
 
 
 class AnalysisDocumentDto(BaseModel):
@@ -50,6 +58,66 @@ class AnalysisValidationResponseDto(BaseModel):
     resolved_execution_mode: ExecutionMode
     document_count: int = Field(ge=1)
     total_characters: int = Field(ge=1)
+
+
+class AnalysisStatusResponseDto(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    analysis_id: str
+    analysis_type: AnalysisType
+    status: AnalysisStatus
+    execution_mode: ExecutionMode
+    reference: str | None
+    model_version: str | None
+    scoring_version: str | None
+    created_at: datetime
+    started_at: datetime | None
+    completed_at: datetime | None
+    error_code: str | None
+    error_message: str | None
+
+
+class AnalysisKeywordResponseDto(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    text: str
+    canonical_text: str
+    rank: int = Field(gt=0)
+    final_score: float
+    statistical_score: float
+    semantic_score: float
+    coverage: float = Field(ge=0, le=1)
+    frequency: int = Field(ge=0)
+
+
+class AnalysisTopicKeywordResponseDto(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    text: str
+    canonical_text: str
+    rank: int = Field(gt=0)
+    relevance_score: float
+
+
+class AnalysisTopicResponseDto(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    topic_id: str
+    label: str
+    rank: int = Field(gt=0)
+    prevalence: float = Field(ge=0, le=1)
+    coverage: float = Field(ge=0, le=1)
+    keywords: list[AnalysisTopicKeywordResponseDto]
+
+
+class AnalysisResultResponseDto(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    analysis: AnalysisStatusResponseDto
+    keywords: list[AnalysisKeywordResponseDto]
+    topics: list[AnalysisTopicResponseDto]
+    metrics: dict[str, Any]
+    profile_result: dict[str, Any]
 
 
 class ApiErrorDto(BaseModel):

@@ -102,9 +102,11 @@ class AnalysisRepositoryIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     },
                 }
             ],
+            reference="must-not-persist-reference",
             options={"private_option": "must-not-persist"},
         )
 
+        self.assertIsNone(analysis.reference)
         self.assertEqual(analysis.options, {})
         self.assertEqual(len(analysis.documents), 1)
         self.assertEqual(analysis.documents[0].metadata_json, {})

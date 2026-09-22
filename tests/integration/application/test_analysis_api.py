@@ -86,6 +86,19 @@ class AnalysisApiTests(unittest.TestCase):
         )
         self.assertNotIn(raw_text, response.json()["detail"]["message"])
 
+    def test_lifecycle_routes_are_mounted_in_openapi(self) -> None:
+        paths = self.client.app.openapi()["paths"]
+
+        self.assertIn("/api/v1/analysis", paths)
+        self.assertIn("post", paths["/api/v1/analysis"])
+        self.assertIn("/api/v1/analysis/{analysis_id}", paths)
+        self.assertIn("get", paths["/api/v1/analysis/{analysis_id}"])
+        self.assertIn("/api/v1/analysis/{analysis_id}/result", paths)
+        self.assertIn(
+            "get",
+            paths["/api/v1/analysis/{analysis_id}/result"],
+        )
+
     def test_cross_field_error_returns_stable_code(self) -> None:
         response = self.client.post(
             "/api/v1/analysis/validate",
