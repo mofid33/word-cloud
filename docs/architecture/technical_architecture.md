@@ -2,12 +2,12 @@
 
 Version: 1.0.0
 Status: FROZEN
-Phase: 2 — Technical Architecture
+Phase: 2 — Technical Architecture + Runtime Foundation
 Based on: Phase 1 — Requirements Freeze
 
 ## 1. هدف
 
-فاز ۲ معماری را در سطح Component، Class، File، Dependency، Lifecycle و Sequence Flow فریز می‌کند تا فازهای بعدی مستقیماً قابل پیاده‌سازی باشند. این فاز runtime code تولید نمی‌کند.
+فاز ۲ معماری را در سطح Component، Class، File، Dependency، Lifecycle و Sequence Flow فریز می‌کند و هم‌زمان Runtime Foundation واقعی و executable پروژه را پیاده‌سازی می‌کند. این Foundation شامل Host bootstrap، WebService، DI injection/discovery/bootstrap، ConfigReader، VaultService، PsqlDbContext، BaseRepository و Provider contractهای واقعی است.
 
 معماری الزام‌آور بدون تغییر است:
 
@@ -251,4 +251,27 @@ Phase 2 عمداً این موارد را حدسی فریز نمی‌کند: exa
 
 ## 14. Definition of Done
 
-فاز ۲ کامل است چون Component Catalog، class/file map، dependency graph، sync/async sequence، singleton policy، transaction boundary، Core/Infrastructure boundary، worker reuse rule، Soldier privacy boundary و Phase ownership فریز شده‌اند و machine-readable contract و contract tests برای آن وجود دارد. Runtime implementation در این فاز ایجاد نشده است.
+فاز ۲ فقط زمانی کامل است که علاوه بر Component Catalog، class/file map، dependency graph، sync/async sequence، singleton policy، transaction boundary، Core/Infrastructure boundary، worker reuse rule، Soldier privacy boundary و Phase ownership، Runtime Foundation نیز واقعاً وجود داشته باشد و قابل اجرا باشد.
+
+Runtime Foundation پیاده‌سازی‌شده در این فاز:
+- src/host/app.py
+- src/application/web.py
+- src/infrastructure/di/inject.py
+- src/infrastructure/di/reflection.py
+- src/infrastructure/di/bootstrap.py
+- src/infrastructure/utils/config_reader.py
+- src/infrastructure/context/vault/vault_service.py
+- src/infrastructure/context/sql_db/psql_dbcontext.py
+- src/infrastructure/repositories/base/base_repository.py
+- EmbeddingProvider
+- RerankerProvider
+- TopicModelProvider
+- AnalysisQueueProvider
+
+معیار بسته‌شدن:
+- src و tests compile شوند.
+- Constructor DI و singleton policy با تست واقعی کار کنند.
+- DI discovery ماژول‌ها را واقعاً import و register کند.
+- WebService controller discovery را بر اساس convention اجرا کند.
+- application foundation در یک process تازه boot شود.
+- هیچ Analysis API، DB schema نهایی، concrete semantic provider یا queue implementation متعلق به Phaseهای بعدی به‌صورت fake ساخته نشده باشد.
