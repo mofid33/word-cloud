@@ -2,7 +2,7 @@
   "schema_version": "1.0.0",
   "phase": {
     "number": 2,
-    "name": "Technical Architecture",
+    "name": "Technical Architecture + Runtime Foundation",
     "status": "FROZEN",
     "based_on_phase": 1
   },
@@ -30,7 +30,7 @@
     "generic_crud_uses_base_repository": true,
     "manual_provider_registration_when_discovery_exists": false,
     "extra_architectural_layers_allowed": false,
-    "runtime_implementation_created_in_phase_2": false
+    "runtime_implementation_created_in_phase_2": true
   },
   "files": {
     "application": [
@@ -517,7 +517,34 @@
     "privacy_boundary_frozen": true,
     "phase_ownership_recorded": true,
     "contract_tests_required": true,
-    "runtime_implementation_created_in_phase_2": false,
-    "todos_allowed": false
+    "runtime_implementation_created_in_phase_2": true,
+    "todos_allowed": false,
+    "application_foundation_boots": true,
+    "di_discovery_operational": true,
+    "controller_discovery_operational": true,
+    "compile_required": true,
+    "runtime_smoke_required": true
+  },
+  "runtime_foundation": {
+    "required_files": [
+      "src/host/app.py",
+      "src/application/web.py",
+      "src/infrastructure/di/inject.py",
+      "src/infrastructure/di/reflection.py",
+      "src/infrastructure/di/bootstrap.py",
+      "src/infrastructure/utils/config_reader.py",
+      "src/infrastructure/context/vault/vault_service.py",
+      "src/infrastructure/context/sql_db/psql_dbcontext.py",
+      "src/infrastructure/repositories/base/base_repository.py"
+    ],
+    "provider_contracts": [
+      "EmbeddingProvider",
+      "RerankerProvider",
+      "TopicModelProvider",
+      "AnalysisQueueProvider"
+    ],
+    "phase_3_api_implemented": false,
+    "phase_4_schema_implemented": false,
+    "fake_concrete_providers_allowed": false
   }
 }
