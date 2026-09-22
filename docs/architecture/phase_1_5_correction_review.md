@@ -1,68 +1,84 @@
-# Phase 1–5 Correction Review
+# Phase 1–5 Finalization Review
 
 Date: 2026-09-22
-Verification status: PASSED
+Status: IMPLEMENTED_AWAITING_LOCAL_VERIFICATION
 
-## Reference documents
+## References
 
-This correction follows:
-- `Service_Architecture_Guide_FA.md` for layering, DI, discovery, naming, repository and runtime conventions.
-- `Project_Architecture_and_Phases_FA.md` for phase scope and Definition of Done.
+This finalization pass follows:
+- `Service_Architecture_Guide_FA.md` for layering, constructor DI, discovery, controller conventions, repository boundaries, Config/Vault and Alembic.
+- `Project_Architecture_and_Phases_FA.md` for phase scope, privacy, tests and Definition of Done.
 
-## Corrections applied
+## Phase 1
 
-### Phase 2 — DI/discovery
+No runtime changes were required. Requirements, profiles, limits, persistence/privacy rules, evaluation requirements and deferred decisions remain frozen.
 
-1. Discovery follows the reference behavior for import failures: one broken discoverable module is skipped and does not stop unrelated provider discovery.
-2. Cached modules are inspected for `@inject` providers so resetting DI state does not permanently lose registrations when modules remain in `sys.modules`.
-3. DI reset increments an internal generation. Bootstrap tracks that generation and rescans after a reset instead of incorrectly treating the container as already bootstrapped.
-4. Tests cover broken-module isolation and cached-provider restoration.
+Implementation status: COMPLETE.
 
-No manual provider registration or additional DI framework was introduced.
+## Phase 2
 
-### Phase 3 — API/DTO validation boundary
+Final corrections:
+- provider discovery excludes `di` and `sso` in addition to the existing excluded folders;
+- WebService instantiates discovered controllers directly, allowing dependency-free controllers without `@inject` while decorated controllers still receive constructor injection;
+- the architecture contract records `AnalysisExecutionPolicyService -> ConfigReader`;
+- tests cover the optional-`@inject` controller rule and discovery exclusions.
 
-1. `AnalysisExecutionPolicyService` is implemented as a Core service.
-2. Phase 1 hard limits are consumed from configuration and enforced.
-3. `auto` resolves to `sync` or `async` using both configured sync thresholds.
-4. Explicit sync above threshold is rejected.
-5. Hard-limit errors map to HTTP 413; request/policy contract errors map to HTTP 422.
-6. FastAPI/Pydantic request validation is normalized to a sanitized error response so raw request text is not echoed in validation details.
-7. The validation response exposes both requested and resolved execution modes.
-8. The previous false `PHASE_3_COMPLETE` marker was removed. Lifecycle create/status/result API behavior remains open rather than being faked.
+Implementation status: COMPLETE, awaiting regression re-verification after this correction set.
 
-### Phase 5 — configuration boundary
+## Phase 3
 
-1. Analysis limits and sync thresholds are consumed by runtime policy code rather than merely existing in YAML.
-2. Documentation states accurately that the current `VaultService` is environment-backed secret resolution, not a concrete external Vault integration.
-3. Documentation distinguishes device configuration from actual GPU model runtime, which belongs to Phase 8.
+The executable request-validation HTTP boundary is implemented and tested. Final lifecycle route shapes/status semantics are frozen without mounting fake processing routes. Raw-text duplication inside document metadata is rejected with a sanitized stable error.
 
-## Unchanged phases
+Execution wiring remains correctly owned by Phase 10 (real profile processing) and Phase 12 (real queue/worker lifecycle), not by Phase 3.
 
-Phase 1 requirements remain frozen.
+Implementation status: COMPLETE, awaiting regression re-verification after this correction set.
 
-Phase 4 persistence implementation is unchanged: models, repository, transaction boundary, privacy guard and migration remain as previously implemented.
+## Phase 4
 
-## Local verification evidence
+Final corrections:
+- SOLDIER request metadata/options cannot be persisted as a privacy bypass;
+- PostgreSQL constraint behavior is tested;
+- FK cascade behavior is tested;
+- destructive repository tests are pinned to `TEST_DATABASE_URL`.
 
-The correction set was verified on the local Windows development environment on 2026-09-22.
+Implementation status: COMPLETE, awaiting PostgreSQL and full-regression re-verification after this correction set.
 
-Results:
-- PostgreSQL container: healthy.
-- Dedicated test database: available.
-- Persistence + Alembic integration suite: 5 tests passed.
-- Full regression suite: 104 tests passed.
-- Failures: 0.
-- Errors: 0.
+## Phase 5
 
-This confirms the Phase 2 correction, Phase 4 persistence behavior, and Phase 5 corrected runtime configuration are green together.
+Final corrections:
+- runtime, Alembic and migration runner share one database secret-resolution policy;
+- Vault-enabled migration execution now resolves the same secret as application runtime;
+- development dependency typo `httpx2` was corrected to `httpx`.
 
-## Current phase status after correction
+Implementation status: COMPLETE, awaiting full-regression re-verification after this correction set.
 
-- Phase 1 — CLOSED.
-- Phase 2 — CLOSED and reverified.
-- Phase 3 — OPEN/PARTIAL; validation and execution-policy HTTP boundary are implemented, but product-level create/status/result lifecycle API remains open.
-- Phase 4 — CLOSED and reverified.
-- Phase 5 — CLOSED and reverified.
+## Required final gate before Phase 6
 
-Phase 3 must remain open until its product-level lifecycle HTTP contract can be implemented without fake processing or queue behavior.
+```powershell
+python -m pip install -r requirements-dev.txt
+python -m compileall -q src tests
+
+python -m unittest discover -s tests/unit/foundation -p "test_*.py" -v
+python -m unittest discover -s tests/integration/foundation -p "test_*.py" -v
+
+python -m unittest discover -s tests/unit/application -p "test_*.py" -v
+python -m unittest discover -s tests/unit/core/services/analysis -p "test_*.py" -v
+python -m unittest discover -s tests/integration/application -p "test_*.py" -v
+
+python -m unittest discover -s tests/unit/configuration -p "test_*.py" -v
+python -m unittest discover -s tests/integration/configuration -p "test_*.py" -v
+
+$env:TEST_DATABASE_URL = "postgresql+asyncpg://postgres:<YOUR_POSTGRES_PASSWORD>@localhost:5432/word_cloud_test"
+python -m unittest discover -s tests/unit/persistence -p "test_*.py" -v
+python -m unittest tests.integration.persistence.test_analysis_repository tests.integration.persistence.test_migration -v
+
+python -m unittest discover -s tests -p "test_*.py" -v
+```
+
+Expected:
+- compile succeeds;
+- all focused suites pass;
+- PostgreSQL integration/migration tests pass;
+- full regression reports zero failures and zero errors.
+
+Only after this gate passes should the repository be marked ready to start Phase 6.

@@ -1,7 +1,7 @@
 # Phase 4 — Database & Persistence
 
-Status: COMPLETE
-Completed: 2026-09-22
+Status: IMPLEMENTED_AWAITING_LOCAL_VERIFICATION
+Correction: 2026-09-22
 
 ## Scope implemented
 
@@ -12,10 +12,11 @@ Completed: 2026-09-22
 - Pending-analysis persistence and lifecycle updates.
 - Raw text is not persisted by default.
 - Hard guard forbidding `SOLDIER_CONCERN` raw-text persistence.
+- Defense-in-depth SOLDIER persistence policy: request metadata and request options are not persisted.
 - Atomic result-graph persistence in one repository session and one commit.
 - Explicit rollback on aggregate write failure.
 - Alembic model visibility, migration environment, initial revision and migration runner.
-- Model, repository, privacy, transaction rollback and migration tests.
+- Database constraint and cascade behavior covered by PostgreSQL integration tests.
 
 ## Transaction boundary
 
@@ -23,50 +24,40 @@ Complete result persistence uses one `AsyncSession` and one commit. Existing res
 
 ## Privacy boundary
 
-`AnalysisDocument.raw_text` is nullable. Repository persistence defaults to `persist_raw_text=False`. For `SOLDIER_CONCERN`, setting it to true raises before any database write.
+For all profiles, `AnalysisDocument.raw_text` is nullable and repository persistence defaults to `persist_raw_text=False`.
 
-## Completion evidence
+For `SOLDIER_CONCERN`:
+- `persist_raw_text=True` is rejected before any database write;
+- request document metadata is persisted as an empty object;
+- request analysis options are persisted as an empty object;
+- document role is not persisted;
+- only identifiers, lifecycle metadata and later derived analytics may be persisted.
 
-Phase 4 was closed after verification on the local Windows development environment with a dedicated PostgreSQL test database:
+This prevents request metadata/options from being used as a bypass around the raw-text persistence prohibition.
 
-- `python -m compileall -q src tests` completed successfully.
-- Unit persistence/model tests passed.
-- PostgreSQL repository integration tests passed.
-- Raw-text default non-persistence test passed.
-- `SOLDIER_CONCERN` raw-text persistence rejection test passed.
-- Atomic result-graph persistence test passed.
-- Transaction rollback test passed.
-- Alembic upgrade/downgrade migration test passed against PostgreSQL.
-- Phase 4 persistence suite: 5 tests passed.
-- Full regression suite: 79 tests passed, 0 failures, 0 errors.
-- Existing Phase 1–3 API, DI, startup, architecture, requirements and service tests remained green.
+## Database integrity coverage
 
-## Local verification commands
+PostgreSQL integration tests now verify:
+- invalid constrained values are rejected;
+- duplicate document IDs within an analysis are rejected;
+- keyword coverage constraints are enforced;
+- deleting an analysis cascades to document/keyword/topic/topic-keyword rows;
+- result graph writes are atomic;
+- failed aggregate writes rollback;
+- migration upgrade/downgrade works against PostgreSQL.
 
-Use a dedicated database whose name contains `test`; the destructive integration tests reject other database names.
+The integration test setup pins `DATABASE_URL` to `TEST_DATABASE_URL` while constructing the test DbContext so a pre-existing developer `DATABASE_URL` cannot redirect destructive tests to another database. The existing database-name safety check still requires `test` in the database name.
 
-Use the actual credentials for your local PostgreSQL instance. Do not copy passwords into source control.
+## Local verification
 
 ```powershell
 $env:TEST_DATABASE_URL = "postgresql+asyncpg://postgres:<YOUR_POSTGRES_PASSWORD>@localhost:5432/word_cloud_test"
 
-python -m pip install -r requirements-dev.txt
-python -m compileall -q src tests
-
 python -m unittest discover -s tests/unit/persistence -p "test_*.py" -v
-
 python -m unittest tests.integration.persistence.test_analysis_repository tests.integration.persistence.test_migration -v
-
 python -m unittest discover -s tests -p "test_*.py" -v
 ```
 
-If the password contains URL-reserved characters such as `@`, `:`, `/`, `#`, or `%`, URL-encode the password before placing it in `TEST_DATABASE_URL`.
+Current verification marker:
 
-Migration runner:
-
-```powershell
-python src/infrastructure/scripts/run_migrations.py --upgrade
-python src/infrastructure/scripts/run_migrations.py --downgrade
-```
-
-PHASE_4_COMPLETE
+`PHASE_4_IMPLEMENTED_AWAITING_LOCAL_VERIFICATION`

@@ -103,7 +103,9 @@
       "kind": "service",
       "inject": true,
       "singleton": false,
-      "dependencies": []
+      "dependencies": [
+        "ConfigReader"
+      ]
     },
     "AnalysisProcessorService": {
       "layer": "Core",

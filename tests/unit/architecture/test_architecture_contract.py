@@ -111,6 +111,13 @@ class ArchitectureContractTests(unittest.TestCase):
             self.assertTrue(shared.issubset(set(components[name]["dependencies"])))
         self.assertIn("TrendAnalysisService", components["MediaAnalysisService"]["dependencies"])
 
+    def test_execution_policy_uses_runtime_configuration(self) -> None:
+        components = self.architecture["components"]
+        self.assertEqual(
+            components["AnalysisExecutionPolicyService"]["dependencies"],
+            ["ConfigReader"],
+        )
+
     def test_replaceable_provider_abstractions_are_limited(self) -> None:
         policy = self.architecture["provider_policy"]
         self.assertEqual(set(policy["abstract_contracts"]), {

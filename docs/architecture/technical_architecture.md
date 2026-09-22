@@ -77,7 +77,7 @@ AnalysisController فقط HTTP، DTO validation، status/error mapping و respon
 
 AnalysisService workflow سطح بالا را مدیریت می‌کند: ایجاد analysis lifecycle record، resolve کردن execution mode، dispatch مسیر sync/async و retrieval وضعیت/نتیجه. Dependencyهای آن AnalysisExecutionPolicyService، AnalysisProcessorService، WordCloudAnalysisRepository و AnalysisQueueProvider هستند.
 
-AnalysisExecutionPolicyService ruleهای auto/sync/async و thresholdهای Phase 1 را enforce می‌کند. explicit sync بالاتر از threshold مجاز نیست. این Service همچنین execution constraintهای ناشی از privacy را enforce می‌کند.
+AnalysisExecutionPolicyService ruleهای auto/sync/async و thresholdهای Phase 1 را enforce می‌کند و مقادیر را از ConfigReader می‌گیرد. explicit sync بالاتر از threshold مجاز نیست. Privacy transport constraintهای async که به Queue مربوط هستند در Phase 12 enforce می‌شوند و در Phase 2/3 به‌صورت fake پیاده‌سازی نمی‌شوند.
 
 AnalysisProcessorService processing entrypoint مشترک HTTP sync path و Worker است. این Service Profile صحیح را انتخاب می‌کند، lifecycle را به processing/completed/failed transition می‌دهد، failure را sanitize می‌کند و نتیجه را از طریق Repository به‌صورت atomic persist می‌کند. Worker حق bypass کردن آن را ندارد.
 
@@ -125,6 +125,9 @@ Concrete semantic providerها در src/infrastructure/providers/semantic و con
         ├─ AnalysisProcessorService
         ├─ WordCloudAnalysisRepository
         └─ AnalysisQueueProvider
+
+    AnalysisExecutionPolicyService
+        └─ ConfigReader
 
     AnalysisProcessorService
         ├─ CourseAnalysisService

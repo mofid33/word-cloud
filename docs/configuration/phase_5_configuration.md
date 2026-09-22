@@ -1,8 +1,7 @@
 # Phase 5 — Configuration & Environments
 
-Status: COMPLETE
-Completed: 2026-09-22
-Correction reverified: 2026-09-22
+Status: IMPLEMENTED_AWAITING_LOCAL_VERIFICATION
+Correction: 2026-09-22
 
 ## Scope implemented
 
@@ -12,10 +11,8 @@ Correction reverified: 2026-09-22
 - CPU device configuration plus a configuration boundary for future GPU-capable providers.
 - Configurable batch settings.
 - Frozen Phase 1 analysis limits and sync thresholds represented in runtime configuration.
-- Runtime database secret resolution:
-  - environment-backed Vault boundary when `vault.enabled=true`;
-  - `DATABASE_URL` environment override otherwise;
-  - development YAML fallback for local execution.
+- Runtime database secret resolution.
+- Alembic and migration-runner database resolution reuse the same runtime secret policy.
 - Production YAML contains no database credential.
 - Local PostgreSQL dependency through `compose.yaml`.
 - Automatic local test database creation for `word_cloud_test`.
@@ -27,78 +24,46 @@ Correction reverified: 2026-09-22
 ## Configuration policy
 
 `ENV_TYPE=development` selects `appsettings.development.yaml`.
-Any other environment value selects `appsettings.yaml`, preserving the architecture convention established by the project.
+Any other environment value selects `appsettings.yaml`.
 
-Production database credentials are not stored in `appsettings.yaml`. Supply `DATABASE_URL` at runtime, or enable the current secret boundary and supply `VAULT_DATABASE_URL`.
+Database URL resolution is now a single policy exposed by `PsqlDbContext.resolve_database_url`:
 
-## Vault boundary clarification
+1. when `vault.enabled=true`, resolve `VAULT_DATABASE_URL` through `VaultService`;
+2. otherwise use `DATABASE_URL` when present;
+3. otherwise fall back to `database.url` from configuration.
 
-`VaultService` in the current Phase 5 implementation is a secret-resolution boundary backed by environment variables. It is not a concrete HashiCorp Vault client and must not be represented as a completed external Vault integration.
+Application runtime, Alembic and `run_migrations.py` use this same policy.
 
-A concrete external secret backend can be introduced later only when the deployment architecture requires it and without changing Core business logic.
+## Vault boundary
 
-## Device/GPU clarification
+The current `VaultService` is an environment-backed secret-resolution boundary. It is not a concrete HashiCorp Vault client. A concrete external secret backend may be introduced later only if deployment architecture requires it.
 
-Phase 5 provides device configuration only. The presence of:
+## Device/GPU boundary
 
-```yaml
-device:
-  type: "cpu"
-  cuda_device_index: 0
-```
+Phase 5 configures device selection but does not claim a working CUDA model provider. Actual CPU/GPU model execution belongs to Phase 8.
 
-does not prove GPU runtime support by itself. Actual CPU/GPU model execution belongs to the concrete semantic providers and benchmark work in Phase 8.
+NLP model names remain intentionally unfrozen until Persian benchmark/evaluation.
 
-NLP model names remain intentionally unfrozen. Model/provider selection belongs to the Persian benchmark work in Phase 8.
+## Development dependency correction
 
-## Runtime policy integration
-
-The configured values under:
+`requirements-dev.txt` uses the real `httpx` package required by FastAPI/TestClient:
 
 ```text
-analysis.limits.*
-analysis.sync_threshold.*
+httpx>=0.27,<1.0
 ```
 
-are consumed by `AnalysisExecutionPolicyService`.
+The previous `httpx2` entry was removed.
 
-The service enforces:
-- maximum documents per analysis;
-- maximum characters per document;
-- maximum total characters;
-- explicit sync thresholds;
-- `auto` resolution to `sync` or `async`.
-
-These values are not duplicated as production constants in business logic.
-
-## Completion evidence
-
-The corrected Phase 5 implementation was reverified on the local Windows development environment on 2026-09-22.
-
-Verified results:
-- PostgreSQL container healthy.
-- Dedicated `word_cloud_test` database available.
-- PostgreSQL repository and Alembic migration integration suite: 5 tests passed.
-- Full project regression suite: 104 tests passed.
-- Failures: 0.
-- Errors: 0.
-- DI/discovery corrections remained green.
-- API/controller/execution-policy tests remained green.
-- Phase 4 persistence and migration behavior remained green.
-
-## Local verification commands
+## Local verification
 
 ```powershell
 python -m pip install -r requirements-dev.txt
 python -m compileall -q src tests
 python -m unittest discover -s tests/unit/configuration -p "test_*.py" -v
-python -m unittest discover -s tests/unit/core/services/analysis -p "test_*.py" -v
 python -m unittest discover -s tests/integration/configuration -p "test_*.py" -v
-python -m unittest discover -s tests/integration/application -p "test_*.py" -v
-python -m unittest tests.integration.persistence.test_analysis_repository tests.integration.persistence.test_migration -v
 python -m unittest discover -s tests -p "test_*.py" -v
 ```
 
-Do not commit real passwords or production connection strings.
+Current verification marker:
 
-PHASE_5_COMPLETE
+`PHASE_5_IMPLEMENTED_AWAITING_LOCAL_VERIFICATION`

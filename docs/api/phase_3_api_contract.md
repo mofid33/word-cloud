@@ -1,15 +1,30 @@
 # Phase 3 — API & DTO Contract
 
-Status: FROZEN
-Implementation Status: PARTIAL
-Correction: 2026-09-22
-Correction verification: PASSED
+Status: IMPLEMENTED_AWAITING_LOCAL_VERIFICATION
+Implementation correction: 2026-09-22
 
-Phase 3 owns the HTTP contract, request/response DTOs, validation, error/status behavior and DTO mapping. Runtime behavior from later phases must not be faked merely to close this phase.
+## Phase boundary
 
-## Implemented executable endpoint
+Phase 3 freezes and implements the HTTP/DTO/validation boundary that can exist without inventing Phase 10 processing or Phase 12 queue behavior.
+
+The executable Phase 3 endpoint is:
 
 `POST /api/v1/analysis/validate`
+
+The final lifecycle routes are frozen for later runtime wiring:
+
+- `POST /api/v1/analysis` — create/execute analysis.
+- `GET /api/v1/analysis/{analysis_id}` — retrieve lifecycle/status.
+- `GET /api/v1/analysis/{analysis_id}/result` — retrieve structured result.
+
+These routes are intentionally not mounted before their real business behavior exists. Returning placeholder data, creating analyses that can never progress, or introducing fake queue/processor implementations would violate the project Definition of Done.
+
+Ownership after Phase 3:
+- Phase 10 wires the real synchronous profile-processing path and structured result mapping.
+- Phase 12 wires the real asynchronous queue/worker lifecycle.
+- Phase 13 adds visualization/image endpoints.
+
+## Implemented request contract
 
 Request fields:
 - `analysis_type`: `COURSE | SOLDIER_CONCERN | MEDIA`
@@ -23,30 +38,32 @@ Each document:
 - `text`: non-blank string
 - `metadata`: optional object
 
-## Implemented validation behavior
+DTOs live under:
 
-DTO/schema validation:
-- unknown fields are rejected;
-- blank `document_id` and `text` values are rejected;
-- malformed request payloads return sanitized HTTP 422 without echoing raw input.
+`src/application/analysis/dtos/analysis_dto.py`
 
-Cross-field validation in Core:
-- document IDs must be unique within one request;
-- `MEDIA` documents require `metadata.role` equal to `published_content` or `audience_feedback`.
+Unknown fields are rejected.
 
-Execution policy validation in Core:
-- Phase 1 hard limits are read from runtime configuration and enforced;
-- `auto` resolves to `sync` only when both configured sync thresholds fit; otherwise it resolves to `async`;
-- explicit `sync` above the configured sync threshold is rejected;
-- hard-limit violations map to HTTP 413;
-- contract/policy validation violations map to HTTP 422.
+## Validation and privacy contract
 
-Success response:
-- HTTP 200;
-- returns `analysis_type`, requested `execution_mode`, `resolved_execution_mode`, document count and total character count;
-- never echoes document text.
+Core validation enforces:
+- unique document IDs;
+- MEDIA role = `published_content` or `audience_feedback`;
+- document metadata must not repeat the document raw text;
+- Phase 1 hard input limits;
+- explicit sync thresholds;
+- `auto` resolution to `sync` or `async`.
 
-Stable application error envelope:
+FastAPI/Pydantic schema failures are normalized to a sanitized error envelope and do not echo raw request content.
+
+## HTTP status behavior
+
+For the executable validation endpoint:
+- HTTP 200 — valid request.
+- HTTP 413 — configured hard input limit exceeded.
+- HTTP 422 — DTO, cross-field or execution-policy validation failure.
+
+Stable error envelope:
 
 ```json
 {
@@ -57,41 +74,38 @@ Stable application error envelope:
 }
 ```
 
-Pydantic/FastAPI request validation is normalized to:
+Reserved execution-route behavior is frozen as follows for future wiring:
+- create route resolves `auto`; sync completion returns HTTP 200 and async acceptance returns HTTP 202;
+- status route returns HTTP 200 for an existing analysis and HTTP 404 for an unknown analysis;
+- result route returns HTTP 200 only for a completed result, HTTP 409 when the lifecycle state cannot provide a result, and HTTP 404 for an unknown analysis;
+- hard-limit and validation failures retain HTTP 413/422 semantics;
+- raw text must never be included in error payloads.
 
-```json
-{
-  "detail": {
-    "code": "request_validation_error",
-    "message": "Request payload validation failed"
-  }
-}
-```
+## Tests
 
-## Execution endpoints still open
+Implemented tests cover:
+- DTO validation;
+- controller discovery;
+- controller success/error mapping;
+- sanitized schema validation;
+- duplicate document IDs;
+- MEDIA role validation;
+- raw-text repetition in metadata;
+- hard limits;
+- explicit sync threshold rejection;
+- auto sync/async resolution;
+- HTTP 413/422 behavior.
 
-The earlier repository state incorrectly marked Phase 3 complete while only the validation endpoint was implemented.
+## Definition of Done
 
-The Analysis lifecycle contract still requires executable HTTP behavior for the product-level operations designed in the architecture:
-- create analysis;
-- retrieve analysis status;
-- retrieve structured analysis result.
+Phase 3 is implementation-complete when:
+- the validation HTTP boundary is executable;
+- DTO validation and mapping are real;
+- stable HTTP error/status behavior is tested;
+- final lifecycle route shapes/status semantics are frozen without fake processing;
+- Phase 10/12 runtime work is not implemented prematurely;
+- all Phase 3 and regression tests pass locally.
 
-Those endpoints must not be closed with in-memory persistence, placeholder processing, fake queue providers, or temporary business behavior.
+Current verification marker:
 
-Phase 4 provides real persistence, but synchronous analysis completion still depends on the real analytics processing pipeline and asynchronous dispatch belongs to Phase 12. Until the final route/status behavior can be implemented without violating those boundaries, Phase 3 remains open.
-
-## Verification evidence
-
-The corrected API/DTO validation boundary was verified on the local Windows environment on 2026-09-22.
-
-Relevant evidence:
-- API/controller/execution-policy tests passed.
-- PostgreSQL persistence + migration suite passed: 5 tests.
-- Full regression suite passed: 104 tests.
-- Failures: 0.
-- Errors: 0.
-
-Current closure marker:
-
-`PHASE_3_OPEN`
+`PHASE_3_IMPLEMENTED_AWAITING_LOCAL_VERIFICATION`
