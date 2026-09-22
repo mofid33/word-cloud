@@ -62,8 +62,6 @@ class AnalysisController:
                         document.model_dump()
                         for document in payload.documents
                     ],
-                    reference=payload.reference,
-                    options=payload.options,
                 )
             except AnalysisExecutionPolicyError as exc:
                 http_status = (

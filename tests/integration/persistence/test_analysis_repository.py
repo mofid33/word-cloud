@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import unittest
 
-from sqlalchemy import delete, select, text
+from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.engine import make_url
 

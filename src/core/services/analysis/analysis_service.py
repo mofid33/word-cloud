@@ -39,8 +39,6 @@ class AnalysisService:
         analysis_type: str,
         execution_mode: str,
         documents: list[dict[str, Any]],
-        reference: str | None = None,
-        options: dict[str, Any] | None = None,
     ) -> AnalysisValidationResult:
         if analysis_type not in {"COURSE", "SOLDIER_CONCERN", "MEDIA"}:
             raise AnalysisRequestValidationError(
@@ -75,11 +73,6 @@ class AnalysisService:
                         "MEDIA documents require metadata.role equal to "
                         "'published_content' or 'audience_feedback'",
                     )
-
-        # reference/options are intentionally accepted here because they are
-        # request-level contract fields. Persistence applies stricter privacy
-        # handling for SOLDIER_CONCERN.
-        _ = reference, options
 
         decision = await self._execution_policy_service.evaluate_async(
             execution_mode=execution_mode,
