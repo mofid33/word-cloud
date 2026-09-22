@@ -3,7 +3,8 @@ from __future__ import annotations
 import os
 import unittest
 
-from sqlalchemy import text
+from sqlalchemy import delete, select, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.engine import make_url
 
 from src.infrastructure.context.sql_db.psql_dbcontext import Base, PsqlDbContext
@@ -81,6 +82,29 @@ class AnalysisRepositoryIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(analysis.documents[0].raw_text)
         self.assertEqual(analysis.documents[0].metadata_json["section"], "1")
 
+    async def test_soldier_request_metadata_and_options_are_not_persisted(self) -> None:
+        analysis = await self.repository.create_pending_async(
+            analysis_type="SOLDIER_CONCERN",
+            execution_mode="sync",
+            documents=[
+                {
+                    "document_id": "concern-privacy-1",
+                    "text": "sensitive concern",
+                    "metadata": {
+                        "note": "must-not-persist",
+                        "nested": {"value": "private"},
+                    },
+                }
+            ],
+            options={"private_option": "must-not-persist"},
+        )
+
+        self.assertEqual(analysis.options, {})
+        self.assertEqual(len(analysis.documents), 1)
+        self.assertEqual(analysis.documents[0].metadata_json, {})
+        self.assertIsNone(analysis.documents[0].role)
+        self.assertIsNone(analysis.documents[0].raw_text)
+
     async def test_soldier_raw_text_persistence_is_rejected(self) -> None:
         with self.assertRaisesRegex(ValueError, "forbidden"):
             await self.repository.create_pending_async(
@@ -95,6 +119,119 @@ class AnalysisRepositoryIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 ],
                 persist_raw_text=True,
             )
+
+    async def test_database_constraints_reject_invalid_rows(self) -> None:
+        async with self.db_context.session() as session:
+            session.add(
+                WordCloudAnalysis(
+                    analysis_type="INVALID",
+                    status="pending",
+                    execution_mode="sync",
+                )
+            )
+            with self.assertRaises(IntegrityError):
+                await session.commit()
+            await session.rollback()
+
+        pending = await self.repository.create_pending_async(
+            analysis_type="COURSE",
+            execution_mode="sync",
+            documents=[
+                {"document_id": "duplicate", "text": "content", "metadata": {}}
+            ],
+        )
+
+        async with self.db_context.session() as session:
+            session.add(
+                AnalysisDocument(
+                    analysis_id=pending.id,
+                    document_id="duplicate",
+                    metadata_json={},
+                )
+            )
+            with self.assertRaises(IntegrityError):
+                await session.commit()
+            await session.rollback()
+
+        async with self.db_context.session() as session:
+            session.add(
+                AnalysisKeyword(
+                    analysis_id=pending.id,
+                    text="invalid",
+                    canonical_text="invalid",
+                    rank=1,
+                    final_score=1.0,
+                    statistical_score=1.0,
+                    semantic_score=1.0,
+                    coverage=1.5,
+                    frequency=1,
+                )
+            )
+            with self.assertRaises(IntegrityError):
+                await session.commit()
+            await session.rollback()
+
+    async def test_database_cascades_delete_analysis_graph(self) -> None:
+        pending = await self.repository.create_pending_async(
+            analysis_type="MEDIA",
+            execution_mode="sync",
+            documents=[
+                {
+                    "document_id": "content-cascade",
+                    "text": "content",
+                    "metadata": {"role": "published_content"},
+                }
+            ],
+        )
+        await self.repository.save_result_atomically_async(
+            analysis_id=pending.id,
+            keywords=[
+                {
+                    "keyword_id": "kw-cascade",
+                    "text": "کلیدواژه",
+                    "canonical_text": "کلیدواژه",
+                    "rank": 1,
+                    "final_score": 1.0,
+                    "statistical_score": 1.0,
+                    "semantic_score": 1.0,
+                    "coverage": 1.0,
+                    "frequency": 1,
+                }
+            ],
+            topics=[
+                {
+                    "topic_id": "topic-cascade",
+                    "label": "موضوع",
+                    "rank": 1,
+                    "prevalence": 1.0,
+                    "coverage": 1.0,
+                }
+            ],
+            topic_keywords=[
+                {
+                    "topic_id": "topic-cascade",
+                    "keyword_id": "kw-cascade",
+                    "rank": 1,
+                    "relevance_score": 1.0,
+                }
+            ],
+            metrics={},
+            profile_result={},
+            model_version="test-model",
+            scoring_version="test-scoring",
+        )
+
+        self.assertTrue(await self.repository.delete_async(pending.id))
+
+        async with self.db_context.session() as session:
+            for model in (
+                AnalysisDocument,
+                AnalysisKeyword,
+                AnalysisTopic,
+                AnalysisTopicKeyword,
+            ):
+                count = len((await session.scalars(select(model))).all())
+                self.assertEqual(count, 0, model.__tablename__)
 
     async def test_result_graph_is_persisted_atomically(self) -> None:
         pending = await self.repository.create_pending_async(

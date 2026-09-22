@@ -39,6 +39,8 @@ class AnalysisService:
         analysis_type: str,
         execution_mode: str,
         documents: list[dict[str, Any]],
+        reference: str | None = None,
+        options: dict[str, Any] | None = None,
     ) -> AnalysisValidationResult:
         if analysis_type not in {"COURSE", "SOLDIER_CONCERN", "MEDIA"}:
             raise AnalysisRequestValidationError(
@@ -53,6 +55,15 @@ class AnalysisService:
                 "document_id values must be unique within an analysis request",
             )
 
+        for document in documents:
+            raw_text = str(document["text"])
+            metadata = document.get("metadata") or {}
+            if self._contains_exact_text(metadata, raw_text):
+                raise AnalysisRequestValidationError(
+                    "raw_text_repeated_in_metadata",
+                    "Document metadata must not repeat the document raw text",
+                )
+
         if analysis_type == "MEDIA":
             allowed_roles = {"published_content", "audience_feedback"}
             for document in documents:
@@ -64,6 +75,11 @@ class AnalysisService:
                         "MEDIA documents require metadata.role equal to "
                         "'published_content' or 'audience_feedback'",
                     )
+
+        # reference/options are intentionally accepted here because they are
+        # request-level contract fields. Persistence applies stricter privacy
+        # handling for SOLDIER_CONCERN.
+        _ = reference, options
 
         decision = await self._execution_policy_service.evaluate_async(
             execution_mode=execution_mode,
@@ -77,3 +93,19 @@ class AnalysisService:
             document_count=decision.document_count,
             total_characters=decision.total_characters,
         )
+
+    @classmethod
+    def _contains_exact_text(cls, value: Any, raw_text: str) -> bool:
+        if isinstance(value, str):
+            return value == raw_text
+        if isinstance(value, dict):
+            return any(
+                cls._contains_exact_text(child, raw_text)
+                for child in value.values()
+            )
+        if isinstance(value, (list, tuple)):
+            return any(
+                cls._contains_exact_text(child, raw_text)
+                for child in value
+            )
+        return False

@@ -37,20 +37,28 @@ class WordCloudAnalysisRepository(BaseRepository[WordCloudAnalysis]):
                 "Raw text persistence is forbidden for SOLDIER_CONCERN analyses"
             )
 
+        is_soldier_concern = analysis_type == "SOLDIER_CONCERN"
         analysis = WordCloudAnalysis(
             analysis_type=analysis_type,
             status="pending",
             execution_mode=execution_mode,
             reference=reference,
-            options=dict(options or {}),
+            options={} if is_soldier_concern else dict(options or {}),
         )
         for document in documents:
-            metadata = dict(document.get("metadata") or {})
+            request_metadata = dict(document.get("metadata") or {})
+            persisted_metadata = (
+                {} if is_soldier_concern else request_metadata
+            )
             analysis.documents.append(
                 AnalysisDocument(
                     document_id=str(document["document_id"]),
-                    role=metadata.get("role"),
-                    metadata_json=metadata,
+                    role=(
+                        None
+                        if is_soldier_concern
+                        else request_metadata.get("role")
+                    ),
+                    metadata_json=persisted_metadata,
                     raw_text=str(document["text"]) if persist_raw_text else None,
                 )
             )

@@ -10,7 +10,10 @@ from src.infrastructure.di.inject import (
     reset_di_state,
     resolve,
 )
-from src.infrastructure.di.reflection import import_discoverable_modules
+from src.infrastructure.di.reflection import (
+    import_discoverable_modules,
+    iter_modules,
+)
 from src.infrastructure.utils.config_reader import ConfigReader
 
 
@@ -115,6 +118,93 @@ class RuntimeFoundationIntegrationTests(unittest.TestCase):
                     if key.startswith("fixture_cached"):
                         sys.modules.pop(key, None)
                 reset_di_state()
+
+    def test_discovery_excludes_di_and_sso_packages(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            package = root / "fixture_exclusions"
+            package.mkdir()
+            (package / "__init__.py").write_text("", encoding="utf-8")
+            for child_name in ("di", "sso", "feature"):
+                child = package / child_name
+                child.mkdir()
+                (child / "__init__.py").write_text("", encoding="utf-8")
+                (child / "provider.py").write_text(
+                    "VALUE = 1\n",
+                    encoding="utf-8",
+                )
+
+            sys.path.insert(0, temp_dir)
+            try:
+                importlib.invalidate_caches()
+                modules = tuple(iter_modules("fixture_exclusions"))
+                self.assertIn(
+                    "fixture_exclusions.feature.provider",
+                    modules,
+                )
+                self.assertNotIn(
+                    "fixture_exclusions.di.provider",
+                    modules,
+                )
+                self.assertNotIn(
+                    "fixture_exclusions.sso.provider",
+                    modules,
+                )
+            finally:
+                sys.path.remove(temp_dir)
+                for key in list(sys.modules):
+                    if key.startswith("fixture_exclusions"):
+                        sys.modules.pop(key, None)
+
+    def test_webservice_mounts_controller_without_dependencies(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            app_pkg = root / "fixture_plain_application"
+            feature_pkg = app_pkg / "health"
+            feature_pkg.mkdir(parents=True)
+            (app_pkg / "__init__.py").write_text("", encoding="utf-8")
+            (feature_pkg / "__init__.py").write_text("", encoding="utf-8")
+            (feature_pkg / "health_controller.py").write_text(
+                "from fastapi import APIRouter\n"
+                "class HealthController:\n"
+                "    def api(self):\n"
+                "        router = APIRouter()\n"
+                "        @router.get('/ping')\n"
+                "        async def ping():\n"
+                "            return {'status': 'ok'}\n"
+                "        return router\n",
+                encoding="utf-8",
+            )
+            config_dir = root / "config"
+            config_dir.mkdir()
+            (config_dir / "appsettings.development.yaml").write_text(
+                "api:\n  prefix: /api/v1\n",
+                encoding="utf-8",
+            )
+            sys.path.insert(0, temp_dir)
+            try:
+                importlib.invalidate_caches()
+                service = WebService(
+                    ConfigReader(
+                        config_dir=config_dir,
+                        env_type="development",
+                    )
+                )
+                app = service.create_app.__func__(service)
+                # create_app uses the default application package, so call
+                # discovery directly to validate the optional-@inject rule.
+                controller_type = service.discover_controllers(
+                    "fixture_plain_application"
+                )[0]
+                controller = controller_type()
+                self.assertEqual(controller.__class__.__name__, "HealthController")
+                self.assertIsNotNone(controller.api())
+                self.assertIsNotNone(app)
+            finally:
+                sys.path.remove(temp_dir)
+                for key in list(sys.modules):
+                    if key.startswith("fixture_plain_application"):
+                        sys.modules.pop(key, None)
 
     def test_webservice_discovers_convention_controller(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

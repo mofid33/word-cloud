@@ -62,6 +62,30 @@ class AnalysisApiTests(unittest.TestCase):
         )
         self.assertNotIn(raw_text_marker, response.text)
 
+    def test_raw_text_repeated_in_metadata_returns_sanitized_422(self) -> None:
+        raw_text = "SENSITIVE-SOLDIER-CONTENT"
+        response = self.client.post(
+            "/api/v1/analysis/validate",
+            json={
+                "analysis_type": "SOLDIER_CONCERN",
+                "execution_mode": "sync",
+                "documents": [
+                    {
+                        "document_id": "concern-1",
+                        "text": raw_text,
+                        "metadata": {"copy": raw_text},
+                    }
+                ],
+            },
+        )
+
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(
+            response.json()["detail"]["code"],
+            "raw_text_repeated_in_metadata",
+        )
+        self.assertNotIn(raw_text, response.json()["detail"]["message"])
+
     def test_cross_field_error_returns_stable_code(self) -> None:
         response = self.client.post(
             "/api/v1/analysis/validate",

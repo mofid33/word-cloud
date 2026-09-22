@@ -98,6 +98,30 @@ class AnalysisServiceTests(unittest.TestCase):
         self.assertEqual(result.execution_mode, "auto")
         self.assertEqual(result.resolved_execution_mode, "sync")
 
+    def test_rejects_raw_text_repeated_inside_metadata(self) -> None:
+        with self.assertRaises(AnalysisRequestValidationError) as context:
+            asyncio.run(
+                self.service.validate_async(
+                    analysis_type="SOLDIER_CONCERN",
+                    execution_mode="sync",
+                    documents=[
+                        {
+                            "document_id": "concern-1",
+                            "text": "متن محرمانه",
+                            "metadata": {
+                                "nested": {"copy": "متن محرمانه"}
+                            },
+                        }
+                    ],
+                )
+            )
+
+        self.assertEqual(
+            context.exception.code,
+            "raw_text_repeated_in_metadata",
+        )
+        self.assertNotIn("متن محرمانه", context.exception.message)
+
     def test_execution_policy_error_is_not_swallowed(self) -> None:
         with self.assertRaises(AnalysisExecutionPolicyError) as context:
             asyncio.run(

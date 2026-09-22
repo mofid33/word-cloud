@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 import asyncio
-import os
 from logging.config import fileConfig
 
 from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-from src.infrastructure.context.sql_db.psql_dbcontext import Base
+from src.infrastructure.context.sql_db.psql_dbcontext import Base, PsqlDbContext
+from src.infrastructure.context.vault.vault_service import VaultService
 from src.infrastructure.models.analysis_document import AnalysisDocument
 from src.infrastructure.models.analysis_keyword import AnalysisKeyword
 from src.infrastructure.models.analysis_topic import AnalysisTopic
@@ -38,14 +38,12 @@ def _database_url() -> str:
     if configured:
         return configured
 
-    env_url = os.getenv("DATABASE_URL")
-    if env_url:
-        return env_url
-
-    url = str(ConfigReader().require("database.url"))
-    if url.startswith("postgresql://"):
-        return url.replace("postgresql://", "postgresql+asyncpg://", 1)
-    return url
+    config_reader = ConfigReader()
+    vault_service = VaultService(config_reader)
+    return PsqlDbContext.resolve_database_url(
+        config_reader,
+        vault_service,
+    )
 
 
 def run_migrations_offline() -> None:

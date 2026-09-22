@@ -27,7 +27,7 @@ class PsqlDbContext:
     __di_singleton__ = True
 
     def __init__(self, config_reader: ConfigReader, vault_service: VaultService):
-        database_url = self._resolve_database_url(config_reader, vault_service)
+        database_url = self.resolve_database_url(config_reader, vault_service)
         self._engine: AsyncEngine = create_async_engine(
             database_url,
             pool_pre_ping=bool(
@@ -65,7 +65,7 @@ class PsqlDbContext:
         return getter(key, default)
 
     @staticmethod
-    def _normalize_database_url(url: str) -> str:
+    def normalize_database_url(url: str) -> str:
         value = url.strip()
         if not value:
             raise ValueError("Database URL must be non-empty")
@@ -74,21 +74,21 @@ class PsqlDbContext:
         return value
 
     @classmethod
-    def _resolve_database_url(
+    def resolve_database_url(
         cls,
         config_reader: ConfigReader,
         vault_service: VaultService,
     ) -> str:
         if vault_service.enabled:
-            return cls._normalize_database_url(
+            return cls.normalize_database_url(
                 vault_service.get_secret("database_url")
             )
 
         environment_url = os.getenv("DATABASE_URL")
         if environment_url:
-            return cls._normalize_database_url(environment_url)
+            return cls.normalize_database_url(environment_url)
 
-        return cls._normalize_database_url(
+        return cls.normalize_database_url(
             str(config_reader.require("database.url"))
         )
 

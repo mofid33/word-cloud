@@ -8,7 +8,7 @@ from fastapi import APIRouter, FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from src.infrastructure.di.inject import inject, resolve
+from src.infrastructure.di.inject import inject
 from src.infrastructure.utils.config_reader import ConfigReader
 
 
@@ -99,7 +99,7 @@ class WebService:
 
         prefix = self._config.get_api_prefix()
         for controller_type in self.discover_controllers():
-            controller = resolve(controller_type)
+            controller = controller_type()
             router = controller.api()
             if not isinstance(router, APIRouter):
                 raise TypeError(

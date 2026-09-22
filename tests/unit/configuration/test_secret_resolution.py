@@ -4,6 +4,8 @@ import os
 import unittest
 from unittest.mock import patch
 
+from src.infrastructure.scripts import run_migrations
+
 from src.infrastructure.context.sql_db.psql_dbcontext import PsqlDbContext
 from src.infrastructure.context.vault.vault_service import VaultService
 
@@ -54,7 +56,7 @@ class SecretResolutionTests(unittest.TestCase):
             },
             clear=False,
         ):
-            resolved = PsqlDbContext._resolve_database_url(config, vault)
+            resolved = PsqlDbContext.resolve_database_url(config, vault)
 
         self.assertEqual(
             resolved,
@@ -73,7 +75,7 @@ class SecretResolutionTests(unittest.TestCase):
             {"DATABASE_URL": "postgresql://environment/environment"},
             clear=False,
         ):
-            resolved = PsqlDbContext._resolve_database_url(config, vault)
+            resolved = PsqlDbContext.resolve_database_url(config, vault)
 
         self.assertEqual(
             resolved,
@@ -88,16 +90,43 @@ class SecretResolutionTests(unittest.TestCase):
         vault = VaultService(config)
 
         with patch.dict(os.environ, {}, clear=True):
-            resolved = PsqlDbContext._resolve_database_url(config, vault)
+            resolved = PsqlDbContext.resolve_database_url(config, vault)
 
         self.assertEqual(
             resolved,
             "postgresql+asyncpg://config/config",
         )
 
+    def test_migration_runner_reuses_runtime_database_resolution(self) -> None:
+        config = _Config(
+            vault_enabled=True,
+            database_url="postgresql://config/config",
+        )
+        vault = VaultService(config)
+
+        with patch.object(
+            run_migrations,
+            "ConfigReader",
+            return_value=config,
+        ), patch.object(
+            run_migrations,
+            "VaultService",
+            return_value=vault,
+        ), patch.object(
+            run_migrations.PsqlDbContext,
+            "resolve_database_url",
+            return_value="postgresql+asyncpg://vault/vault",
+        ) as resolver:
+            self.assertEqual(
+                run_migrations._database_url(),
+                "postgresql+asyncpg://vault/vault",
+            )
+
+        resolver.assert_called_once_with(config, vault)
+
     def test_blank_database_url_is_rejected(self) -> None:
         with self.assertRaisesRegex(ValueError, "non-empty"):
-            PsqlDbContext._normalize_database_url("   ")
+            PsqlDbContext.normalize_database_url("   ")
 
 
 if __name__ == "__main__":

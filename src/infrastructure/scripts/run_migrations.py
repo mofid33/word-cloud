@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import argparse
-import os
 from pathlib import Path
 
 from alembic import command
 from alembic.config import Config
 
+from src.infrastructure.context.sql_db.psql_dbcontext import PsqlDbContext
+from src.infrastructure.context.vault.vault_service import VaultService
 from src.infrastructure.utils.config_reader import ConfigReader
 
 
@@ -15,13 +16,12 @@ ALEMBIC_DIR = PROJECT_ROOT / "src" / "infrastructure" / "alembic"
 
 
 def _database_url() -> str:
-    url = os.getenv("DATABASE_URL")
-    if url:
-        return url
-    configured = str(ConfigReader().require("database.url"))
-    if configured.startswith("postgresql://"):
-        return configured.replace("postgresql://", "postgresql+asyncpg://", 1)
-    return configured
+    config_reader = ConfigReader()
+    vault_service = VaultService(config_reader)
+    return PsqlDbContext.resolve_database_url(
+        config_reader,
+        vault_service,
+    )
 
 
 def _build_config() -> Config:

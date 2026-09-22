@@ -15,6 +15,8 @@ DEFAULT_SCAN_PACKAGES = (
     "src.application",
 )
 EXCLUDED_PARTS = {
+    "di",
+    "sso",
     "alembic",
     "versions",
     "scripts",
