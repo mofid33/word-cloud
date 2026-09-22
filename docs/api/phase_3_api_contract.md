@@ -134,7 +134,7 @@ Coverage includes:
 - privacy-safe errors, including user-controlled identifier sanitization;
 - recursive metadata raw-text protection;
 - Phase 1 nested `error` output mapping, including failed lifecycle resources against PostgreSQL;
-- sanitized 404 behavior for caller-controlled analysis IDs;
+- sanitized 404 behavior for caller-controlled analysis IDs, verified in the PostgreSQL-isolated lifecycle suite;
 - execution-mode resolution.
 
 The previous 126-test gate predates these final Phase 3 corrections. A fresh compile and full regression are required before Phase 3 is re-closed.

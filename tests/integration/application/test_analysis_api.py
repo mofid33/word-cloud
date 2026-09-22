@@ -113,19 +113,6 @@ class AnalysisApiTests(unittest.TestCase):
         )
         self.assertNotIn(secret_id, response.text)
 
-    def test_user_controlled_analysis_id_is_not_echoed_in_404(self) -> None:
-        secret_id = "TOP-SECRET-AS-ANALYSIS-ID"
-        response = self.client.get(
-            f"/api/v1/analysis/{secret_id}"
-        )
-
-        self.assertEqual(response.status_code, 404)
-        self.assertEqual(
-            response.json()["detail"]["code"],
-            "analysis_not_found",
-        )
-        self.assertNotIn(secret_id, response.text)
-
     def test_lifecycle_routes_are_mounted_in_openapi(self) -> None:
         paths = self.client.app.openapi()["paths"]
 

@@ -249,6 +249,19 @@ class AnalysisLifecycleApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("error_code", body)
         self.assertNotIn("error_message", body)
 
+    async def test_user_controlled_analysis_id_is_not_echoed_in_404(self) -> None:
+        secret_id = "TOP-SECRET-AS-ANALYSIS-ID"
+        response = await self.client.get(
+            f"/api/v1/analysis/{secret_id}"
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(
+            response.json()["detail"]["code"],
+            "analysis_not_found",
+        )
+        self.assertNotIn(secret_id, response.text)
+
     async def test_soldier_create_does_not_persist_free_form_request_fields(
         self,
     ) -> None:
