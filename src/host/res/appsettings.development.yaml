@@ -1,0 +1,12 @@
+app:
+  name: "Persian Semantic Text Analytics Service"
+  version: "0.1.0"
+server:
+  host: "0.0.0.0"
+  port: 5000
+api:
+  prefix: "/api/v1"
+database:
+  url: "postgresql+asyncpg://postgres:postgres@localhost:5432/postgres"
+vault:
+  enabled: false
