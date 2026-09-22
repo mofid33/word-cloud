@@ -35,14 +35,17 @@ class AnalysisApiTests(unittest.TestCase):
         self.assertNotIn("text", body)
 
     def test_schema_error_returns_sanitized_422_contract(self) -> None:
-        raw_text = "   "
+        raw_text_marker = "TOP-SECRET-RAW-TEXT"
         response = self.client.post(
             "/api/v1/analysis/validate",
             json={
                 "analysis_type": "COURSE",
                 "execution_mode": "auto",
                 "documents": [
-                    {"document_id": "doc-1", "text": raw_text},
+                    {
+                        "document_id": "doc-1",
+                        "text": {"raw": raw_text_marker},
+                    },
                 ],
             },
         )
@@ -57,7 +60,7 @@ class AnalysisApiTests(unittest.TestCase):
                 }
             },
         )
-        self.assertNotIn(raw_text, response.text)
+        self.assertNotIn(raw_text_marker, response.text)
 
     def test_cross_field_error_returns_stable_code(self) -> None:
         response = self.client.post(
