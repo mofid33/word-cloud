@@ -169,6 +169,8 @@ class RuntimeFoundationIntegrationTests(unittest.TestCase):
 
                 return router
 
+        HealthController.__module__ = "fixture_application.health.health_controller"
+
         with tempfile.TemporaryDirectory() as temp_dir:
             config_dir = Path(temp_dir)
             (config_dir / "appsettings.development.yaml").write_text(
@@ -188,7 +190,7 @@ class RuntimeFoundationIntegrationTests(unittest.TestCase):
             getattr(route, "path", None)
             for route in app.routes
         }
-        self.assertIn("/api/v1/test_runtime_foundation/ping", paths)
+        self.assertIn("/api/v1/health/ping", paths)
 
     def test_webservice_discovers_convention_controller(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
