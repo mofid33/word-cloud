@@ -1,7 +1,7 @@
 # Phase 1–5 Finalization Review
 
 Date: 2026-09-22
-Status: IMPLEMENTED_AWAITING_LOCAL_VERIFICATION
+Status: COMPLETE — READY_FOR_PHASE_6
 
 ## References
 
@@ -23,7 +23,7 @@ Final corrections:
 - the architecture contract records `AnalysisExecutionPolicyService -> ConfigReader`;
 - tests cover the optional-`@inject` controller rule and discovery exclusions.
 
-Implementation status: COMPLETE, awaiting regression re-verification after this correction set.
+Implementation status: CLOSED and verified.
 
 ## Phase 3
 
@@ -31,7 +31,7 @@ The executable request-validation HTTP boundary is implemented and tested. Final
 
 Execution wiring remains correctly owned by Phase 10 (real profile processing) and Phase 12 (real queue/worker lifecycle), not by Phase 3.
 
-Implementation status: COMPLETE, awaiting regression re-verification after this correction set.
+Implementation status: CLOSED and verified.
 
 ## Phase 4
 
@@ -41,7 +41,7 @@ Final corrections:
 - FK cascade behavior is tested;
 - destructive repository tests are pinned to `TEST_DATABASE_URL`.
 
-Implementation status: COMPLETE, awaiting PostgreSQL and full-regression re-verification after this correction set.
+Implementation status: CLOSED and verified.
 
 ## Phase 5
 
@@ -50,9 +50,21 @@ Final corrections:
 - Vault-enabled migration execution now resolves the same secret as application runtime;
 - development dependency typo `httpx2` was corrected to `httpx`.
 
-Implementation status: COMPLETE, awaiting full-regression re-verification after this correction set.
+Implementation status: CLOSED and verified.
 
-## Required final gate before Phase 6
+## Final gate evidence
+
+Verified locally on 2026-09-22:
+- `python -m compileall -q src tests`: PASS.
+- Foundation integration suite: 7 tests, PASS.
+- PostgreSQL persistence/migration coverage: PASS.
+- Full project regression: 113 tests, PASS.
+- Failures: 0.
+- Errors: 0.
+
+The repository is now cleared to start Phase 6 without carrying unresolved Phase 1–5 defects.
+
+## Reproduction commands
 
 ```powershell
 python -m pip install -r requirements-dev.txt
@@ -81,4 +93,13 @@ Expected:
 - PostgreSQL integration/migration tests pass;
 - full regression reports zero failures and zero errors.
 
-Only after this gate passes should the repository be marked ready to start Phase 6.
+Current phase status:
+- Phase 1 — CLOSED.
+- Phase 2 — CLOSED.
+- Phase 3 — CLOSED.
+- Phase 4 — CLOSED.
+- Phase 5 — CLOSED.
+
+Readiness marker:
+
+`PHASE_1_5_COMPLETE_READY_FOR_PHASE_6`
