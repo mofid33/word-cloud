@@ -1,0 +1,523 @@
+{
+  "schema_version": "1.0.0",
+  "phase": {
+    "number": 2,
+    "name": "Technical Architecture",
+    "status": "FROZEN",
+    "based_on_phase": 1
+  },
+  "architecture": {
+    "layers": [
+      "Host",
+      "Application",
+      "Core",
+      "Infrastructure"
+    ],
+    "dependency_flow": [
+      "Controller",
+      "Service",
+      "Repository",
+      "PsqlDbContext"
+    ],
+    "constructor_injection_required": true,
+    "inject_discovery_required": true,
+    "thin_controllers_required": true,
+    "business_workflow_location": "src/core/services",
+    "database_query_location": "repository",
+    "sqlalchemy_model_location": "src/infrastructure/models",
+    "dto_location_pattern": "src/application/{feature}/dtos",
+    "async_method_suffix": "_async",
+    "generic_crud_uses_base_repository": true,
+    "manual_provider_registration_when_discovery_exists": false,
+    "extra_architectural_layers_allowed": false,
+    "runtime_implementation_created_in_phase_2": false
+  },
+  "files": {
+    "application": [
+      "src/application/web.py",
+      "src/application/analysis/analysis_controller.py",
+      "src/application/analysis/dtos/analysis_dto.py"
+    ],
+    "core": [
+      "src/core/services/analysis/analysis_service.py",
+      "src/core/services/analysis/analysis_processor_service.py",
+      "src/core/services/analysis/analysis_execution_policy_service.py",
+      "src/core/services/analysis/providers/analysis_queue_provider.py",
+      "src/core/services/course/course_analysis_service.py",
+      "src/core/services/soldier_concern/soldier_concern_analysis_service.py",
+      "src/core/services/media/media_analysis_service.py",
+      "src/core/services/persian_text/persian_text_processor.py",
+      "src/core/services/candidate/candidate_extraction_service.py",
+      "src/core/services/statistical/statistical_analysis_service.py",
+      "src/core/services/semantic/semantic_analysis_service.py",
+      "src/core/services/semantic/providers/embedding_provider.py",
+      "src/core/services/semantic/providers/reranker_provider.py",
+      "src/core/services/ranking/hybrid_ranking_service.py",
+      "src/core/services/topic/topic_analysis_service.py",
+      "src/core/services/topic/providers/topic_model_provider.py",
+      "src/core/services/trend/trend_analysis_service.py",
+      "src/core/services/visualization/wordcloud_service.py"
+    ],
+    "infrastructure": [
+      "src/infrastructure/di/inject.py",
+      "src/infrastructure/di/reflection.py",
+      "src/infrastructure/di/bootstrap.py",
+      "src/infrastructure/context/sql_db/psql_dbcontext.py",
+      "src/infrastructure/context/vault/vault_service.py",
+      "src/infrastructure/utils/config_reader.py",
+      "src/infrastructure/repositories/base/base_repository.py",
+      "src/infrastructure/repositories/analysis/word_cloud_analysis_repository.py",
+      "src/infrastructure/models/word_cloud_analysis.py",
+      "src/infrastructure/models/analysis_document.py",
+      "src/infrastructure/models/analysis_keyword.py",
+      "src/infrastructure/models/analysis_topic.py",
+      "src/infrastructure/models/analysis_topic_keyword.py",
+      "src/infrastructure/alembic/env.py",
+      "src/infrastructure/scripts/run_migrations.py"
+    ]
+  },
+  "components": {
+    "AnalysisController": {
+      "layer": "Application",
+      "kind": "controller",
+      "inject": true,
+      "singleton": false,
+      "dependencies": [
+        "AnalysisService"
+      ]
+    },
+    "AnalysisService": {
+      "layer": "Core",
+      "kind": "service",
+      "inject": true,
+      "singleton": false,
+      "dependencies": [
+        "AnalysisExecutionPolicyService",
+        "AnalysisProcessorService",
+        "WordCloudAnalysisRepository",
+        "AnalysisQueueProvider"
+      ]
+    },
+    "AnalysisExecutionPolicyService": {
+      "layer": "Core",
+      "kind": "service",
+      "inject": true,
+      "singleton": false,
+      "dependencies": []
+    },
+    "AnalysisProcessorService": {
+      "layer": "Core",
+      "kind": "service",
+      "inject": true,
+      "singleton": false,
+      "dependencies": [
+        "CourseAnalysisService",
+        "SoldierConcernAnalysisService",
+        "MediaAnalysisService",
+        "WordCloudAnalysisRepository"
+      ]
+    },
+    "CourseAnalysisService": {
+      "layer": "Core",
+      "kind": "service",
+      "inject": true,
+      "singleton": false,
+      "dependencies": [
+        "PersianTextProcessor",
+        "CandidateExtractionService",
+        "StatisticalAnalysisService",
+        "SemanticAnalysisService",
+        "HybridRankingService",
+        "TopicAnalysisService"
+      ]
+    },
+    "SoldierConcernAnalysisService": {
+      "layer": "Core",
+      "kind": "service",
+      "inject": true,
+      "singleton": false,
+      "dependencies": [
+        "PersianTextProcessor",
+        "CandidateExtractionService",
+        "StatisticalAnalysisService",
+        "SemanticAnalysisService",
+        "HybridRankingService",
+        "TopicAnalysisService"
+      ]
+    },
+    "MediaAnalysisService": {
+      "layer": "Core",
+      "kind": "service",
+      "inject": true,
+      "singleton": false,
+      "dependencies": [
+        "PersianTextProcessor",
+        "CandidateExtractionService",
+        "StatisticalAnalysisService",
+        "SemanticAnalysisService",
+        "HybridRankingService",
+        "TopicAnalysisService",
+        "TrendAnalysisService"
+      ]
+    },
+    "PersianTextProcessor": {
+      "layer": "Core",
+      "kind": "service",
+      "inject": true,
+      "singleton": false,
+      "dependencies": []
+    },
+    "CandidateExtractionService": {
+      "layer": "Core",
+      "kind": "service",
+      "inject": true,
+      "singleton": false,
+      "dependencies": []
+    },
+    "StatisticalAnalysisService": {
+      "layer": "Core",
+      "kind": "service",
+      "inject": true,
+      "singleton": false,
+      "dependencies": []
+    },
+    "SemanticAnalysisService": {
+      "layer": "Core",
+      "kind": "service",
+      "inject": true,
+      "singleton": false,
+      "dependencies": [
+        "EmbeddingProvider",
+        "RerankerProvider"
+      ]
+    },
+    "HybridRankingService": {
+      "layer": "Core",
+      "kind": "service",
+      "inject": true,
+      "singleton": false,
+      "dependencies": []
+    },
+    "TopicAnalysisService": {
+      "layer": "Core",
+      "kind": "service",
+      "inject": true,
+      "singleton": false,
+      "dependencies": [
+        "TopicModelProvider"
+      ]
+    },
+    "TrendAnalysisService": {
+      "layer": "Core",
+      "kind": "service",
+      "inject": true,
+      "singleton": false,
+      "dependencies": []
+    },
+    "WordCloudService": {
+      "layer": "Core",
+      "kind": "service",
+      "inject": true,
+      "singleton": false,
+      "dependencies": []
+    },
+    "EmbeddingProvider": {
+      "layer": "Core",
+      "kind": "abstract_provider",
+      "inject": false,
+      "singleton": false,
+      "dependencies": []
+    },
+    "RerankerProvider": {
+      "layer": "Core",
+      "kind": "abstract_provider",
+      "inject": false,
+      "singleton": false,
+      "dependencies": []
+    },
+    "TopicModelProvider": {
+      "layer": "Core",
+      "kind": "abstract_provider",
+      "inject": false,
+      "singleton": false,
+      "dependencies": []
+    },
+    "AnalysisQueueProvider": {
+      "layer": "Core",
+      "kind": "abstract_provider",
+      "inject": false,
+      "singleton": false,
+      "dependencies": []
+    },
+    "WordCloudAnalysisRepository": {
+      "layer": "Infrastructure",
+      "kind": "repository",
+      "inject": true,
+      "singleton": false,
+      "dependencies": [
+        "PsqlDbContext"
+      ]
+    },
+    "PsqlDbContext": {
+      "layer": "Infrastructure",
+      "kind": "infrastructure_provider",
+      "inject": true,
+      "singleton": true,
+      "dependencies": [
+        "ConfigReader",
+        "VaultService"
+      ]
+    },
+    "ConfigReader": {
+      "layer": "Infrastructure",
+      "kind": "infrastructure_provider",
+      "inject": true,
+      "singleton": true,
+      "dependencies": []
+    },
+    "VaultService": {
+      "layer": "Infrastructure",
+      "kind": "infrastructure_provider",
+      "inject": true,
+      "singleton": true,
+      "dependencies": [
+        "ConfigReader"
+      ]
+    }
+  },
+  "provider_policy": {
+    "abstract_contracts": [
+      "EmbeddingProvider",
+      "RerankerProvider",
+      "TopicModelProvider",
+      "AnalysisQueueProvider"
+    ],
+    "per_feature_service_interfaces_allowed": false,
+    "per_feature_repository_interfaces_allowed": false,
+    "concrete_semantic_implementations_location": "src/infrastructure/providers/semantic",
+    "concrete_queue_implementations_location": "src/infrastructure/providers/queue",
+    "concrete_implementation_names_frozen": false
+  },
+  "singleton_policy": {
+    "required": [
+      "ConfigReader",
+      "VaultService",
+      "PsqlDbContext"
+    ],
+    "conditional": [
+      "heavy_semantic_provider_implementations",
+      "queue_client_provider_implementation"
+    ],
+    "non_singleton_by_default": [
+      "controllers",
+      "services",
+      "repositories"
+    ],
+    "heavy_provider_rule": "load_model_once_and_keep_request_state_out_of_shared_mutable_fields"
+  },
+  "persistence": {
+    "base_entities": [
+      "WordCloudAnalysis",
+      "AnalysisDocument",
+      "AnalysisKeyword",
+      "AnalysisTopic",
+      "AnalysisTopicKeyword"
+    ],
+    "aggregate_repository": "WordCloudAnalysisRepository",
+    "generic_crud_base": "BaseRepository",
+    "result_transaction": "one_repository_session_one_commit_for_complete_analysis_result_graph",
+    "global_async_session_allowed": false,
+    "engine_per_request_allowed": false,
+    "schema_change_requires_migration": true,
+    "new_model_requires_alembic_visibility": true
+  },
+  "profile_rules": {
+    "COURSE": [
+      "section_and_chunk_awareness",
+      "course_profile_scoring",
+      "section_coverage",
+      "topic_timeline"
+    ],
+    "SOLDIER_CONCERN": [
+      "independent_documents",
+      "document_frequency",
+      "document_coverage",
+      "concern_prevalence",
+      "privacy_guards"
+    ],
+    "MEDIA": [
+      "separate_content_and_audience_first",
+      "media_profile_scoring",
+      "trend_analysis",
+      "content_audience_gap"
+    ]
+  },
+  "sequence_flows": {
+    "sync": [
+      "HTTP",
+      "AnalysisController",
+      "AnalysisService",
+      "AnalysisExecutionPolicyService",
+      "WordCloudAnalysisRepository:create_pending",
+      "AnalysisProcessorService",
+      "ProfileAnalysisService",
+      "SharedAnalyticsServices",
+      "WordCloudAnalysisRepository:save_result_atomically",
+      "HTTPResponse"
+    ],
+    "async": [
+      "HTTP",
+      "AnalysisController",
+      "AnalysisService",
+      "AnalysisExecutionPolicyService",
+      "WordCloudAnalysisRepository:create_pending",
+      "AnalysisQueueProvider:enqueue",
+      "AcceptedResponse",
+      "Worker",
+      "AnalysisProcessorService",
+      "ProfileAnalysisService",
+      "SharedAnalyticsServices",
+      "WordCloudAnalysisRepository:save_result_atomically"
+    ],
+    "read": [
+      "HTTP",
+      "AnalysisController",
+      "AnalysisService",
+      "WordCloudAnalysisRepository",
+      "HTTPResponse"
+    ]
+  },
+  "worker_boundary": {
+    "business_logic_allowed": false,
+    "entrypoint": "AnalysisProcessorService",
+    "direct_profile_service_call_allowed": false,
+    "queue_technology_frozen": false
+  },
+  "privacy": {
+    "raw_text_logging_allowed": false,
+    "raw_text_in_metrics_allowed": false,
+    "raw_text_in_traces_allowed": false,
+    "soldier_raw_text_database_persistence_allowed": false,
+    "soldier_raw_text_durable_queue_payload_allowed": false,
+    "soldier_async_transport": "transient_non_durable_only",
+    "soldier_transient_payload_loss": "mark_failed_when_possible_and_require_client_resubmission"
+  },
+  "boundaries": {
+    "application_owns": [
+      "http",
+      "dto_validation",
+      "http_status",
+      "response_mapping"
+    ],
+    "application_forbidden": [
+      "sqlalchemy_query",
+      "database_session",
+      "model_inference"
+    ],
+    "core_owns": [
+      "workflow",
+      "profile_rules",
+      "nlp_orchestration",
+      "scoring",
+      "provider_contracts"
+    ],
+    "core_forbidden": [
+      "fastapi_router",
+      "http_exception",
+      "http_status_code",
+      "queue_vendor",
+      "specific_production_model_name"
+    ],
+    "infrastructure_owns": [
+      "sqlalchemy",
+      "repositories",
+      "database_session_factory",
+      "configuration",
+      "vault",
+      "di_discovery",
+      "concrete_external_providers",
+      "alembic"
+    ]
+  },
+  "phase_ownership": {
+    "3": [
+      "exact_api_routes",
+      "request_response_dtos",
+      "validation_rules",
+      "http_error_contract"
+    ],
+    "4": [
+      "sqlalchemy_schema",
+      "repository_implementation",
+      "alembic_migration",
+      "database_indexes"
+    ],
+    "5": [
+      "environment_configuration",
+      "local_docker_dependencies"
+    ],
+    "6": [
+      "persian_nlp_implementation"
+    ],
+    "7": [
+      "candidate_statistical_implementation"
+    ],
+    "8": [
+      "semantic_provider_implementations",
+      "semantic_benchmark"
+    ],
+    "9": [
+      "hybrid_ranking_implementation"
+    ],
+    "10": [
+      "profile_workflows"
+    ],
+    "11": [
+      "topic_trend_implementation"
+    ],
+    "12": [
+      "queue_worker_technology",
+      "retry_policy",
+      "worker_runtime"
+    ],
+    "13": [
+      "wordcloud_rendering",
+      "image_endpoint"
+    ],
+    "14": [
+      "observability",
+      "security_hardening",
+      "ci_cd",
+      "performance_gates"
+    ]
+  },
+  "deferred_decisions_preserved": [
+    "exact_embedding_model",
+    "exact_reranker_model",
+    "exact_topic_model",
+    "final_profile_weights",
+    "exact_mmr_lambda",
+    "exact_semantic_deduplication_threshold",
+    "exact_production_latency_slo",
+    "exact_worker_technology",
+    "exact_queue_technology",
+    "exact_gpu_model",
+    "exact_database_indexes",
+    "exact_api_routes",
+    "exact_http_error_codes"
+  ],
+  "definition_of_done": {
+    "component_catalog_frozen": true,
+    "class_file_map_frozen": true,
+    "dependency_graph_frozen": true,
+    "sequence_flows_frozen": true,
+    "singleton_policy_frozen": true,
+    "core_infrastructure_boundary_frozen": true,
+    "worker_reuses_core_processing": true,
+    "privacy_boundary_frozen": true,
+    "phase_ownership_recorded": true,
+    "contract_tests_required": true,
+    "runtime_implementation_created_in_phase_2": false,
+    "todos_allowed": false
+  }
+}
