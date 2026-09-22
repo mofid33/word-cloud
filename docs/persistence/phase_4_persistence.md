@@ -29,14 +29,22 @@ Complete result persistence uses one `AsyncSession` and one commit. Existing res
 
 Phase 4 is not CLOSED until PostgreSQL integration tests pass locally. Use a dedicated database whose name contains `test`; the destructive integration tests reject other database names.
 
+Use the actual credentials for your local PostgreSQL instance. Do not copy example passwords into source control.
+
 ```powershell
-$env:TEST_DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost:5432/word_cloud_test"
+$env:TEST_DATABASE_URL = "postgresql+asyncpg://postgres:<YOUR_POSTGRES_PASSWORD>@localhost:5432/word_cloud_test"
+
 python -m pip install -r requirements-dev.txt
 python -m compileall -q src tests
+
 python -m unittest discover -s tests/unit/persistence -p "test_*.py" -v
-python -m unittest discover -s tests/integration/persistence -p "test_*.py" -v
+
+python -m unittest tests.integration.persistence.test_analysis_repository tests.integration.persistence.test_migration -v
+
 python -m unittest discover -s tests -p "test_*.py" -v
 ```
+
+If the password contains URL-reserved characters such as `@`, `:`, `/`, `#`, or `%`, URL-encode the password before placing it in `TEST_DATABASE_URL`.
 
 Migration runner:
 
