@@ -33,7 +33,7 @@ For `SOLDIER_CONCERN`:
 - free-form request reference is persisted as NULL;
 - caller-provided document IDs are persisted only as SHA-256 identifiers;
 - document role is not persisted;
-- failure messages are reduced to a generic persisted message;
+- failure error code and message are reduced to generic persisted values;
 - only identifiers, lifecycle metadata and later derived analytics may be persisted.
 
 This prevents free-form request fields, document identifiers and failure messages from being used as a bypass around the raw-text persistence prohibition.

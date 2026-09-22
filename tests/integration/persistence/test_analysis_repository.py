@@ -141,7 +141,10 @@ class AnalysisRepositoryIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
         assert failed is not None
         self.assertEqual(failed.status, "failed")
-        self.assertEqual(failed.error_code, "processing_error")
+        self.assertEqual(
+            failed.error_code,
+            "analysis_processing_failed",
+        )
         self.assertEqual(
             failed.error_message,
             "Analysis processing failed",

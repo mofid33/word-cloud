@@ -122,15 +122,17 @@ class WordCloudAnalysisRepository(BaseRepository[WordCloudAnalysis]):
         if analysis is None:
             return None
 
+        persisted_code = error_code
         persisted_message = error_message
         if analysis.analysis_type == "SOLDIER_CONCERN":
+            persisted_code = "analysis_processing_failed"
             persisted_message = "Analysis processing failed"
 
         return await self._update_lifecycle_async(
             analysis_id,
             status="failed",
             completed_at=datetime.now(UTC),
-            error_code=error_code,
+            error_code=persisted_code,
             error_message=persisted_message,
         )
 

@@ -46,7 +46,7 @@ Core validation enforces:
 
 FastAPI/Pydantic errors are normalized to a sanitized envelope and raw request text is not echoed.
 
-For `SOLDIER_CONCERN`, persistence applies an additional defense-in-depth boundary: raw text, request metadata, request options, role and free-form `reference` are not persisted; caller-provided document IDs are persisted only as SHA-256 identifiers and persisted failure messages are generic.
+For `SOLDIER_CONCERN`, persistence applies an additional defense-in-depth boundary: raw text, request metadata, request options, role and free-form `reference` are not persisted; caller-provided document IDs are persisted only as SHA-256 identifiers and persisted failure error code/message are generic.
 
 ## HTTP status contract
 

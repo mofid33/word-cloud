@@ -45,7 +45,7 @@ The previous final audit found a privacy bypass: SOLDIER raw content could be co
 Correction implemented:
 - SOLDIER `reference` is persisted as NULL;
 - SOLDIER caller-provided document IDs are persisted only as SHA-256 identifiers;
-- SOLDIER failure messages are reduced to a generic persisted value;
+- SOLDIER failure error code/message are reduced to generic persisted values;
 - metadata/options/role/raw_text protections remain in place;
 - PostgreSQL integration coverage asserts these boundaries.
 

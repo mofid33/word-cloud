@@ -210,6 +210,60 @@ class AnalysisServiceTests(unittest.TestCase):
             self.repository.last_create["persist_raw_text"]
         )
 
+    def test_completed_result_maps_structured_json_groups(self) -> None:
+        now = datetime.now(UTC)
+        keyword = SimpleNamespace(
+            text="هوش مصنوعی",
+            canonical_text="هوش مصنوعی",
+            rank=1,
+            final_score=0.9,
+            statistical_score=0.7,
+            semantic_score=0.95,
+            coverage=1.0,
+            frequency=3,
+        )
+        link = SimpleNamespace(
+            keyword=keyword,
+            rank=1,
+            relevance_score=0.95,
+        )
+        topic = SimpleNamespace(
+            id="topic-1",
+            label="فناوری",
+            rank=1,
+            prevalence=0.8,
+            coverage=1.0,
+            keyword_links=[link],
+        )
+        self.repository.analysis = SimpleNamespace(
+            id="analysis-1",
+            analysis_type="COURSE",
+            status="completed",
+            execution_mode="sync",
+            reference="course-1",
+            model_version="model-v1",
+            scoring_version="score-v1",
+            created_at=now,
+            started_at=now,
+            completed_at=now,
+            error_code=None,
+            error_message=None,
+            keywords=[keyword],
+            topics=[topic],
+            metrics={"document_count": 1},
+            profile_result={"kind": "course"},
+        )
+
+        result = asyncio.run(
+            self.service.get_result_async("analysis-1")
+        )
+
+        self.assertEqual(result.analysis.status, "completed")
+        self.assertEqual(result.keywords[0].rank, 1)
+        self.assertEqual(result.topics[0].keywords[0].text, "هوش مصنوعی")
+        self.assertEqual(result.metrics["document_count"], 1)
+        self.assertEqual(result.profile_result["kind"], "course")
+
     def test_get_status_unknown_analysis_raises(self) -> None:
         with self.assertRaises(AnalysisNotFoundError):
             asyncio.run(self.service.get_status_async("missing"))
