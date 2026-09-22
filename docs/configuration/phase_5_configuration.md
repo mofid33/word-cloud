@@ -1,7 +1,7 @@
 # Phase 5 — Configuration & Environments
 
-Status: IMPLEMENTED_AWAITING_LOCAL_VERIFICATION
-Date: 2026-09-22
+Status: COMPLETE
+Completed: 2026-09-22
 
 ## Scope implemented
 
@@ -21,6 +21,7 @@ Date: 2026-09-22
 - Example environment file without real secrets.
 - Unit tests for environment selection, settings, secret resolution and local Compose.
 - Integration test for application startup using development configuration.
+- Configuration tests are included in the full unittest discovery tree.
 
 ## Configuration policy
 
@@ -31,9 +32,20 @@ Production database credentials are not stored in `appsettings.yaml`. Supply `DA
 
 NLP model names remain intentionally unfrozen. Model/provider selection belongs to the Persian benchmark work in Phase 8.
 
-## Local verification
+## Completion evidence
 
-Phase 5 must not be marked COMPLETE until the following commands pass on the local development machine.
+Phase 5 was closed after local verification on the Windows development environment:
+
+- `python -m compileall -q src tests` completed successfully.
+- Phase 5 configuration unit tests passed: 12 tests.
+- Phase 5 development startup integration test passed: 1 test.
+- Full regression suite passed: 92 tests, 0 failures, 0 errors.
+- PostgreSQL Docker dependency reached `healthy` state.
+- PostgreSQL persistence integration suite remained green: 5 tests passed.
+- Existing API, DI/discovery, startup, architecture, requirements and persistence behavior remained green.
+- Phase 5 tests are included in the full regression discovery path.
+
+## Local verification commands
 
 ```powershell
 python -m pip install -r requirements-dev.txt
@@ -57,3 +69,5 @@ $env:DATABASE_URL = "postgresql+asyncpg://postgres:<YOUR_POSTGRES_PASSWORD>@loca
 ```
 
 Do not commit real passwords or production connection strings.
+
+PHASE_5_COMPLETE
