@@ -5,13 +5,23 @@ from fastapi import APIRouter, HTTPException, status
 from src.application.analysis.dtos.analysis_dto import (
     AnalysisRequestDto,
     AnalysisValidationResponseDto,
-    ApiErrorDto,
+    ApiErrorEnvelopeDto,
+)
+from src.core.services.analysis.analysis_execution_policy_service import (
+    AnalysisExecutionPolicyError,
 )
 from src.core.services.analysis.analysis_service import (
     AnalysisRequestValidationError,
     AnalysisService,
 )
 from src.infrastructure.di.inject import inject
+
+
+_PAYLOAD_TOO_LARGE_CODES = {
+    "max_documents_exceeded",
+    "max_document_characters_exceeded",
+    "max_total_characters_exceeded",
+}
 
 
 @inject
@@ -30,10 +40,14 @@ class AnalysisController:
             response_model=AnalysisValidationResponseDto,
             status_code=status.HTTP_200_OK,
             responses={
+                status.HTTP_413_REQUEST_ENTITY_TOO_LARGE: {
+                    "model": ApiErrorEnvelopeDto,
+                    "description": "Configured analysis input limit exceeded",
+                },
                 status.HTTP_422_UNPROCESSABLE_CONTENT: {
-                    "model": ApiErrorDto,
-                    "description": "Request contract validation failed",
-                }
+                    "model": ApiErrorEnvelopeDto,
+                    "description": "Request contract or execution policy validation failed",
+                },
             },
             summary="Validate an analysis request",
         )
@@ -49,6 +63,19 @@ class AnalysisController:
                         for document in payload.documents
                     ],
                 )
+            except AnalysisExecutionPolicyError as exc:
+                http_status = (
+                    status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
+                    if exc.code in _PAYLOAD_TOO_LARGE_CODES
+                    else status.HTTP_422_UNPROCESSABLE_CONTENT
+                )
+                raise HTTPException(
+                    status_code=http_status,
+                    detail={
+                        "code": exc.code,
+                        "message": exc.message,
+                    },
+                ) from exc
             except AnalysisRequestValidationError as exc:
                 raise HTTPException(
                     status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -61,6 +88,7 @@ class AnalysisController:
             return AnalysisValidationResponseDto(
                 analysis_type=result.analysis_type,
                 execution_mode=result.execution_mode,
+                resolved_execution_mode=result.resolved_execution_mode,
                 document_count=result.document_count,
                 total_characters=result.total_characters,
             )

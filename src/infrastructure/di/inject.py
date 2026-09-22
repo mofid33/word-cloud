@@ -15,6 +15,7 @@ class DependencyResolutionError(RuntimeError):
 
 _registry: dict[type, type] = {}
 _singletons: dict[type, Any] = {}
+_generation = 0
 _lock = RLock()
 
 
@@ -96,7 +97,14 @@ def inject(cls: T) -> T:
     return cast(T, cls)
 
 
+def get_di_generation() -> int:
+    with _lock:
+        return _generation
+
+
 def reset_di_state() -> None:
+    global _generation
     with _lock:
         _registry.clear()
         _singletons.clear()
+        _generation += 1

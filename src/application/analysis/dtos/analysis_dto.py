@@ -47,6 +47,7 @@ class AnalysisValidationResponseDto(BaseModel):
     valid: bool = True
     analysis_type: AnalysisType
     execution_mode: ExecutionMode
+    resolved_execution_mode: ExecutionMode
     document_count: int = Field(ge=1)
     total_characters: int = Field(ge=1)
 
@@ -54,3 +55,7 @@ class AnalysisValidationResponseDto(BaseModel):
 class ApiErrorDto(BaseModel):
     code: str
     message: str
+
+
+class ApiErrorEnvelopeDto(BaseModel):
+    detail: ApiErrorDto

@@ -4,7 +4,9 @@ import importlib
 import inspect
 from pathlib import Path
 
-from fastapi import APIRouter, FastAPI
+from fastapi import APIRouter, FastAPI, Request, status
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 
 from src.infrastructure.di.inject import inject, resolve
 from src.infrastructure.utils.config_reader import ConfigReader
@@ -79,6 +81,22 @@ class WebService:
             ),
             version=str(self._config.get("app.version", "0.1.0")),
         )
+
+        @app.exception_handler(RequestValidationError)
+        async def request_validation_error_handler(
+            _request: Request,
+            _exc: RequestValidationError,
+        ) -> JSONResponse:
+            return JSONResponse(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                content={
+                    "detail": {
+                        "code": "request_validation_error",
+                        "message": "Request payload validation failed",
+                    }
+                },
+            )
+
         prefix = self._config.get_api_prefix()
         for controller_type in self.discover_controllers():
             controller = resolve(controller_type)

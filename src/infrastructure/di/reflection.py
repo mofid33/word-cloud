@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import importlib
+import inspect
 import pkgutil
 from collections.abc import Iterable
+from types import ModuleType
+
+from src.infrastructure.di.inject import register_provider
 
 
 DEFAULT_SCAN_PACKAGES = (
@@ -42,24 +46,31 @@ def iter_modules(package_name: str) -> Iterable[str]:
     return modules
 
 
+def _register_cached_module_providers(module: ModuleType) -> None:
+    for candidate in vars(module).values():
+        if (
+            inspect.isclass(candidate)
+            and candidate.__module__ == module.__name__
+            and getattr(candidate, "__di_provider__", False)
+        ):
+            register_provider(candidate)
+
+
 def import_discoverable_modules(
     packages: Iterable[str] = DEFAULT_SCAN_PACKAGES,
 ) -> tuple[str, ...]:
     imported: list[str] = []
-    errors: list[tuple[str, Exception]] = []
 
     for package_name in packages:
         for module_name in iter_modules(package_name):
             try:
-                importlib.import_module(module_name)
-                imported.append(module_name)
-            except Exception as exc:
-                errors.append((module_name, exc))
+                module = importlib.import_module(module_name)
+            except Exception:
+                # The reference architecture intentionally skips an import
+                # failure in one discoverable module and continues scanning.
+                continue
 
-    if errors:
-        details = "; ".join(
-            f"{name}: {type(exc).__name__}: {exc}" for name, exc in errors
-        )
-        raise ImportError(f"DI discovery failed: {details}")
+            _register_cached_module_providers(module)
+            imported.append(module_name)
 
     return tuple(imported)
