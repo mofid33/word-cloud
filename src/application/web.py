@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import importlib
 import inspect
-import pkgutil
+from pathlib import Path
 
 from fastapi import APIRouter, FastAPI
 
@@ -20,35 +20,53 @@ class WebService:
         package_name: str = "src.application",
     ) -> list[type]:
         package = importlib.import_module(package_name)
-        paths = getattr(package, "__path__", None)
-        if paths is None:
+        package_paths = getattr(package, "__path__", None)
+        if package_paths is None:
             return []
 
         controllers: list[type] = []
-        for feature in pkgutil.iter_modules(paths):
-            if not feature.ispkg or feature.name.startswith("_"):
-                continue
-            module_name = (
-                f"{package_name}.{feature.name}."
-                f"{feature.name}_controller"
-            )
-            try:
-                module = importlib.import_module(module_name)
-            except ModuleNotFoundError as exc:
-                if exc.name == module_name:
-                    continue
-                raise
+        imported_modules: set[str] = set()
 
-            expected_name = (
-                "".join(part.title() for part in feature.name.split("_"))
-                + "Controller"
-            )
-            controller = getattr(module, expected_name, None)
-            if (
-                inspect.isclass(controller)
-                and controller.__name__.endswith("Controller")
-            ):
-                controllers.append(controller)
+        for package_path in sorted(str(path) for path in package_paths):
+            root = Path(package_path)
+            if not root.is_dir():
+                continue
+
+            for feature_path in sorted(root.iterdir(), key=lambda path: path.name):
+                if not feature_path.is_dir() or feature_path.name.startswith("_"):
+                    continue
+
+                feature_name = feature_path.name
+                controller_file = (
+                    feature_path / f"{feature_name}_controller.py"
+                )
+                if not controller_file.is_file():
+                    continue
+
+                module_name = (
+                    f"{package_name}.{feature_name}."
+                    f"{feature_name}_controller"
+                )
+                if module_name in imported_modules:
+                    continue
+
+                module = importlib.import_module(module_name)
+                imported_modules.add(module_name)
+
+                expected_name = (
+                    "".join(
+                        part.title()
+                        for part in feature_name.split("_")
+                    )
+                    + "Controller"
+                )
+                controller = getattr(module, expected_name, None)
+                if (
+                    inspect.isclass(controller)
+                    and controller.__name__.endswith("Controller")
+                ):
+                    controllers.append(controller)
+
         return controllers
 
     def create_app(self) -> FastAPI:
