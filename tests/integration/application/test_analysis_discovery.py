@@ -17,8 +17,12 @@ class AnalysisDiscoveryTests(unittest.TestCase):
         self.assertIn("AnalysisController", controller_names)
 
         app = web.create_app()
-        paths = {route.path for route in app.routes}
-        self.assertIn("/api/v1/analysis/validate", paths)
+        openapi_paths = app.openapi()["paths"]
+        self.assertIn("/api/v1/analysis/validate", openapi_paths)
+        self.assertIn(
+            "post",
+            openapi_paths["/api/v1/analysis/validate"],
+        )
 
 
 if __name__ == "__main__":
