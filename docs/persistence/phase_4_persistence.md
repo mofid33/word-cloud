@@ -1,7 +1,7 @@
 # Phase 4 — Database & Persistence
 
-Status: IMPLEMENTED_AWAITING_LOCAL_VERIFICATION
-Date: 2026-09-22
+Status: COMPLETE
+Completed: 2026-09-22
 
 ## Scope implemented
 
@@ -25,11 +25,27 @@ Complete result persistence uses one `AsyncSession` and one commit. Existing res
 
 `AnalysisDocument.raw_text` is nullable. Repository persistence defaults to `persist_raw_text=False`. For `SOLDIER_CONCERN`, setting it to true raises before any database write.
 
-## Local verification
+## Completion evidence
 
-Phase 4 is not CLOSED until PostgreSQL integration tests pass locally. Use a dedicated database whose name contains `test`; the destructive integration tests reject other database names.
+Phase 4 was closed after verification on the local Windows development environment with a dedicated PostgreSQL test database:
 
-Use the actual credentials for your local PostgreSQL instance. Do not copy example passwords into source control.
+- `python -m compileall -q src tests` completed successfully.
+- Unit persistence/model tests passed.
+- PostgreSQL repository integration tests passed.
+- Raw-text default non-persistence test passed.
+- `SOLDIER_CONCERN` raw-text persistence rejection test passed.
+- Atomic result-graph persistence test passed.
+- Transaction rollback test passed.
+- Alembic upgrade/downgrade migration test passed against PostgreSQL.
+- Phase 4 persistence suite: 5 tests passed.
+- Full regression suite: 79 tests passed, 0 failures, 0 errors.
+- Existing Phase 1–3 API, DI, startup, architecture, requirements and service tests remained green.
+
+## Local verification commands
+
+Use a dedicated database whose name contains `test`; the destructive integration tests reject other database names.
+
+Use the actual credentials for your local PostgreSQL instance. Do not copy passwords into source control.
 
 ```powershell
 $env:TEST_DATABASE_URL = "postgresql+asyncpg://postgres:<YOUR_POSTGRES_PASSWORD>@localhost:5432/word_cloud_test"
@@ -52,3 +68,5 @@ Migration runner:
 python src/infrastructure/scripts/run_migrations.py --upgrade
 python src/infrastructure/scripts/run_migrations.py --downgrade
 ```
+
+PHASE_4_COMPLETE
