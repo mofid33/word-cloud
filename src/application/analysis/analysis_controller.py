@@ -30,7 +30,7 @@ class AnalysisController:
             response_model=AnalysisValidationResponseDto,
             status_code=status.HTTP_200_OK,
             responses={
-                status.HTTP_422_UNPROCESSABLE_ENTITY: {
+                status.HTTP_422_UNPROCESSABLE_CONTENT: {
                     "model": ApiErrorDto,
                     "description": "Request contract validation failed",
                 }
@@ -51,7 +51,7 @@ class AnalysisController:
                 )
             except AnalysisRequestValidationError as exc:
                 raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                     detail={
                         "code": exc.code,
                         "message": exc.message,
