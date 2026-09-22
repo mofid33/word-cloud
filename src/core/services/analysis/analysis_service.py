@@ -21,9 +21,8 @@ class AnalysisRequestValidationError(ValueError):
 
 
 class AnalysisNotFoundError(LookupError):
-    def __init__(self, analysis_id: str):
+    def __init__(self):
         super().__init__("Analysis was not found")
-        self.analysis_id = analysis_id
         self.code = "analysis_not_found"
         self.message = "Analysis was not found"
 
@@ -200,7 +199,7 @@ class AnalysisService:
             analysis_id
         )
         if analysis is None:
-            raise AnalysisNotFoundError(analysis_id)
+            raise AnalysisNotFoundError()
         return self._status_result(analysis)
 
     async def get_result_async(
@@ -211,7 +210,7 @@ class AnalysisService:
             analysis_id
         )
         if analysis is None:
-            raise AnalysisNotFoundError(analysis_id)
+            raise AnalysisNotFoundError()
 
         if analysis.status == "failed":
             raise AnalysisResultUnavailableError(

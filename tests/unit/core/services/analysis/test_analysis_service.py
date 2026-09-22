@@ -304,6 +304,7 @@ class AnalysisServiceTests(unittest.TestCase):
         )
         self.assertNotIn(raw_marker, str(context.exception))
         self.assertNotIn(raw_marker, context.exception.message)
+        self.assertFalse(hasattr(context.exception, "analysis_id"))
 
     def test_result_is_conflict_until_analysis_is_completed(self) -> None:
         asyncio.run(

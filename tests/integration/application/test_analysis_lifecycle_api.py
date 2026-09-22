@@ -208,6 +208,47 @@ class AnalysisLifecycleApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["metrics"]["document_count"], 1)
         self.assertEqual(result["profile_result"]["kind"], "course")
 
+    async def test_failed_status_returns_nested_error_contract(self) -> None:
+        create_response = await self.client.post(
+            "/api/v1/analysis",
+            json={
+                "analysis_type": "COURSE",
+                "execution_mode": "sync",
+                "documents": [
+                    {
+                        "document_id": "doc-failed",
+                        "text": "متن فارسی",
+                    }
+                ],
+            },
+        )
+        self.assertEqual(create_response.status_code, 201)
+        analysis_id = create_response.json()["analysis_id"]
+
+        failed = await self.repository.mark_failed_async(
+            analysis_id,
+            error_code="processing_error",
+            error_message="Analysis processing failed safely",
+        )
+        self.assertIsNotNone(failed)
+
+        status_response = await self.client.get(
+            f"/api/v1/analysis/{analysis_id}"
+        )
+
+        self.assertEqual(status_response.status_code, 200)
+        body = status_response.json()
+        self.assertEqual(body["status"], "failed")
+        self.assertEqual(
+            body["error"],
+            {
+                "code": "processing_error",
+                "message": "Analysis processing failed safely",
+            },
+        )
+        self.assertNotIn("error_code", body)
+        self.assertNotIn("error_message", body)
+
     async def test_soldier_create_does_not_persist_free_form_request_fields(
         self,
     ) -> None:
