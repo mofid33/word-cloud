@@ -113,6 +113,9 @@ class AnalysisLifecycleApiTests(unittest.IsolatedAsyncioTestCase):
         analysis_id = created["analysis_id"]
         self.assertEqual(created["status"], "pending")
         self.assertEqual(created["execution_mode"], "sync")
+        self.assertIsNone(created["error"])
+        self.assertNotIn("error_code", created)
+        self.assertNotIn("error_message", created)
 
         status_response = await self.client.get(
             f"/api/v1/analysis/{analysis_id}"
@@ -194,6 +197,9 @@ class AnalysisLifecycleApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result_response.status_code, 200)
         result = result_response.json()
         self.assertEqual(result["analysis"]["status"], "completed")
+        self.assertIsNone(result["analysis"]["error"])
+        self.assertNotIn("error_code", result["analysis"])
+        self.assertNotIn("error_message", result["analysis"])
         self.assertEqual(result["keywords"][0]["rank"], 1)
         self.assertEqual(
             result["topics"][0]["keywords"][0]["text"],

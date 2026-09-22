@@ -74,10 +74,9 @@ class AnalysisExecutionPolicyService:
             text = str(document.get("text", ""))
             character_count = len(text)
             if character_count > max_characters_per_document:
-                document_id = str(document.get("document_id", "unknown"))
                 raise AnalysisExecutionPolicyError(
                     "max_document_characters_exceeded",
-                    f"Document '{document_id}' contains {character_count} characters; "
+                    f"A document contains {character_count} characters; "
                     f"maximum allowed is {max_characters_per_document}",
                 )
             total_characters += character_count

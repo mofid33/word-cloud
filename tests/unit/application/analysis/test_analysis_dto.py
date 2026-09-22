@@ -2,7 +2,10 @@ import unittest
 
 from pydantic import ValidationError
 
-from src.application.analysis.dtos.analysis_dto import AnalysisRequestDto
+from src.application.analysis.dtos.analysis_dto import (
+    AnalysisRequestDto,
+    AnalysisStatusResponseDto,
+)
 
 
 class AnalysisDtoTests(unittest.TestCase):
@@ -53,6 +56,35 @@ class AnalysisDtoTests(unittest.TestCase):
                     ],
                 }
             )
+
+    def test_status_response_uses_nested_error_contract(self) -> None:
+        dto = AnalysisStatusResponseDto.model_validate(
+            {
+                "analysis_id": "analysis-1",
+                "analysis_type": "COURSE",
+                "status": "failed",
+                "execution_mode": "sync",
+                "reference": None,
+                "model_version": None,
+                "scoring_version": None,
+                "created_at": "2026-09-22T12:00:00Z",
+                "started_at": None,
+                "completed_at": "2026-09-22T12:01:00Z",
+                "error": {
+                    "code": "analysis_processing_failed",
+                    "message": "Analysis processing failed",
+                },
+            }
+        )
+
+        body = dto.model_dump(mode="json")
+        self.assertIn("error", body)
+        self.assertEqual(
+            body["error"]["code"],
+            "analysis_processing_failed",
+        )
+        self.assertNotIn("error_code", body)
+        self.assertNotIn("error_message", body)
 
     def test_rejects_unknown_fields(self) -> None:
         with self.assertRaises(ValidationError):

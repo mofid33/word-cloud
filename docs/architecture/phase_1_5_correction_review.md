@@ -1,7 +1,7 @@
 # Phase 1–5 Finalization Review
 
 Date: 2026-09-22
-Status: COMPLETE — READY_FOR_PHASE_6
+Status: PHASE_3_CORRECTED_AWAITING_REVERIFICATION
 
 ## References
 
@@ -36,7 +36,13 @@ Correction implemented:
 
 The create route currently creates a real pending lifecycle resource. Phase 10 and Phase 12 extend the same workflow with real processing/queue dispatch rather than replacing the HTTP contract.
 
-Status: CLOSED and verified.
+Additional final-audit corrections:
+- external analysis metadata now exposes the frozen `error` field instead of `error_code`/`error_message`;
+- per-document limit errors no longer interpolate caller-controlled document IDs;
+- metadata raw-text detection covers nested keys/values and wrapped copies;
+- analysis-not-found exceptions no longer use caller-controlled IDs as exception messages.
+
+Status: IMPLEMENTED, awaiting regression re-verification.
 
 ## Phase 4
 
@@ -67,7 +73,7 @@ Verified locally on 2026-09-22:
 - failures: 0;
 - errors: 0.
 
-All known Phase 1–5 blockers identified in repeated audits are closed.
+The previous 126-test verification predates the final Phase 3 corrections above. Phase 1, 2, 4 and 5 remain closed; Phase 3 must pass a fresh regression gate before the project is marked ready for Phase 6.
 
 ## Reproduction commands
 
@@ -95,10 +101,10 @@ Expected:
 Current phase status:
 - Phase 1 — CLOSED.
 - Phase 2 — CLOSED.
-- Phase 3 — CLOSED.
+- Phase 3 — IMPLEMENTED_AWAITING_REVERIFICATION.
 - Phase 4 — CLOSED.
 - Phase 5 — CLOSED.
 
 Readiness marker:
 
-`PHASE_1_5_COMPLETE_READY_FOR_PHASE_6`
+`PHASE_3_FINAL_CORRECTIONS_AWAITING_REVERIFICATION`

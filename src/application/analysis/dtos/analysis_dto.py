@@ -60,6 +60,13 @@ class AnalysisValidationResponseDto(BaseModel):
     total_characters: int = Field(ge=1)
 
 
+class AnalysisErrorResponseDto(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    code: str
+    message: str
+
+
 class AnalysisStatusResponseDto(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -73,8 +80,7 @@ class AnalysisStatusResponseDto(BaseModel):
     created_at: datetime
     started_at: datetime | None
     completed_at: datetime | None
-    error_code: str | None
-    error_message: str | None
+    error: AnalysisErrorResponseDto | None
 
 
 class AnalysisKeywordResponseDto(BaseModel):

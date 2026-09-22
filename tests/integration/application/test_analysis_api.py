@@ -62,7 +62,7 @@ class AnalysisApiTests(unittest.TestCase):
         )
         self.assertNotIn(raw_text_marker, response.text)
 
-    def test_raw_text_repeated_in_metadata_returns_sanitized_422(self) -> None:
+    def test_raw_text_embedded_in_metadata_returns_sanitized_422(self) -> None:
         raw_text = "SENSITIVE-SOLDIER-CONTENT"
         response = self.client.post(
             "/api/v1/analysis/validate",
@@ -73,7 +73,11 @@ class AnalysisApiTests(unittest.TestCase):
                     {
                         "document_id": "concern-1",
                         "text": raw_text,
-                        "metadata": {"copy": raw_text},
+                        "metadata": {
+                            "nested": {
+                                "copy": f"prefix {raw_text} suffix"
+                            }
+                        },
                     }
                 ],
             },
@@ -84,7 +88,30 @@ class AnalysisApiTests(unittest.TestCase):
             response.json()["detail"]["code"],
             "raw_text_repeated_in_metadata",
         )
-        self.assertNotIn(raw_text, response.json()["detail"]["message"])
+        self.assertNotIn(raw_text, response.text)
+
+    def test_user_controlled_document_id_is_not_echoed_in_limit_error(self) -> None:
+        secret_id = "TOP-SECRET-DOCUMENT-ID"
+        response = self.client.post(
+            "/api/v1/analysis/validate",
+            json={
+                "analysis_type": "COURSE",
+                "execution_mode": "async",
+                "documents": [
+                    {
+                        "document_id": secret_id,
+                        "text": "x" * 500001,
+                    }
+                ],
+            },
+        )
+
+        self.assertEqual(response.status_code, 413)
+        self.assertEqual(
+            response.json()["detail"]["code"],
+            "max_document_characters_exceeded",
+        )
+        self.assertNotIn(secret_id, response.text)
 
     def test_lifecycle_routes_are_mounted_in_openapi(self) -> None:
         paths = self.client.app.openapi()["paths"]

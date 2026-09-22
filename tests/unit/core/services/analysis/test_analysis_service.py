@@ -141,7 +141,8 @@ class AnalysisServiceTests(unittest.TestCase):
         self.assertEqual(result.execution_mode, "auto")
         self.assertEqual(result.resolved_execution_mode, "sync")
 
-    def test_rejects_raw_text_repeated_inside_metadata(self) -> None:
+    def test_rejects_raw_text_embedded_inside_metadata_value(self) -> None:
+        raw_text = "متن محرمانه"
         with self.assertRaises(AnalysisRequestValidationError) as context:
             asyncio.run(
                 self.service.validate_async(
@@ -150,9 +151,11 @@ class AnalysisServiceTests(unittest.TestCase):
                     documents=[
                         {
                             "document_id": "concern-1",
-                            "text": "متن محرمانه",
+                            "text": raw_text,
                             "metadata": {
-                                "nested": {"copy": "متن محرمانه"}
+                                "nested": {
+                                    "copy": f"prefix {raw_text} suffix"
+                                }
                             },
                         }
                     ],
@@ -163,7 +166,32 @@ class AnalysisServiceTests(unittest.TestCase):
             context.exception.code,
             "raw_text_repeated_in_metadata",
         )
-        self.assertNotIn("متن محرمانه", context.exception.message)
+        self.assertNotIn(raw_text, context.exception.message)
+
+    def test_rejects_raw_text_embedded_inside_metadata_key(self) -> None:
+        raw_text = "PRIVATE-CONTENT"
+        with self.assertRaises(AnalysisRequestValidationError) as context:
+            asyncio.run(
+                self.service.validate_async(
+                    analysis_type="SOLDIER_CONCERN",
+                    execution_mode="sync",
+                    documents=[
+                        {
+                            "document_id": "concern-1",
+                            "text": raw_text,
+                            "metadata": {
+                                f"prefix-{raw_text}-suffix": "safe"
+                            },
+                        }
+                    ],
+                )
+            )
+
+        self.assertEqual(
+            context.exception.code,
+            "raw_text_repeated_in_metadata",
+        )
+        self.assertNotIn(raw_text, context.exception.message)
 
     def test_execution_policy_error_is_not_swallowed(self) -> None:
         with self.assertRaises(AnalysisExecutionPolicyError) as context:
@@ -259,14 +287,23 @@ class AnalysisServiceTests(unittest.TestCase):
         )
 
         self.assertEqual(result.analysis.status, "completed")
+        self.assertIsNone(result.analysis.error)
         self.assertEqual(result.keywords[0].rank, 1)
         self.assertEqual(result.topics[0].keywords[0].text, "هوش مصنوعی")
         self.assertEqual(result.metrics["document_count"], 1)
         self.assertEqual(result.profile_result["kind"], "course")
 
-    def test_get_status_unknown_analysis_raises(self) -> None:
-        with self.assertRaises(AnalysisNotFoundError):
-            asyncio.run(self.service.get_status_async("missing"))
+    def test_get_status_unknown_analysis_error_is_sanitized(self) -> None:
+        raw_marker = "TOP-SECRET-AS-ANALYSIS-ID"
+        with self.assertRaises(AnalysisNotFoundError) as context:
+            asyncio.run(self.service.get_status_async(raw_marker))
+
+        self.assertEqual(
+            context.exception.code,
+            "analysis_not_found",
+        )
+        self.assertNotIn(raw_marker, str(context.exception))
+        self.assertNotIn(raw_marker, context.exception.message)
 
     def test_result_is_conflict_until_analysis_is_completed(self) -> None:
         asyncio.run(

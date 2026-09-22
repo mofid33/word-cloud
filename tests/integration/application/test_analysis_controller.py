@@ -242,12 +242,48 @@ class AnalysisControllerTests(unittest.TestCase):
         )
 
         self.assertEqual(response.analysis.status.value, "completed")
+        self.assertIsNone(response.analysis.error)
         self.assertEqual(response.keywords[0].rank, 1)
         self.assertEqual(
             response.topics[0].keywords[0].text,
             "هوش مصنوعی",
         )
         self.assertEqual(response.metrics["document_count"], 1)
+
+    def test_failed_status_maps_internal_error_to_nested_error_contract(self) -> None:
+        now = datetime.now(UTC)
+        self.repository.analysis = SimpleNamespace(
+            id="analysis-1",
+            analysis_type="COURSE",
+            status="failed",
+            execution_mode="sync",
+            reference=None,
+            model_version=None,
+            scoring_version=None,
+            created_at=now,
+            started_at=now,
+            completed_at=now,
+            error_code="analysis_processing_failed",
+            error_message="Analysis processing failed",
+            keywords=[],
+            topics=[],
+            metrics={},
+            profile_result={},
+        )
+
+        response = asyncio.run(
+            self._endpoint("/{analysis_id}", "GET")("analysis-1")
+        )
+
+        self.assertEqual(response.status.value, "failed")
+        self.assertIsNotNone(response.error)
+        self.assertEqual(
+            response.error.code,
+            "analysis_processing_failed",
+        )
+        body = response.model_dump(mode="json")
+        self.assertNotIn("error_code", body)
+        self.assertNotIn("error_message", body)
 
     def test_status_not_found_maps_to_404(self) -> None:
         with self.assertRaises(HTTPException) as context:

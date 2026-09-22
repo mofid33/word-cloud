@@ -22,7 +22,8 @@ class AnalysisRequestValidationError(ValueError):
 
 class AnalysisNotFoundError(LookupError):
     def __init__(self, analysis_id: str):
-        super().__init__(analysis_id)
+        super().__init__("Analysis was not found")
+        self.analysis_id = analysis_id
         self.code = "analysis_not_found"
         self.message = "Analysis was not found"
 
@@ -44,6 +45,12 @@ class AnalysisValidationResult:
 
 
 @dataclass(frozen=True)
+class AnalysisErrorResult:
+    code: str
+    message: str
+
+
+@dataclass(frozen=True)
 class AnalysisStatusResult:
     analysis_id: str
     analysis_type: str
@@ -55,8 +62,7 @@ class AnalysisStatusResult:
     created_at: datetime
     started_at: datetime | None
     completed_at: datetime | None
-    error_code: str | None
-    error_message: str | None
+    error: AnalysisErrorResult | None
 
 
 @dataclass(frozen=True)
@@ -131,7 +137,7 @@ class AnalysisService:
         for document in documents:
             raw_text = str(document["text"])
             metadata = document.get("metadata") or {}
-            if self._contains_exact_text(metadata, raw_text):
+            if self._contains_raw_text(metadata, raw_text):
                 raise AnalysisRequestValidationError(
                     "raw_text_repeated_in_metadata",
                     "Document metadata must not repeat the document raw text",
@@ -273,6 +279,13 @@ class AnalysisService:
 
     @staticmethod
     def _status_result(analysis: Any) -> AnalysisStatusResult:
+        error: AnalysisErrorResult | None = None
+        if analysis.error_code is not None or analysis.error_message is not None:
+            error = AnalysisErrorResult(
+                code=analysis.error_code or "analysis_error",
+                message=analysis.error_message or "Analysis failed",
+            )
+
         return AnalysisStatusResult(
             analysis_id=analysis.id,
             analysis_type=analysis.analysis_type,
@@ -284,22 +297,24 @@ class AnalysisService:
             created_at=analysis.created_at,
             started_at=analysis.started_at,
             completed_at=analysis.completed_at,
-            error_code=analysis.error_code,
-            error_message=analysis.error_message,
+            error=error,
         )
 
     @classmethod
-    def _contains_exact_text(cls, value: Any, raw_text: str) -> bool:
+    def _contains_raw_text(cls, value: Any, raw_text: str) -> bool:
+        if not raw_text:
+            return False
         if isinstance(value, str):
-            return value == raw_text
+            return raw_text in value
         if isinstance(value, dict):
             return any(
-                cls._contains_exact_text(child, raw_text)
-                for child in value.values()
+                cls._contains_raw_text(key, raw_text)
+                or cls._contains_raw_text(child, raw_text)
+                for key, child in value.items()
             )
         if isinstance(value, (list, tuple)):
             return any(
-                cls._contains_exact_text(child, raw_text)
+                cls._contains_raw_text(child, raw_text)
                 for child in value
             )
         return False

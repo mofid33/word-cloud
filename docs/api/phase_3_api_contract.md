@@ -1,6 +1,6 @@
 # Phase 3 — API & DTO Contract
 
-Status: COMPLETE
+Status: IMPLEMENTED_AWAITING_REVERIFICATION
 Correction: 2026-09-22
 
 ## Executable routes
@@ -45,6 +45,8 @@ Core validation enforces:
 - `auto` resolution to `sync` or `async`.
 
 FastAPI/Pydantic errors are normalized to a sanitized envelope and raw request text is not echoed.
+
+User-controlled identifiers are never interpolated into domain/policy exception messages. Metadata validation recursively checks keys and values and rejects any string that contains the complete document raw text, including nested or wrapped copies.
 
 For `SOLDIER_CONCERN`, persistence applies an additional defense-in-depth boundary: raw text, request metadata, request options, role and free-form `reference` are not persisted; caller-provided document IDs are persisted only as SHA-256 identifiers and persisted failure error code/message are generic.
 
@@ -106,6 +108,17 @@ Topic fields include:
 - coverage
 - representative keywords with relevance score
 
+Analysis metadata exposes the Phase 1 `error` field as either `null` or:
+
+```json
+{
+  "code": "stable_error_code",
+  "message": "sanitized message"
+}
+```
+
+Persistence may keep `error_code` and `error_message` internally, but those columns are mapped to the single external `error` field and are not exposed as top-level API fields.
+
 ## Tests
 
 Coverage includes:
@@ -118,20 +131,13 @@ Coverage includes:
 - route discovery/OpenAPI;
 - real HTTP lifecycle integration against PostgreSQL;
 - stable 413/422/404/409 mapping;
-- privacy-safe errors;
+- privacy-safe errors, including user-controlled identifier sanitization;
+- recursive metadata raw-text protection;
+- Phase 1 nested `error` output mapping;
 - execution-mode resolution.
 
-## Final verification evidence
-
-Verified locally on 2026-09-22:
-- lifecycle API integration against PostgreSQL: 3 tests passed;
-- controller/API/unit coverage passed;
-- completed structured-result mapping passed;
-- full regression suite: 126 tests passed;
-- failures: 0;
-- errors: 0;
-- source and tests compiled successfully.
+The previous 126-test gate predates these final Phase 3 corrections. A fresh compile and full regression are required before Phase 3 is re-closed.
 
 Current marker:
 
-`PHASE_3_COMPLETE`
+`PHASE_3_IMPLEMENTED_AWAITING_REVERIFICATION`

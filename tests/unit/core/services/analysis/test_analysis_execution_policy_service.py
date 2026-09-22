@@ -87,13 +87,18 @@ class AnalysisExecutionPolicyServiceTests(unittest.TestCase):
 
         self.assertEqual(context.exception.code, "max_documents_exceeded")
 
-    def test_hard_per_document_character_limit_is_enforced(self) -> None:
+    def test_hard_per_document_character_limit_is_enforced_without_user_data(self) -> None:
+        raw_text = "x" * 11
+        user_controlled_id = "TOP-SECRET-DOCUMENT-ID"
         with self.assertRaises(AnalysisExecutionPolicyError) as context:
             asyncio.run(
                 self._service().evaluate_async(
                     execution_mode="async",
                     documents=[
-                        {"document_id": "long", "text": "x" * 11},
+                        {
+                            "document_id": user_controlled_id,
+                            "text": raw_text,
+                        },
                     ],
                 )
             )
@@ -102,7 +107,8 @@ class AnalysisExecutionPolicyServiceTests(unittest.TestCase):
             context.exception.code,
             "max_document_characters_exceeded",
         )
-        self.assertNotIn("x" * 11, context.exception.message)
+        self.assertNotIn(raw_text, context.exception.message)
+        self.assertNotIn(user_controlled_id, context.exception.message)
 
     def test_hard_total_character_limit_is_enforced(self) -> None:
         with self.assertRaises(AnalysisExecutionPolicyError) as context:
