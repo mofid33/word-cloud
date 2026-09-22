@@ -17,20 +17,28 @@ class ConfigReader:
         self._config_dir = config_dir or (
             Path(__file__).resolve().parents[2] / "host" / "res"
         )
-        self._env_type = (env_type or os.getenv("ENV_TYPE", "development")).lower()
+        self._env_type = (env_type or os.getenv("ENV_TYPE", "development")).strip().lower()
         filename = (
             "appsettings.development.yaml"
             if self._env_type == "development"
             else "appsettings.yaml"
         )
-        path = self._config_dir / filename
-        if not path.is_file():
-            raise FileNotFoundError(f"Configuration file not found: {path}")
-        with path.open("r", encoding="utf-8") as stream:
+        self._path = self._config_dir / filename
+        if not self._path.is_file():
+            raise FileNotFoundError(f"Configuration file not found: {self._path}")
+        with self._path.open("r", encoding="utf-8") as stream:
             loaded = yaml.safe_load(stream) or {}
         if not isinstance(loaded, dict):
-            raise ValueError(f"Configuration root must be a mapping: {path}")
+            raise ValueError(f"Configuration root must be a mapping: {self._path}")
         self._data = loaded
+
+    @property
+    def environment(self) -> str:
+        return self._env_type
+
+    @property
+    def source_path(self) -> Path:
+        return self._path
 
     def get(self, key: str, default: Any = None) -> Any:
         current: Any = self._data
