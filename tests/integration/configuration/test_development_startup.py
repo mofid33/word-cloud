@@ -21,12 +21,12 @@ class DevelopmentStartupTests(unittest.TestCase):
             "Persian Semantic Text Analytics Service",
         )
 
-        route_paths = {
-            route.path
-            for route in app.routes
-            if hasattr(route, "path")
-        }
-        self.assertIn("/api/v1/analysis/validate", route_paths)
+        openapi_paths = app.openapi()["paths"]
+        self.assertIn("/api/v1/analysis/validate", openapi_paths)
+        self.assertIn(
+            "post",
+            openapi_paths["/api/v1/analysis/validate"],
+        )
 
 
 if __name__ == "__main__":
