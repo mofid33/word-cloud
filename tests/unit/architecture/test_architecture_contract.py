@@ -29,7 +29,7 @@ class ArchitectureContractTests(unittest.TestCase):
         phase = self.architecture["phase"]
         self.assertEqual(phase, {
             "number": 2,
-            "name": "Technical Architecture",
+            "name": "Technical Architecture + Runtime Foundation",
             "status": "FROZEN",
             "based_on_phase": 1,
         })
@@ -197,7 +197,7 @@ class ArchitectureContractTests(unittest.TestCase):
             "contract_tests_required",
         ):
             self.assertTrue(definition[key], key)
-        self.assertFalse(definition["runtime_implementation_created_in_phase_2"])
+        self.assertTrue(definition["runtime_implementation_created_in_phase_2"])
         self.assertFalse(definition["todos_allowed"])
 
     def test_contract_has_no_nulls_and_spec_has_no_unresolved_markers(self) -> None:
