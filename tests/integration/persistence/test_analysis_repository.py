@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import unittest
+from unittest.mock import patch
 
 from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
@@ -52,7 +53,12 @@ class AnalysisRepositoryIntegrationTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
         url = _test_database_url()
         assert url is not None
-        self.db_context = PsqlDbContext(_Config(url), _Vault())
+        with patch.dict(
+            os.environ,
+            {"DATABASE_URL": url},
+            clear=False,
+        ):
+            self.db_context = PsqlDbContext(_Config(url), _Vault())
         self.repository = WordCloudAnalysisRepository(self.db_context)
 
         async with self.db_context.engine.begin() as connection:
