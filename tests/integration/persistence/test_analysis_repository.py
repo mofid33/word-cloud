@@ -109,9 +109,44 @@ class AnalysisRepositoryIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(analysis.reference)
         self.assertEqual(analysis.options, {})
         self.assertEqual(len(analysis.documents), 1)
+        self.assertNotEqual(
+            analysis.documents[0].document_id,
+            "concern-privacy-1",
+        )
+        self.assertTrue(
+            analysis.documents[0].document_id.startswith("sha256:")
+        )
         self.assertEqual(analysis.documents[0].metadata_json, {})
         self.assertIsNone(analysis.documents[0].role)
         self.assertIsNone(analysis.documents[0].raw_text)
+
+    async def test_soldier_failure_message_is_sanitized_in_repository(self) -> None:
+        analysis = await self.repository.create_pending_async(
+            analysis_type="SOLDIER_CONCERN",
+            execution_mode="sync",
+            documents=[
+                {
+                    "document_id": "private-id",
+                    "text": "sensitive concern",
+                    "metadata": {},
+                }
+            ],
+        )
+
+        failed = await self.repository.mark_failed_async(
+            analysis.id,
+            error_code="processing_error",
+            error_message="sensitive concern",
+        )
+
+        assert failed is not None
+        self.assertEqual(failed.status, "failed")
+        self.assertEqual(failed.error_code, "processing_error")
+        self.assertEqual(
+            failed.error_message,
+            "Analysis processing failed",
+        )
+        self.assertNotIn("sensitive concern", failed.error_message)
 
     async def test_soldier_raw_text_persistence_is_rejected(self) -> None:
         with self.assertRaisesRegex(ValueError, "forbidden"):

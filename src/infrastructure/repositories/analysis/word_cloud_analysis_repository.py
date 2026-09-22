@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from hashlib import sha256
 from typing import Any
 from uuid import uuid4
 
@@ -52,7 +53,10 @@ class WordCloudAnalysisRepository(BaseRepository[WordCloudAnalysis]):
             )
             analysis.documents.append(
                 AnalysisDocument(
-                    document_id=str(document["document_id"]),
+                    document_id=self._persisted_document_id(
+                        analysis_type,
+                        str(document["document_id"]),
+                    ),
                     role=(
                         None
                         if is_soldier_concern
@@ -114,12 +118,20 @@ class WordCloudAnalysisRepository(BaseRepository[WordCloudAnalysis]):
         error_code: str,
         error_message: str,
     ) -> WordCloudAnalysis | None:
+        analysis = await self.get_by_id_async(analysis_id)
+        if analysis is None:
+            return None
+
+        persisted_message = error_message
+        if analysis.analysis_type == "SOLDIER_CONCERN":
+            persisted_message = "Analysis processing failed"
+
         return await self._update_lifecycle_async(
             analysis_id,
             status="failed",
             completed_at=datetime.now(UTC),
             error_code=error_code,
-            error_message=error_message,
+            error_message=persisted_message,
         )
 
     async def save_result_atomically_async(
@@ -234,6 +246,16 @@ class WordCloudAnalysisRepository(BaseRepository[WordCloudAnalysis]):
         if saved is None:
             raise RuntimeError("Completed analysis could not be reloaded")
         return saved
+
+    @staticmethod
+    def _persisted_document_id(
+        analysis_type: str,
+        document_id: str,
+    ) -> str:
+        if analysis_type != "SOLDIER_CONCERN":
+            return document_id
+        digest = sha256(document_id.encode("utf-8")).hexdigest()
+        return f"sha256:{digest}"
 
     async def _update_lifecycle_async(
         self,
