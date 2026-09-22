@@ -275,3 +275,8 @@ Runtime Foundation پیاده‌سازی‌شده در این فاز:
 - WebService controller discovery را بر اساس convention اجرا کند.
 - application foundation در یک process تازه boot شود.
 - هیچ Analysis API، DB schema نهایی، concrete semantic provider یا queue implementation متعلق به Phaseهای بعدی به‌صورت fake ساخته نشده باشد.
+
+
+Status after successful compile, unit, integration and startup smoke verification:
+
+PHASE_2_COMPLETE
