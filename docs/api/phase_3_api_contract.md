@@ -1,65 +1,105 @@
 # Phase 3 — API & DTO Contract
 
 Status: FROZEN
-Implementation Status: COMPLETE
-Completed: 2026-09-22
+Implementation Status: PARTIAL
+Correction: 2026-09-22
 
-This phase implements the HTTP boundary that can be completed without inventing Phase 4 persistence or Phase 12 queue behavior.
+Phase 3 owns the HTTP contract, request/response DTOs, validation, error/status behavior and DTO mapping. Runtime behavior from later phases must not be faked merely to close this phase.
 
-## Executable endpoint
+## Implemented executable endpoint
 
-`POST /api/v1/analysis/validate`
-
-The endpoint validates the frozen request shape before analysis execution exists.
+\`POST /api/v1/analysis/validate\`
 
 Request fields:
-- `analysis_type`: `COURSE | SOLDIER_CONCERN | MEDIA`
-- `documents`: non-empty list
-- `execution_mode`: `auto | sync | async`
-- `reference`: optional
-- `options`: optional
+- \`analysis_type\`: \`COURSE | SOLDIER_CONCERN | MEDIA\`
+- \`documents\`: non-empty list
+- \`execution_mode\`: \`auto | sync | async\`
+- \`reference\`: optional
+- \`options\`: optional
 
 Each document:
-- `document_id`: non-blank string
-- `text`: non-blank string
-- `metadata`: optional object
+- \`document_id\`: non-blank string
+- \`text\`: non-blank string
+- \`metadata\`: optional object
 
-Cross-field rules implemented in Core:
-- document IDs are unique within the request.
-- MEDIA documents require `metadata.role` equal to `published_content` or `audience_feedback`.
+## Implemented validation behavior
 
-Success:
-- HTTP 200
-- returns validity plus document and character counts.
-- response never echoes raw document text.
+DTO/schema validation:
+- unknown fields are rejected.
+- blank \`document_id\` and \`text\` values are rejected.
+- malformed request payloads return sanitized HTTP 422 without echoing raw input.
 
-Errors:
-- malformed DTO/schema: FastAPI/Pydantic HTTP 422.
-- cross-field validation failure: HTTP 422 with stable `code` and `message`.
+Cross-field validation in Core:
+- document IDs must be unique within one request.
+- \`MEDIA\` documents require \`metadata.role\` equal to \`published_content\` or \`audience_feedback\`.
 
-## Deferred execution endpoints
+Execution policy validation in Core:
+- Phase 1 hard limits are read from runtime configuration and enforced.
+- \`auto\` resolves to \`sync\` only when both configured sync thresholds fit; otherwise it resolves to \`async\`.
+- explicit \`sync\` above the configured sync threshold is rejected.
+- hard-limit violations map to HTTP 413.
+- contract/policy validation violations map to HTTP 422.
 
-Create/status/result execution endpoints are not faked in Phase 3. They require the real persistence lifecycle from Phase 4 and async dispatch from Phase 12. Their concrete success behavior will be added only when those dependencies are real.
+Success response:
+- HTTP 200.
+- returns \`analysis_type\`, requested \`execution_mode\`, \`resolved_execution_mode\`, document count and total character count.
+- never echoes document text.
 
-No SQLAlchemy model, Repository, migration, queue implementation, NLP implementation, or in-memory persistence is introduced by Phase 3.
+Stable application error envelope:
 
-## Completion Evidence
+\`\`\`json
+{
+  "detail": {
+    "code": "stable_error_code",
+    "message": "sanitized message"
+  }
+}
+\`\`\`
 
-Phase 3 was closed after verification on the local Windows development environment:
+Pydantic/FastAPI request validation is normalized to:
 
-- `python -m compileall -q src tests` completed successfully.
-- HTTP API integration tests passed.
-- Controller tests passed.
-- Controller discovery and OpenAPI route mounting passed.
-- Phase 2 runtime foundation integration/startup tests passed.
-- DTO validation tests passed.
-- Core AnalysisService validation tests passed.
-- Architecture contract tests passed.
-- Phase 1 requirements contract tests passed.
-- Full directory-by-directory regression run reported `ALL TEST DIRECTORIES PASSED`.
-- 71 tests passed across the executed test directories.
-- OpenAPI exposed `/api/v1/analysis/validate`.
+\`\`\`json
+{
+  "detail": {
+    "code": "request_validation_error",
+    "message": "Request payload validation failed"
+  }
+}
+\`\`\`
 
-No Phase 4 persistence, SQLAlchemy model, Repository, migration, or Phase 12 queue implementation was introduced to close this phase.
+## Execution endpoints still open
 
-PHASE_3_COMPLETE
+The earlier repository state incorrectly marked Phase 3 complete while only the validation endpoint was implemented.
+
+The Analysis lifecycle contract still requires executable HTTP behavior for the product-level operations designed in the architecture:
+- create analysis;
+- retrieve analysis status;
+- retrieve structured analysis result.
+
+Those endpoints must not be closed with in-memory persistence, placeholder processing, fake queue providers, or temporary business behavior.
+
+Phase 4 now provides real persistence, but synchronous analysis completion still depends on the real analytics processing pipeline and asynchronous dispatch still belongs to Phase 12. Until the final route/status behavior can be implemented without violating those boundaries, Phase 3 remains open.
+
+## Verification after this correction
+
+The correction adds/changes tests for:
+- configuration-driven execution policy;
+- hard input limits;
+- auto sync/async resolution;
+- explicit sync threshold rejection;
+- HTTP 413/422 mapping;
+- sanitized schema-validation errors;
+- existing DTO/controller/API behavior.
+
+Run:
+
+\`\`\`powershell
+python -m compileall -q src tests
+python -m unittest discover -s tests/unit/core/services/analysis -p "test_*.py" -v
+python -m unittest discover -s tests/integration/application -p "test_*.py" -v
+python -m unittest discover -s tests -p "test_*.py" -v
+\`\`\`
+
+Current closure marker:
+
+\`PHASE_3_OPEN\`
