@@ -171,19 +171,25 @@ class RuntimeFoundationIntegrationTests(unittest.TestCase):
 
         HealthController.__module__ = "fixture_application.health.health_controller"
 
+        class FixtureWebService(WebService):
+            def discover_controllers(
+                self,
+                package_name: str = "src.application",
+            ) -> list[type]:
+                return [HealthController]
+
         with tempfile.TemporaryDirectory() as temp_dir:
             config_dir = Path(temp_dir)
             (config_dir / "appsettings.development.yaml").write_text(
                 "api:\n  prefix: /api/v1\n",
                 encoding="utf-8",
             )
-            service = WebService(
+            service = FixtureWebService(
                 ConfigReader(
                     config_dir=config_dir,
                     env_type="development",
                 )
             )
-            service.discover_controllers = lambda: [HealthController]
             app = service.create_app()
 
         paths = {
