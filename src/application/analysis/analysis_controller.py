@@ -40,7 +40,7 @@ class AnalysisController:
             response_model=AnalysisValidationResponseDto,
             status_code=status.HTTP_200_OK,
             responses={
-                status.HTTP_413_REQUEST_ENTITY_TOO_LARGE: {
+                status.HTTP_413_CONTENT_TOO_LARGE: {
                     "model": ApiErrorEnvelopeDto,
                     "description": "Configured analysis input limit exceeded",
                 },
@@ -65,7 +65,7 @@ class AnalysisController:
                 )
             except AnalysisExecutionPolicyError as exc:
                 http_status = (
-                    status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
+                    status.HTTP_413_CONTENT_TOO_LARGE
                     if exc.code in _PAYLOAD_TOO_LARGE_CODES
                     else status.HTTP_422_UNPROCESSABLE_CONTENT
                 )
