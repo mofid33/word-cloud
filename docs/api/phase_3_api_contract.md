@@ -114,7 +114,9 @@ Coverage includes:
 - create endpoint;
 - status 404;
 - result 409;
+- completed result 200 mapping;
 - route discovery/OpenAPI;
+- real HTTP lifecycle integration against PostgreSQL;
 - stable 413/422/404/409 mapping;
 - privacy-safe errors;
 - execution-mode resolution.

@@ -68,6 +68,7 @@ python -m unittest discover -s tests/unit/core/services/analysis -p "test_*.py" 
 python -m unittest discover -s tests/integration/application -p "test_*.py" -v
 
 $env:TEST_DATABASE_URL = "postgresql+asyncpg://postgres:<YOUR_POSTGRES_PASSWORD>@localhost:5432/word_cloud_test"
+python -m unittest tests.integration.application.test_analysis_lifecycle_api -v
 python -m unittest tests.integration.persistence.test_analysis_repository tests.integration.persistence.test_migration -v
 
 python -m unittest discover -s tests -p "test_*.py" -v
