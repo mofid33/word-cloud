@@ -93,6 +93,10 @@ class StatisticalAnalysisService:
                 raise ValueError(
                     "occurrence document_id is not present in document_ids"
                 )
+            if section_universe and occurrence.section_id is None:
+                raise ValueError(
+                    "all occurrences must contain section_id when section_keys are provided"
+                )
             if occurrence.section_id is not None:
                 if not section_universe:
                     raise ValueError(
@@ -102,6 +106,10 @@ class StatisticalAnalysisService:
                     raise ValueError(
                         "occurrence section boundary is not present in section_keys"
                     )
+            if chunk_universe and occurrence.chunk_id is None:
+                raise ValueError(
+                    "all occurrences must contain chunk_id when chunk_keys are provided"
+                )
             if occurrence.chunk_id is not None:
                 if not chunk_universe:
                     raise ValueError(
