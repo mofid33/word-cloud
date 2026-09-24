@@ -48,6 +48,16 @@ class CandidateStatisticalPipelineIntegrationTests(unittest.TestCase):
         results = statistical.analyze(
             occurrences,
             document_ids=("course-1", "course-2"),
+            section_keys=tuple(
+                (document.document_id, document.section_id)
+                for document in documents
+                if document.section_id is not None
+            ),
+            chunk_keys=tuple(
+                (document.document_id, document.chunk_id)
+                for document in documents
+                if document.chunk_id is not None
+            ),
         )
         by_key = {item.canonical_text: item for item in results}
 
