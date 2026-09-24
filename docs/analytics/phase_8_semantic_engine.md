@@ -250,3 +250,37 @@ For production-like verification, pre-populate the configured model cache becaus
 Current marker:
 
 PHASE_8_IMPLEMENTED_AWAITING_LOCAL_VERIFICATION
+
+
+## Local verification correction — DI namespace discovery
+
+Local verification on 2026-09-24 exposed a Phase 2 discovery defect before model inference started.
+
+Observed failure:
+
+- compile: PASS;
+- SemanticAnalysisService unit suite: 5 PASS;
+- semantic provider config/batching suite: 6 PASS;
+- real Phase 6 → 7 → 8 integration: FAIL during DI resolution;
+- semantic benchmark: FAIL during DI resolution;
+- full regression: 208 tests executed with exactly 2 errors, both caused by the same missing EmbeddingProvider registration.
+
+Root cause:
+
+`src/infrastructure/providers/semantic` follows the repository namespace-package convention and intentionally has no `__init__.py`. The existing `pkgutil.walk_packages` based DI discovery did not recurse into namespace-only subdirectories. The Persian NLP provider had hidden this limitation because it was imported by `PersianTextProcessor`, causing registration as an import side effect. Semantic concrete providers have no such Core import, so they were never imported or registered.
+
+Correction:
+
+- `src/infrastructure/di/reflection.py` now discovers Python modules by recursively walking the actual package paths and constructing importable module names;
+- excluded runtime areas remain excluded;
+- module ordering is deterministic;
+- no manual provider registration was added;
+- no artificial runtime `__init__.py` was added;
+- integration coverage now proves discovery through a namespace-only provider subpackage;
+- Phase 8 coverage now resolves `EmbeddingProvider` and `RerankerProvider` through real bootstrap without loading models.
+
+Phase 8 remains:
+
+`PHASE_8_IMPLEMENTED_AWAITING_LOCAL_VERIFICATION`
+
+A new local compile, focused DI test, real-model integration, benchmark and full regression are required after pulling this correction.
