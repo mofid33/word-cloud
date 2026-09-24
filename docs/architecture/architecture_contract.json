@@ -73,7 +73,9 @@
       "src/infrastructure/models/analysis_topic.py",
       "src/infrastructure/models/analysis_topic_keyword.py",
       "src/infrastructure/alembic/env.py",
-      "src/infrastructure/scripts/run_migrations.py"
+      "src/infrastructure/scripts/run_migrations.py",
+      "src/infrastructure/providers/persian_nlp/persian_nlp_resource_provider.py",
+      "src/infrastructure/resources/persian_nlp/persian_nlp_resources.json"
     ]
   },
   "components": {
@@ -167,7 +169,9 @@
       "kind": "service",
       "inject": true,
       "singleton": false,
-      "dependencies": []
+      "dependencies": [
+        "PersianNlpResourceProvider"
+      ]
     },
     "CandidateExtractionService": {
       "layer": "Core",
@@ -285,6 +289,15 @@
       "dependencies": [
         "ConfigReader"
       ]
+    },
+    "PersianNlpResourceProvider": {
+      "layer": "Infrastructure",
+      "kind": "infrastructure_provider",
+      "inject": true,
+      "singleton": true,
+      "dependencies": [
+        "ConfigReader"
+      ]
     }
   },
   "provider_policy": {
@@ -308,7 +321,8 @@
     ],
     "conditional": [
       "heavy_semantic_provider_implementations",
-      "queue_client_provider_implementation"
+      "queue_client_provider_implementation",
+      "persian_nlp_resource_provider"
     ],
     "non_singleton_by_default": [
       "controllers",
@@ -459,7 +473,8 @@
       "local_docker_dependencies"
     ],
     "6": [
-      "persian_nlp_implementation"
+      "persian_nlp_implementation",
+      "persian_nlp_resource_loading"
     ],
     "7": [
       "candidate_statistical_implementation"

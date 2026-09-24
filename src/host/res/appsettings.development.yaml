@@ -32,3 +32,11 @@ analysis:
   sync_threshold:
     max_documents: 20
     max_total_characters: 100000
+
+persian_nlp:
+  resources:
+    path: "src/infrastructure/resources/persian_nlp/persian_nlp_resources.json"
+  lemmatization:
+    enabled: true
+  pos_processing:
+    enabled: true

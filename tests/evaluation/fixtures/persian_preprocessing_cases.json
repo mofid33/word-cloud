@@ -1,0 +1,101 @@
+[
+  {
+    "name": "arabic_letters_and_diacritics",
+    "input": "كِتاب‌هاي خوب و مفيد",
+    "domain": null,
+    "normalized": "کتاب‌های خوب و مفید",
+    "candidate_tokens": [
+      "کتاب‌های",
+      "خوب",
+      "و",
+      "مفید"
+    ],
+    "embedding_tokens": [
+      "کتاب",
+      "خوب",
+      "مفید"
+    ]
+  },
+  {
+    "name": "protected_term_survives_stopword",
+    "input": "هوش مصنوعی در آموزش کاربرد دارد",
+    "domain": "COURSE",
+    "normalized": "هوش مصنوعی در آموزش کاربرد دارد",
+    "candidate_tokens": [
+      "هوش",
+      "مصنوعی",
+      "در",
+      "آموزش",
+      "کاربرد",
+      "دارد"
+    ],
+    "embedding_tokens": [
+      "هوش",
+      "مصنوعی",
+      "آموزش",
+      "کاربرد",
+      "دارد"
+    ]
+  },
+  {
+    "name": "canonical_and_synonym",
+    "input": "AI و داده کاوی در نرم افزار",
+    "domain": null,
+    "normalized": "AI و داده کاوی در نرم افزار",
+    "candidate_tokens": [
+      "هوش",
+      "مصنوعی",
+      "و",
+      "داده‌کاوی",
+      "در",
+      "نرم‌افزار"
+    ],
+    "embedding_tokens": [
+      "هوش",
+      "مصنوعی",
+      "داده‌کاوی",
+      "نرم‌افزار"
+    ]
+  },
+  {
+    "name": "mixed_language_and_numbers",
+    "input": "مدل GPT 4 در سال ۲۰۲۶ منتشر شد",
+    "domain": null,
+    "normalized": "مدل GPT 4 در سال ۲۰۲۶ منتشر شد",
+    "candidate_tokens": [
+      "مدل",
+      "GPT",
+      "4",
+      "در",
+      "سال",
+      "۲۰۲۶",
+      "منتشر",
+      "شد"
+    ],
+    "embedding_tokens": [
+      "مدل",
+      "GPT",
+      "4",
+      "سال",
+      "۲۰۲۶",
+      "منتشر"
+    ]
+  },
+  {
+    "name": "noise_and_spacing",
+    "input": "  تحلیل🙂\nداده   و   مدل‌ سازی  ",
+    "domain": null,
+    "normalized": "تحلیل داده و مدل‌سازی",
+    "candidate_tokens": [
+      "تحلیل",
+      "داده",
+      "و",
+      "مدل‌سازی"
+    ],
+    "embedding_tokens": [
+      "تحلیل",
+      "داده",
+      "مدل‌سازی"
+    ]
+  }
+]
