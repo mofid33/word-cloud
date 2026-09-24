@@ -1,6 +1,6 @@
 # Phase 9 — Hybrid Ranking
 
-Status: IMPLEMENTED_AWAITING_LOCAL_VERIFICATION
+Status: CLOSED
 
 ## مرحله
 
@@ -359,7 +359,62 @@ This is output-preserving because MMR only receives that bounded deduplicated po
 
 A regression test now verifies that a 100-candidate input with pool size 10 sends exactly 10 candidates to the diversity embedding stage and records the bounded deduplication strategy.
 
-Because this correction was committed after the successful 241-test run, the final Phase 9 verification gates must be rerun before closure.
+Because this correction was committed after the successful 241-test run, the final Phase 9 verification gates were rerun before closure.
+
+### Final post-correction local verification — 2026-09-24
+
+The corrected implementation was pulled and verified locally on Windows / Python 3.12.
+
+Verification evidence:
+
+- `python -m compileall -q src tests`: PASS;
+- Phase 9 ranking unit suite: 17/17 PASS;
+- bounded deduplication regression: PASS;
+- real Phase 6 → Phase 7 → Phase 8 → Phase 9 integration: PASS;
+- full project regression: 242/242 PASS;
+- failures: 0;
+- errors: 0.
+
+Corrected isolated Phase 9 ranking performance:
+
+- 100 candidates:
+  - elapsed: `0.5867068s`;
+  - peak Python tracked memory: `65,680` bytes;
+- 500 candidates:
+  - elapsed: `0.8966199s`;
+  - peak Python tracked memory: `297,168` bytes;
+- 1000 candidates:
+  - elapsed: `0.8034621s`;
+  - peak Python tracked memory: `565,984` bytes;
+- ranked results: 25;
+- configured MMR pool: 50.
+
+The same performance test inside the full regression remained stable:
+
+- 100 candidates: `0.9540882s`;
+- 500 candidates: `1.0507621s`;
+- 1000 candidates: `1.0203233s`.
+
+Compared with the first implementation, the 1000-candidate runtime dropped from roughly 188–201 seconds to roughly 0.8–1.0 seconds after bounding deduplication work to the diversity pool.
+
+The Phase 8 semantic benchmark also remained green during the same full regression, confirming that the Phase 9 correction did not regress semantic provider behavior.
+
+The Phase 9 regression fixture metrics remained unchanged after the performance correction:
+
+- COURSE:
+  - hybrid NDCG@10: `0.9538828754`;
+  - hybrid Precision@5: `1.0`;
+  - hybrid Recall@10: `1.0`;
+- SOLDIER_CONCERN:
+  - hybrid NDCG@10: `0.9505808121`;
+  - semantic-only NDCG@10: `0.9828921172`;
+  - hybrid Recall@10: `1.0`;
+- MEDIA:
+  - hybrid NDCG@10: `1.0`;
+  - hybrid Precision@5: `1.0`;
+  - hybrid Recall@10: `1.0`.
+
+These remain regression-fixture measurements, not Production Gold Dataset claims.
 
 The previous verified baseline entering Phase 9 was Phase 8 full regression: 221/221 tests PASS.
 
@@ -433,12 +488,35 @@ If production config is being verified offline, pre-populate the configured mode
 - [x] first local evaluation evidence reviewed before performance correction.
 - [x] performance evidence reviewed and scaling blocker identified.
 - [x] bounded deduplication correction implemented.
-- [ ] post-correction local compile verified.
-- [ ] post-correction focused Phase 9 tests verified.
-- [ ] post-correction performance baseline verified.
-- [ ] post-correction real-model Phase 6→7→8→9 integration verified.
-- [ ] post-correction full regression Phase 1–9 reviewed.
+- [x] post-correction local compile verified.
+- [x] post-correction focused Phase 9 tests verified.
+- [x] post-correction performance baseline verified.
+- [x] post-correction real-model Phase 6→7→8→9 integration verified.
+- [x] post-correction full regression Phase 1–9 reviewed.
 
 Current marker:
 
-`PHASE_9_IMPLEMENTED_AWAITING_LOCAL_VERIFICATION`
+`PHASE_9_COMPLETE_READY_FOR_PHASE_10`
+
+
+## Closure decision
+
+Phase 9 satisfies its scoped Definition of Done:
+
+- Hybrid Ranking is implemented as real Core runtime code;
+- normalization/fusion/deduplication/MMR are executable and tested;
+- Phase 7 and Phase 8 contracts are consumed directly;
+- DI/discovery works without manual registration;
+- real semantic providers are reused rather than duplicated;
+- ranking is deterministic and reproducible;
+- performance scaling regression was identified, corrected and re-verified;
+- evaluation metrics are produced without overstating fixture quality as Production Gold Dataset evidence;
+- privacy constraints remain intact;
+- no Phase 10 profile workflow was introduced;
+- compile, focused tests, real-model integration and full regression are green.
+
+Phase 9 is therefore CLOSED.
+
+Current readiness marker:
+
+`PHASE_9_COMPLETE_READY_FOR_PHASE_10`
