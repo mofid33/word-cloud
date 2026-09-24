@@ -217,6 +217,7 @@ class HybridRankingEvaluationTests(unittest.IsolatedAsyncioTestCase):
             "hybrid_ranking.baseline_weights.statistical",
             "hybrid_ranking.baseline_weights.semantic",
             "hybrid_ranking.lexical_deduplication_threshold",
+            "hybrid_ranking.semantic_deduplication_threshold",
             "hybrid_ranking.mmr_lambda",
             "hybrid_ranking.diversity_candidate_pool_size",
             "hybrid_ranking.maximum_ranked_results",
@@ -234,6 +235,12 @@ class HybridRankingEvaluationTests(unittest.IsolatedAsyncioTestCase):
             0.92,
         )
         self.assertEqual(
+            self.production_config.require(
+                "hybrid_ranking.semantic_deduplication_threshold"
+            ),
+            0.95,
+        )
+        self.assertEqual(
             self.production_config.require("hybrid_ranking.mmr_lambda"),
             0.7,
         )
@@ -244,6 +251,9 @@ class HybridRankingEvaluationTests(unittest.IsolatedAsyncioTestCase):
 
         production_threshold = self.production_config.require(
             "hybrid_ranking.lexical_deduplication_threshold"
+        )
+        production_semantic_threshold = self.production_config.require(
+            "hybrid_ranking.semantic_deduplication_threshold"
         )
         production_lambda = self.production_config.require(
             "hybrid_ranking.mmr_lambda"
@@ -289,6 +299,7 @@ class HybridRankingEvaluationTests(unittest.IsolatedAsyncioTestCase):
                     self.production_config,
                     {
                         "hybrid_ranking.lexical_deduplication_threshold": 1.0,
+                        "hybrid_ranking.semantic_deduplication_threshold": 1.0,
                         "hybrid_ranking.mmr_lambda": 1.0,
                     },
                 ),
@@ -352,9 +363,20 @@ class HybridRankingEvaluationTests(unittest.IsolatedAsyncioTestCase):
                 production_threshold,
             )
             self.assertEqual(
+                production_hybrid.semantic_deduplication_threshold,
+                production_semantic_threshold,
+            )
+            self.assertEqual(
                 production_hybrid.mmr_lambda,
                 production_lambda,
             )
+            if case["high_similarity_pairs"]:
+                self.assertTrue(
+                    any(
+                        item.reason == "semantic_near_duplicate"
+                        for item in production_hybrid.deduplicated
+                    )
+                )
 
             repeated = await production_service.rank_async(
                 tuple(reversed(statistics)),
@@ -383,6 +405,9 @@ class HybridRankingEvaluationTests(unittest.IsolatedAsyncioTestCase):
                 {
                     "baseline_config": {
                         "lexical_deduplication_threshold": production_threshold,
+                        "semantic_deduplication_threshold": (
+                            production_semantic_threshold
+                        ),
                         "mmr_lambda": production_lambda,
                         "statistical_weight": self.production_config.require(
                             "hybrid_ranking.baseline_weights.statistical"
