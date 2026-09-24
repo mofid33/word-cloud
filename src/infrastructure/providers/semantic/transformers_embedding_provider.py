@@ -21,6 +21,7 @@ class TransformersEmbeddingProvider(EmbeddingProvider):
         self._config = self._load_config(config_reader)
         self._model: Any = None
         self._tokenizer: Any = None
+        self._resolved_revision: str | None = None
         self._load_lock = RLock()
         self._inference_lock = RLock()
 
@@ -30,7 +31,7 @@ class TransformersEmbeddingProvider(EmbeddingProvider):
             provider="transformers_embedding",
             provider_version="1",
             model_identifier=self._config["model_identifier"],
-            model_revision=self._config["model_revision"],
+            model_revision=self._resolved_revision or self._config["model_revision"],
             device=self._config["device"],
             configuration_fingerprint=self._config["fingerprint"],
         )
@@ -86,8 +87,21 @@ class TransformersEmbeddingProvider(EmbeddingProvider):
             except Exception as exc:
                 raise RuntimeError("Failed to load configured embedding model") from exc
 
+            resolved_revision = getattr(
+                getattr(model, "config", None),
+                "_commit_hash",
+                None,
+            )
+            if not resolved_revision:
+                resolved_revision = getattr(
+                    tokenizer,
+                    "init_kwargs",
+                    {},
+                ).get("_commit_hash")
+
             self._tokenizer = tokenizer
             self._model = model
+            self._resolved_revision = resolved_revision or self._config["model_revision"]
 
     def _encode_batch(self, texts: tuple[str, ...]) -> list[list[float]]:
         import torch
@@ -145,6 +159,13 @@ class TransformersEmbeddingProvider(EmbeddingProvider):
         max_length = cls._required_positive_int(
             config_reader, "semantic.embedding.max_length"
         )
+        max_batch_size = cls._required_positive_int(
+            config_reader, "batch.max_size"
+        )
+        if batch_size > max_batch_size:
+            raise ValueError(
+                "semantic.embedding.batch_size must be <= batch.max_size"
+            )
         allow_remote = cls._required_bool(
             config_reader, "models.allow_remote_downloads"
         )
@@ -166,6 +187,7 @@ class TransformersEmbeddingProvider(EmbeddingProvider):
             "model_identifier": model_identifier,
             "model_revision": model_revision.strip() if isinstance(model_revision, str) else None,
             "batch_size": batch_size,
+            "max_batch_size": max_batch_size,
             "max_length": max_length,
             "device": device,
             "allow_remote_downloads": allow_remote,
