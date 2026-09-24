@@ -284,6 +284,37 @@ class HybridRankingServiceTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(first.candidates, second.candidates)
 
+    async def test_deduplication_work_is_bounded_to_diversity_pool(self):
+        class TrackingEmbedding(_Embedding):
+            def __init__(self):
+                self.batch_sizes = []
+
+            async def embed_async(self, texts):
+                self.batch_sizes.append(len(texts))
+                return tuple((1.0, float(index + 1), 0.5) for index, _ in enumerate(texts))
+
+        embedding = TrackingEmbedding()
+        service = HybridRankingService(embedding, _Config())
+        count = 100
+        statistics = tuple(
+            _stat(f"term-{index:03d}", 1.0 - index / count)
+            for index in range(count)
+        )
+        semantic = _result(
+            tuple(
+                _semantic(f"term-{index:03d}", 1.0 - index / count, index + 1)
+                for index in range(count)
+            )
+        )
+
+        ranked = await service.rank_async(statistics, semantic)
+
+        self.assertEqual(len(ranked.candidates), 5)
+        self.assertEqual(embedding.batch_sizes, [10])
+        self.assertTrue(
+            ranked.deduplication_strategy.startswith("bounded_top_fused_pool:")
+        )
+
     def test_invalid_configuration_is_rejected(self):
         invalid = [
             {"hybrid_ranking.baseline_weights.statistical": True},
