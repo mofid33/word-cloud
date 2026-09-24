@@ -1,6 +1,6 @@
 # Phase 7 — Candidate & Statistical Engine
 
-Status: CORRECTION_IN_PROGRESS
+Status: CORRECTION_IMPLEMENTED_AWAITING_LOCAL_VERIFICATION
 
 ## مرحله
 
@@ -38,6 +38,7 @@ Phase 7 — Candidate & Statistical Engine
 - `tests/evaluation/fixtures/candidate_statistical_cases.json`
 - `tests/evaluation/test_candidate_statistical_evaluation.py`
 - `tests/evaluation/test_candidate_statistical_performance.py`
+- `tests/evaluation/test_candidate_statistical_profile_regression.py`
 
 ### Modified
 
@@ -92,7 +93,7 @@ For each canonical candidate:
 - `document_coverage`: `document_frequency / total_documents`;
 - `relative_frequency`: candidate frequency divided by all candidate occurrences;
 - `normalized_frequency`: candidate frequency divided by maximum candidate frequency in the analyzed corpus;
-- `section_coverage` and `chunk_coverage`: generic primitives when section/chunk identities are present;
+- `section_coverage` and `chunk_coverage`: generic primitives computed against an explicit full corpus boundary universe, including sections/chunks that produce zero surviving candidates;
 - `phrase_quality`: bounded statistical length signal based on 1/2/3-gram size;
 - source occurrences are retained without raw-text logging.
 
@@ -206,7 +207,42 @@ The full regression now includes the Phase 7 Candidate and Statistical unit pack
 
 The Windows asyncio `Executing <Task ... took ...>` / `Executing <Handle ... took ...>` lines observed during PostgreSQL integration tests are diagnostic slow-callback messages; they did not fail the suite.
 
-Phase 7 satisfies its Definition of Done and is CLOSED.
+That verification is retained as the pre-audit baseline. The coverage/profile/performance corrections require a new local compile, focused test run and full regression before Phase 7 can be re-closed.
+
+## Coverage correctness correction
+
+A post-closure audit identified that section/chunk coverage denominators were previously derived from surviving candidate occurrences. That could overestimate coverage when a real section or chunk produced no candidates after filtering.
+
+The correction changes the statistical contract so that callers provide the complete generic corpus boundary universe through:
+
+- `document_ids`;
+- optional `section_keys = ((document_id, section_id), ...)`;
+- optional `chunk_keys = ((document_id, chunk_id), ...)`.
+
+Rules are fail-fast and deterministic:
+
+- if occurrences carry `section_id`, `section_keys` are required;
+- if occurrences carry `chunk_id`, `chunk_keys` are required;
+- every boundary key must reference a known document;
+- every scoped occurrence must belong to the supplied universe;
+- when a section/chunk universe is supplied, occurrences must carry the corresponding scope metadata;
+- sections/chunks with zero surviving candidates remain in the denominator.
+
+This remains a generic Phase 7 statistical primitive and does not introduce COURSE/SOLDIER/MEDIA workflow logic.
+
+## Profile-aware regression correction
+
+The Phase 7 test suite now includes representative corpus regressions for all three product profiles without implementing Phase 10 profile services:
+
+- COURSE: verifies that a filtered-empty section/chunk still contributes to the coverage denominator;
+- SOLDIER_CONCERN: verifies that repeated occurrences inside one concern increase frequency but contribute only once to document frequency, while cross-document repetition increases document coverage;
+- MEDIA: verifies that published-content and audience-feedback corpora can be analyzed independently without cross-role candidate mixing.
+
+## Performance baseline correction
+
+The controlled corpus still measures runtime and enforces bounded candidate growth. The previous unconditional 15-second assertion was hardware-dependent and was removed.
+
+Runtime is printed as baseline evidence. A time gate is optional through `PHASE7_PERF_MAX_SECONDS`; when supplied by CI or a known environment it must be positive and the measured runtime must remain below it. This avoids inventing a universal production latency SLO before that SLO is frozen.
 
 ## Privacy
 
@@ -247,6 +283,7 @@ python -m unittest discover -s tests/unit/core/services/statistical -p "test_*.p
 python -m unittest tests.integration.foundation.test_candidate_statistical_pipeline -v
 
 python -m unittest tests.evaluation.test_candidate_statistical_evaluation -v
+python -m unittest tests.evaluation.test_candidate_statistical_profile_regression -v
 python -m unittest tests.evaluation.test_candidate_statistical_performance -v
 
 python -m unittest discover -s tests -p "test_*.py" -v
@@ -282,8 +319,12 @@ python -m unittest discover -s tests -p "test_*.py" -v
 - [x] No Phase 8+ implementation introduced.
 - [x] No new persistence schema or migration introduced.
 - [x] No raw-text operational logging introduced.
-- [x] Local compile/test/regression evidence captured.
+- [x] Original local compile/test/regression evidence captured (187 tests).
+- [x] Coverage denominator correctness fix implemented.
+- [x] COURSE/SOLDIER_CONCERN/MEDIA profile-aware regression tests added.
+- [x] Hardware-dependent fixed performance threshold removed.
+- [ ] Post-correction local compile/test/regression evidence captured.
 
 Current readiness marker:
 
-`PHASE_7_CORRECTION_IN_PROGRESS`
+`PHASE_7_CORRECTION_AWAITING_LOCAL_VERIFICATION`
