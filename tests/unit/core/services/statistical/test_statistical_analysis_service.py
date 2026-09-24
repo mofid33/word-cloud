@@ -178,6 +178,21 @@ class StatisticalAnalysisServiceTests(unittest.TestCase):
                 section_keys=(("d1", "s2"),),
             )
 
+    def test_scope_keys_require_consistent_occurrence_metadata(self) -> None:
+        unscoped = self._occurrences("d1", "تحلیل داده")
+        with self.assertRaisesRegex(ValueError, "must contain section_id"):
+            self.service.analyze(
+                unscoped,
+                document_ids=("d1",),
+                section_keys=(("d1", "s1"),),
+            )
+        with self.assertRaisesRegex(ValueError, "must contain chunk_id"):
+            self.service.analyze(
+                unscoped,
+                document_ids=("d1",),
+                chunk_keys=(("d1", "c1"),),
+            )
+
     def test_occurrence_tracking_preserves_source_boundaries(self) -> None:
         occurrences = self._occurrences(
             "d1",
