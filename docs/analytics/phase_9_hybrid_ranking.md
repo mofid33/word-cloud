@@ -1,6 +1,6 @@
 # Phase 9 — Hybrid Ranking
 
-Status: CLOSED
+Status: SEMANTIC_DEDUP_IMPLEMENTED_AWAITING_LOCAL_VERIFICATION
 
 ## مرحله
 
@@ -51,7 +51,7 @@ Candidate join identity is `canonical_text`. Statistical and semantic candidate 
 
 Current scoring version:
 
-`hybrid-ranking-v1`
+`hybrid-ranking-v2`
 
 ## Files Created / Modified
 
@@ -124,13 +124,27 @@ The baseline lexical threshold is configurable:
 
 `0.92`
 
-### Semantic deduplication decision
+### Semantic deduplication
 
-The architecture contract explicitly keeps the exact semantic deduplication threshold deferred. Phase 9 therefore does **not** invent a production-final semantic removal threshold.
+Semantic deduplication is implemented as a distinct stage before MMR.
 
-Semantic similarity is used for real MMR diversity. A future semantic-dedup threshold can only be frozen when stronger Gold Dataset/evaluation evidence justifies it.
+The existing Phase 8 `EmbeddingProvider` is reused; no second model or lifecycle is introduced. Candidate embeddings are computed only for the bounded top fused pool and are reused by both semantic deduplication and MMR.
 
-This is intentional scope control, not a placeholder implementation.
+Behavior:
+
+1. exact/canonical/lexical deduplication runs first;
+2. the bounded pool is batch-embedded once;
+3. non-protected candidates are compared deterministically against already-kept non-protected candidates using raw cosine similarity;
+4. candidates meeting the configured semantic threshold are removed with reason `semantic_near_duplicate`;
+5. surviving candidates and their existing vectors are passed directly to MMR.
+
+Protected terms are never removed by semantic near-duplicate filtering.
+
+The configured baseline is:
+
+`semantic_deduplication_threshold: 0.95`
+
+This is an evaluation baseline, not a production-final threshold. The architecture decision to defer the **exact final** semantic deduplication threshold remains preserved.
 
 ## Diversity / MMR
 
@@ -178,6 +192,7 @@ hybrid_ranking:
     statistical: 0.5
     semantic: 0.5
   lexical_deduplication_threshold: 0.92
+  semantic_deduplication_threshold: 0.95
   mmr_lambda: 0.7
   diversity_candidate_pool_size: 50
   maximum_ranked_results: 25
@@ -191,6 +206,7 @@ Validation is fail-fast for:
 - out-of-range weights;
 - weight sums not equal to 1;
 - invalid lexical threshold;
+- invalid semantic deduplication threshold;
 - invalid MMR lambda;
 - non-positive pool/result sizes;
 - diversity pool smaller than configured maximum results.
@@ -212,7 +228,9 @@ Coverage includes:
 - exact text dedup;
 - canonical dedup;
 - lexical near-duplicate dedup;
-- protected-term preservation;
+- semantic near-duplicate dedup;
+- configurable semantic threshold;
+- protected-term preservation across lexical and semantic dedup;
 - MMR diversity;
 - Phase 10 weight override;
 - repeated execution;
@@ -310,6 +328,7 @@ Result metadata exposes:
 - weights;
 - dedup strategy;
 - lexical threshold;
+- semantic deduplication threshold;
 - diversity strategy;
 - MMR lambda;
 - pool size;
@@ -465,8 +484,10 @@ If production config is being verified offline, pre-populate the configured mode
 - [x] configurable fusion implemented.
 - [x] raw and normalized signals retained.
 - [x] exact/canonical/lexical dedup implemented.
-- [x] protected terms guarded from fuzzy lexical deletion.
-- [x] real MMR implemented.
+- [x] semantic cosine dedup implemented as a distinct stage.
+- [x] semantic dedup threshold is configurable and validated.
+- [x] protected terms guarded from lexical and semantic fuzzy deletion.
+- [x] real MMR implemented after semantic dedup.
 - [x] diversity pool bounded/configurable.
 - [x] heavy model lifecycle is reused rather than duplicated.
 - [x] configuration validation implemented.
@@ -480,7 +501,7 @@ If production config is being verified offline, pre-populate the configured mode
 - [x] no Phase 10 profile service implemented.
 - [x] no DB/API/Queue/Topic/Trend/Visualization scope pulled forward.
 - [x] final profile weights remain deferred.
-- [x] semantic dedup production threshold remains deferred.
+- [x] semantic dedup baseline implemented while the exact production-final threshold remains deferred.
 - [x] exact production MMR lambda remains deferred.
 - [x] first local compile evidence received before performance correction.
 - [x] first local focused Phase 9 tests verified before performance correction.
@@ -660,3 +681,96 @@ Phase 9 now satisfies the scoped Definition of Done after both the performance c
 Current marker:
 
 `PHASE_9_COMPLETE_READY_FOR_PHASE_10`
+
+
+## Semantic deduplication audit correction — 2026-09-24
+
+A stricter scope audit identified that the Phase 9 roadmap explicitly requires semantic deduplication as a capability separate from MMR. The earlier implementation had semantic diversity through MMR but did not perform semantic duplicate removal.
+
+This blocker has now been corrected.
+
+### Implementation
+
+- `HybridRankingConfig` now contains `semantic_deduplication_threshold`.
+- Development and Production configurations both define the same baseline value: `0.95`.
+- `HybridRankingService` performs bounded semantic cosine deduplication after lexical/canonical deduplication and before MMR.
+- The existing Phase 8 `EmbeddingProvider` is reused.
+- Embeddings are computed once for the bounded pool and reused for semantic deduplication and MMR.
+- Removed candidates are recorded with reason `semantic_near_duplicate` and the actual cosine similarity.
+- Protected terms bypass semantic duplicate removal.
+- Invalid boolean, NaN and out-of-range semantic thresholds fail fast.
+- Semantic dedup work remains bounded by `diversity_candidate_pool_size`.
+- Because ranking behavior changed, `scoring_version` is now `hybrid-ranking-v2`.
+
+### Evaluation correction
+
+The semantic similarity fixture validation now uses the same raw cosine definition used by runtime semantic deduplication, and compares it directly against the configured Production semantic threshold rather than normalized cosine.
+
+The final Production evaluation path now records:
+
+- lexical dedup threshold: `0.92`;
+- semantic dedup threshold: `0.95`;
+- MMR lambda: `0.7`;
+- statistical baseline weight: `0.5`;
+- semantic baseline weight: `0.5`.
+
+The exact production-final semantic threshold remains deferred pending stronger Gold Dataset evidence; only the existence of the semantic dedup capability and its current evaluated baseline are part of Phase 9.
+
+### Additional tests
+
+Focused tests now cover:
+
+- semantic near-duplicate removal;
+- semantic threshold override;
+- protected-term semantic preservation;
+- semantic-threshold validation;
+- semantic-dedup-aware evaluation;
+- bounded performance with semantic dedup;
+- scoring version `hybrid-ranking-v2`.
+
+### Required local verification
+
+Run:
+
+```powershell
+git pull origin main
+
+python -m compileall -q src tests
+
+python -m unittest discover -s tests/unit/core/services/ranking -p "test_*.py" -v
+
+python -m unittest tests.evaluation.test_hybrid_ranking_evaluation -v
+python -m unittest tests.evaluation.test_hybrid_ranking_performance -v
+
+python -m unittest tests.integration.foundation.test_hybrid_ranking_pipeline.HybridRankingDiscoveryIntegrationTests -v
+
+$env:RUN_PHASE8_MODEL_INTEGRATION="1"
+python -m unittest tests.integration.foundation.test_hybrid_ranking_pipeline.HybridRankingPipelineIntegrationTests -v
+
+python -m unittest discover -s tests -p "test_*.py" -v
+```
+
+### Semantic-dedup closure checklist
+
+- [x] semantic dedup runtime implemented.
+- [x] semantic dedup is distinct from MMR.
+- [x] existing EmbeddingProvider reused.
+- [x] bounded pool reused.
+- [x] vectors reused between semantic dedup and MMR.
+- [x] semantic threshold configurable.
+- [x] semantic threshold Development/Production baseline added.
+- [x] protected terms preserved.
+- [x] deduplication evidence exposed.
+- [x] scoring version incremented for reproducibility.
+- [x] evaluation uses runtime-equivalent raw cosine threshold semantics.
+- [ ] post-semantic-dedup compile verified locally.
+- [ ] focused ranking unit tests verified locally.
+- [ ] corrected evaluation verified locally.
+- [ ] performance verified locally.
+- [ ] DI/discovery verified locally.
+- [ ] real Phase 6→7→8→9 pipeline verified locally.
+- [ ] full Phase 1→9 regression verified locally.
+
+Current marker:
+
+`PHASE_9_SEMANTIC_DEDUP_IMPLEMENTED_AWAITING_LOCAL_VERIFICATION`
