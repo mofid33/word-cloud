@@ -81,6 +81,7 @@ hybrid_ranking:
     statistical: 0.5
     semantic: 0.5
   lexical_deduplication_threshold: 0.92
+  semantic_deduplication_threshold: 0.95
   mmr_lambda: 0.7
   diversity_candidate_pool_size: 50
   maximum_ranked_results: 25
