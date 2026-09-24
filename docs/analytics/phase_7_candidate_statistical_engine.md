@@ -1,6 +1,6 @@
 # Phase 7 — Candidate & Statistical Engine
 
-Status: CORRECTION_IMPLEMENTED_AWAITING_LOCAL_VERIFICATION
+Status: CLOSED
 
 ## مرحله
 
@@ -188,7 +188,25 @@ Root causes and corrections:
 - mixed Persian/Latin test: the test expected raw `NLP` after Phase 6, but Phase 6 canonicalizes `NLP` to `پردازش زبان طبیعی`. The test now asserts the real Phase 6 representation instead of bypassing or undoing preprocessing;
 - global discovery: `python -m unittest discover -s tests` reported 158 passing tests but omitted the new candidate/statistical unit directories because they lacked package markers. Test-only `__init__.py` files were added so the global regression gate includes all Phase 7 unit tests.
 
-The phase remains open until the corrected head passes compile, focused Phase 7 tests and full regression locally.
+## Final verification evidence
+
+Verified locally on 2026-09-24 on Windows / Python 3.12:
+
+- `python -m compileall -q src tests`: PASS;
+- Candidate extraction unit suite: 18 tests, PASS;
+- Statistical analysis unit suite: 11 tests, PASS;
+- Phase 6 → Phase 7 DI integration: 1 test, PASS;
+- Persian candidate/statistical evaluation: 1 test, PASS;
+- controlled performance baseline: 1 test, PASS;
+- full project regression: 187 tests, PASS;
+- failures: 0;
+- errors: 0.
+
+The full regression now includes the Phase 7 Candidate and Statistical unit packages, confirming that the earlier unittest discovery gap is fixed.
+
+The Windows asyncio `Executing <Task ... took ...>` / `Executing <Handle ... took ...>` lines observed during PostgreSQL integration tests are diagnostic slow-callback messages; they did not fail the suite.
+
+Phase 7 satisfies its Definition of Done and is CLOSED.
 
 ## Privacy
 
@@ -264,10 +282,8 @@ python -m unittest discover -s tests -p "test_*.py" -v
 - [x] No Phase 8+ implementation introduced.
 - [x] No new persistence schema or migration introduced.
 - [x] No raw-text operational logging introduced.
-- [ ] Local compile/test/regression evidence captured.
-
-Because the connected GitHub repository currently has no runnable status check associated with the Phase 7 head commit, the final local verification gate is still open. Per project Definition of Done, Phase 7 must not be marked CLOSED until the commands above pass on the project environment.
+- [x] Local compile/test/regression evidence captured.
 
 Current readiness marker:
 
-`PHASE_7_CORRECTION_AWAITING_LOCAL_VERIFICATION`
+`PHASE_7_COMPLETE_READY_FOR_PHASE_8`
