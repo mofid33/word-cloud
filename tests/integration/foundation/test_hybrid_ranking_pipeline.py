@@ -89,7 +89,7 @@ class HybridRankingPipelineIntegrationTests(unittest.IsolatedAsyncioTestCase):
             hybrid_result.embedding_metadata.provider,
             semantic_result.embedding_metadata.provider,
         )
-        self.assertEqual(hybrid_result.scoring_version, "hybrid-ranking-v1")
+        self.assertEqual(hybrid_result.scoring_version, "hybrid-ranking-v2")
 
 
 if __name__ == "__main__":
