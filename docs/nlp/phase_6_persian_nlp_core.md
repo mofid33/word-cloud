@@ -1,6 +1,6 @@
 # Phase 6 — Persian NLP Core
 
-Status: CORRECTION_IMPLEMENTED_AWAITING_LOCAL_VERIFICATION
+Status: CLOSED
 
 ## Scope implemented
 
@@ -58,8 +58,22 @@ A post-closure audit identified correctness gaps that could affect later candida
 - rejects chained/cyclic synonym/canonical mappings so mapping precedence remains one-hop and deterministic;
 - expands unit/evaluation regression coverage for these cases.
 
-The correction is implemented but must pass local compile, Phase 6 unit/evaluation/integration tests and full project regression before Phase 6 is re-closed.
+## Post-correction verification evidence
+
+Verified locally on 2026-09-24 on Windows / Python 3.12:
+
+- `python -m compileall -q src tests`: PASS;
+- Phase 6 unit suite: 21 tests, PASS;
+- Persian preprocessing evaluation: 1 test, PASS;
+- Persian NLP DI/resource lifecycle integration: 1 test, PASS;
+- full project regression: 155 tests, PASS;
+- failures: 0;
+- errors: 0.
+
+The post-correction regression confirms that the tokenizer, conservative lemmatization, protected-term precedence, strict configuration validation, deterministic mapping policy and configurable embedding representation changes did not regress Phases 1–5.
+
+Phase 6 satisfies its Definition of Done after the accuracy correction pass and is CLOSED.
 
 Current readiness marker:
 
-`PHASE_6_CORRECTION_AWAITING_LOCAL_VERIFICATION`
+`PHASE_6_COMPLETE_READY_FOR_PHASE_7`
