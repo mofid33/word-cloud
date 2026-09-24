@@ -52,6 +52,7 @@
       "src/core/services/semantic/semantic_analysis_service.py",
       "src/core/services/semantic/providers/embedding_provider.py",
       "src/core/services/semantic/providers/reranker_provider.py",
+      "src/core/services/semantic/providers/provider_metadata.py",
       "src/core/services/ranking/hybrid_ranking_service.py",
       "src/core/services/topic/topic_analysis_service.py",
       "src/core/services/topic/providers/topic_model_provider.py",
@@ -75,6 +76,8 @@
       "src/infrastructure/alembic/env.py",
       "src/infrastructure/scripts/run_migrations.py",
       "src/infrastructure/providers/persian_nlp/persian_nlp_resource_provider.py",
+      "src/infrastructure/providers/semantic/transformers_embedding_provider.py",
+      "src/infrastructure/providers/semantic/transformers_reranker_provider.py",
       "src/infrastructure/resources/persian_nlp/persian_nlp_resources.json"
     ]
   },
@@ -198,7 +201,8 @@
       "singleton": false,
       "dependencies": [
         "EmbeddingProvider",
-        "RerankerProvider"
+        "RerankerProvider",
+        "ConfigReader"
       ]
     },
     "HybridRankingService": {
