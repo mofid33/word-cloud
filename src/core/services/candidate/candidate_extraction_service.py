@@ -50,6 +50,7 @@ class CandidateExtractionConfig:
     maximum_phrase_characters: int
     filter_pure_numeric: bool
     preserve_four_digit_year: bool
+    filter_stopword_unigrams: bool
     filter_edge_stopwords: bool
     reject_function_pos_unigrams: bool
 
@@ -154,7 +155,7 @@ class CandidateExtractionService:
 
         if len(span) == 1:
             token = span[0]
-            if token.is_stopword:
+            if self._config.filter_stopword_unigrams and token.is_stopword:
                 return False
             if (
                 self._config.reject_function_pos_unigrams
@@ -277,6 +278,10 @@ class CandidateExtractionService:
             preserve_four_digit_year=cls._required_bool(
                 config_reader,
                 "candidate_extraction.preserve_four_digit_year",
+            ),
+            filter_stopword_unigrams=cls._required_bool(
+                config_reader,
+                "candidate_extraction.filter_stopword_unigrams",
             ),
             filter_edge_stopwords=cls._required_bool(
                 config_reader,
