@@ -35,6 +35,7 @@ class _Config:
             "hybrid_ranking.baseline_weights.statistical": 0.5,
             "hybrid_ranking.baseline_weights.semantic": 0.5,
             "hybrid_ranking.lexical_deduplication_threshold": 0.99,
+            "hybrid_ranking.semantic_deduplication_threshold": 0.95,
             "hybrid_ranking.mmr_lambda": 0.7,
             "hybrid_ranking.diversity_candidate_pool_size": 50,
             "hybrid_ranking.maximum_ranked_results": 25,
@@ -48,18 +49,14 @@ class _Embedding(EmbeddingProvider):
         return _METADATA
 
     async def embed_async(self, texts):
-        vectors = []
-        for text in texts:
-            seed = sum(ord(char) for char in text)
-            vectors.append(
-                (
-                    float((seed % 97) + 1),
-                    float((seed % 89) + 1),
-                    float((seed % 83) + 1),
-                    float((seed % 79) + 1),
-                )
+        size = len(texts)
+        return tuple(
+            tuple(
+                1.0 if axis == index else 0.0
+                for axis in range(size)
             )
-        return tuple(vectors)
+            for index, _ in enumerate(texts)
+        )
 
 
 def _stat(index: int, count: int) -> StatisticalCandidateResult:
