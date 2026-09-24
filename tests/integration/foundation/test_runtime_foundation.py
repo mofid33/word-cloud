@@ -47,6 +47,51 @@ class RuntimeFoundationIntegrationTests(unittest.TestCase):
                         sys.modules.pop(key, None)
                 reset_di_state()
 
+    def test_discovery_recurses_into_namespace_subpackages(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            package = root / "fixture_namespace"
+            provider_dir = package / "providers" / "semantic"
+            provider_dir.mkdir(parents=True)
+            (package / "__init__.py").write_text("", encoding="utf-8")
+            (provider_dir / "provider.py").write_text(
+                "from abc import ABC, abstractmethod\n"
+                "from src.infrastructure.di.inject import inject\n"
+                "class Provider(ABC):\n"
+                "    @abstractmethod\n"
+                "    def value(self):\n"
+                "        raise NotImplementedError\n"
+                "@inject\n"
+                "class ConcreteProvider(Provider):\n"
+                "    def value(self):\n"
+                "        return 'namespace-ok'\n",
+                encoding="utf-8",
+            )
+
+            sys.path.insert(0, temp_dir)
+            try:
+                importlib.invalidate_caches()
+                imported = import_discoverable_modules(
+                    ("fixture_namespace",)
+                )
+                self.assertIn(
+                    "fixture_namespace.providers.semantic.provider",
+                    imported,
+                )
+                module = importlib.import_module(
+                    "fixture_namespace.providers.semantic.provider"
+                )
+                self.assertEqual(
+                    resolve(module.Provider).value(),
+                    "namespace-ok",
+                )
+            finally:
+                sys.path.remove(temp_dir)
+                for key in list(sys.modules):
+                    if key.startswith("fixture_namespace"):
+                        sys.modules.pop(key, None)
+                reset_di_state()
+
     def test_discovery_skips_broken_module_and_continues(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
