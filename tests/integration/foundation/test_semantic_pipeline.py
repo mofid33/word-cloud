@@ -29,6 +29,8 @@ class SemanticProviderDiscoveryIntegrationTests(unittest.TestCase):
 
         self.assertEqual(embedding.metadata.provider, "transformers_embedding")
         self.assertEqual(reranker.metadata.provider, "transformers_reranker")
+        self.assertIs(embedding, resolve(EmbeddingProvider))
+        self.assertIs(reranker, resolve(RerankerProvider))
         self.assertIsNone(embedding._model)
         self.assertIsNone(reranker._model)
 
