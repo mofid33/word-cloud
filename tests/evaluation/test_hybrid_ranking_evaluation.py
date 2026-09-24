@@ -140,7 +140,7 @@ def _metrics(ranked, relevance):
     }
 
 
-def _normalized_cosine(left, right):
+def _cosine(left, right):
     left_norm = math.sqrt(sum(value * value for value in left))
     right_norm = math.sqrt(sum(value * value for value in right))
     return sum(
@@ -196,6 +196,9 @@ class HybridRankingEvaluationTests(unittest.IsolatedAsyncioTestCase):
         threshold = self.production_config.require(
             "hybrid_ranking.lexical_deduplication_threshold"
         )
+        semantic_threshold = self.production_config.require(
+            "hybrid_ranking.semantic_deduplication_threshold"
+        )
         for case in cases:
             for left, right in case["near_duplicate_pairs"]:
                 similarity = HybridRankingService._lexical_similarity(left, right)
@@ -207,8 +210,8 @@ class HybridRankingEvaluationTests(unittest.IsolatedAsyncioTestCase):
             }
             for left, right in case["high_similarity_pairs"]:
                 self.assertGreaterEqual(
-                    _normalized_cosine(vectors[left], vectors[right]),
-                    0.95,
+                    _cosine(vectors[left], vectors[right]),
+                    semantic_threshold,
                 )
 
     def test_production_and_development_hybrid_baselines_match(self):
