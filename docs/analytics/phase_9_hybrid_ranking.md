@@ -1,6 +1,6 @@
 # Phase 9 — Hybrid Ranking
 
-Status: SEMANTIC_DEDUP_FIXTURE_CORRECTED_AWAITING_LOCAL_VERIFICATION
+Status: CLOSED
 
 ## مرحله
 
@@ -763,17 +763,17 @@ python -m unittest discover -s tests -p "test_*.py" -v
 - [x] deduplication evidence exposed.
 - [x] scoring version incremented for reproducibility.
 - [x] evaluation uses runtime-equivalent raw cosine threshold semantics.
-- [ ] post-semantic-dedup compile verified locally.
-- [ ] focused ranking unit tests verified locally.
-- [ ] corrected evaluation verified locally.
-- [ ] performance verified locally.
-- [ ] DI/discovery verified locally.
-- [ ] real Phase 6→7→8→9 pipeline verified locally.
-- [ ] full Phase 1→9 regression verified locally.
+- [x] post-semantic-dedup compile verified locally.
+- [x] focused ranking unit tests verified locally: 22/22 PASS.
+- [x] corrected evaluation verified locally: 4/4 PASS.
+- [x] performance verified locally.
+- [x] DI/discovery verified locally.
+- [x] real Phase 6→7→8→9 pipeline verified locally.
+- [x] full Phase 1→9 regression verified locally: 250/250 PASS.
 
 Current marker:
 
-`PHASE_9_SEMANTIC_DEDUP_IMPLEMENTED_AWAITING_LOCAL_VERIFICATION`
+`PHASE_9_COMPLETE_READY_FOR_PHASE_10`
 
 
 ## Semantic-dedup verification failure and fixture correction
@@ -836,4 +836,64 @@ python -m unittest discover -s tests -p "test_*.py" -v
 
 Current marker:
 
-`PHASE_9_SEMANTIC_DEDUP_FIXTURE_CORRECTED_AWAITING_LOCAL_VERIFICATION`
+`PHASE_9_COMPLETE_READY_FOR_PHASE_10`
+
+
+## Final Phase 9 verification — 2026-09-24
+
+The semantic-deduplication correction and fixture correction were re-verified locally on Windows / Python 3.12.
+
+Final evidence:
+
+- `python -m compileall -q src tests`: PASS;
+- Hybrid Ranking unit suite: `22/22 PASS`;
+- corrected Phase 9 evaluation suite: `4/4 PASS`;
+- Phase 9 performance baseline: PASS;
+- real Phase 6 → Phase 7 → Phase 8 → Phase 9 integration: PASS;
+- full project regression: `250/250 PASS`;
+- failures: 0;
+- errors: 0.
+
+Final shipped Phase 9 baseline used by evaluation:
+
+- statistical fusion weight: `0.5`;
+- semantic fusion weight: `0.5`;
+- lexical deduplication threshold: `0.92`;
+- semantic deduplication threshold: `0.95`;
+- MMR lambda: `0.7`.
+
+Observed focused Hybrid Ranking performance:
+
+- 100 candidates: `2.0648089s`;
+- 500 candidates: `1.8081650s`;
+- 1000 candidates: `1.7194066s`;
+- configured bounded MMR pool: 50;
+- ranked results: 25.
+
+Observed performance during the full regression remained bounded:
+
+- 100 candidates: `2.0918379s`;
+- 500 candidates: `1.9526273s`;
+- 1000 candidates: `2.1524029s`.
+
+The final evaluation covers:
+
+- COURSE Persian-only;
+- COURSE mixed technical;
+- COURSE Latin-only;
+- SOLDIER_CONCERN Persian-only;
+- MEDIA mixed;
+- exact/canonical/lexical deduplication;
+- semantic cosine deduplication;
+- MMR diversity;
+- fixed-depth Precision@5/10;
+- Recall@10;
+- NDCG@10.
+
+The deterministic fixture is regression evidence only and is not represented as a Production Gold Dataset.
+
+Phase 9 now satisfies its scoped Definition of Done, including semantic deduplication as a distinct capability from MMR.
+
+Current marker:
+
+`PHASE_9_COMPLETE_READY_FOR_PHASE_10`
