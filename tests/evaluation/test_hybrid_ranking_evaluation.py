@@ -218,6 +218,41 @@ class HybridRankingEvaluationTests(unittest.IsolatedAsyncioTestCase):
                     semantic_threshold,
                 )
 
+            lexical_pair_members = [
+                name
+                for pair in case["near_duplicate_pairs"]
+                for name in pair
+            ]
+            semantic_pair_members = [
+                name
+                for pair in case["high_similarity_pairs"]
+                for name in pair
+            ]
+            self.assertEqual(
+                len(lexical_pair_members),
+                len(set(lexical_pair_members)),
+                msg=f"overlapping lexical duplicate pairs in {case['name']}",
+            )
+            self.assertEqual(
+                len(semantic_pair_members),
+                len(set(semantic_pair_members)),
+                msg=f"overlapping semantic duplicate pairs in {case['name']}",
+            )
+            self.assertTrue(
+                set(lexical_pair_members).isdisjoint(semantic_pair_members),
+                msg=f"lexical/semantic duplicate pair overlap in {case['name']}",
+            )
+            expected_survivors = (
+                len(case["candidates"])
+                - len(case["near_duplicate_pairs"])
+                - len(case["high_similarity_pairs"])
+            )
+            self.assertGreaterEqual(
+                expected_survivors,
+                10,
+                msg=f"fixture cannot support fixed-depth P@10 in {case['name']}",
+            )
+
             candidate_names = list(vectors)
             for left_index, left in enumerate(candidate_names):
                 for right in candidate_names[left_index + 1:]:
