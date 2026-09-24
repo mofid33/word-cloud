@@ -1,6 +1,6 @@
 # Phase 7 — Candidate & Statistical Engine
 
-Status: IMPLEMENTED_AWAITING_LOCAL_VERIFICATION
+Status: CORRECTION_IMPLEMENTED_AWAITING_LOCAL_VERIFICATION
 
 ## مرحله
 
@@ -32,6 +32,8 @@ Phase 7 — Candidate & Statistical Engine
 - `src/core/services/statistical/statistical_analysis_service.py`
 - `tests/unit/core/services/candidate/test_candidate_extraction_service.py`
 - `tests/unit/core/services/statistical/test_statistical_analysis_service.py`
+- `tests/unit/core/services/candidate/__init__.py`
+- `tests/unit/core/services/statistical/__init__.py`
 - `tests/integration/foundation/test_candidate_statistical_pipeline.py`
 - `tests/evaluation/fixtures/candidate_statistical_cases.json`
 - `tests/evaluation/test_candidate_statistical_evaluation.py`
@@ -53,7 +55,7 @@ No SQLAlchemy model, repository, DTO, controller, API route or Alembic migration
 - punctuation boundaries are respected through Phase 6 `segment_index`;
 - each `CandidateDocument` is extracted independently, so n-grams never cross document/section/chunk processing boundaries;
 - protected spans bypass stopword/POS/numeric filtering;
-- pure stopword unigrams are rejected;
+- pure stopword unigrams are rejected by the safe default, with an explicit configurable switch;
 - edge-stopword phrase filtering is configurable;
 - internal stopwords may remain inside an otherwise valid phrase;
 - known function POS values are used conservatively for unigram filtering only;
@@ -119,6 +121,7 @@ Development and production config now include:
 - maximum phrase characters;
 - pure numeric filtering;
 - four-digit year preservation;
+- stopword unigram filtering;
 - edge stopword filtering;
 - conservative function-POS unigram filtering;
 - Phase 7 statistical component weights.
@@ -174,6 +177,18 @@ A small Persian multi-document fixture checks expected educational phrases, prot
 ### Performance baseline
 
 A controlled 100-document corpus verifies bounded candidate growth (`<= 3 * token_count`) and records a loose non-flaky runtime guard.
+
+## Local verification correction pass
+
+The first local verification run showed two Candidate unit failures while the statistical, DI integration, evaluation and performance suites passed.
+
+Root causes and corrections:
+
+- configurability test: stopword-unigram rejection was unconditional even though the test exercised fully configurable filtering. The safe default remains enabled, but `candidate_extraction.filter_stopword_unigrams` now controls that rule explicitly;
+- mixed Persian/Latin test: the test expected raw `NLP` after Phase 6, but Phase 6 canonicalizes `NLP` to `پردازش زبان طبیعی`. The test now asserts the real Phase 6 representation instead of bypassing or undoing preprocessing;
+- global discovery: `python -m unittest discover -s tests` reported 158 passing tests but omitted the new candidate/statistical unit directories because they lacked package markers. Test-only `__init__.py` files were added so the global regression gate includes all Phase 7 unit tests.
+
+The phase remains open until the corrected head passes compile, focused Phase 7 tests and full regression locally.
 
 ## Privacy
 
@@ -255,4 +270,4 @@ Because the connected GitHub repository currently has no runnable status check a
 
 Current readiness marker:
 
-`PHASE_7_IMPLEMENTED_AWAITING_LOCAL_VERIFICATION`
+`PHASE_7_CORRECTION_AWAITING_LOCAL_VERIFICATION`
