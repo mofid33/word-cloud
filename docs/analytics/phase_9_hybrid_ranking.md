@@ -1,6 +1,6 @@
 # Phase 9 — Hybrid Ranking
 
-Status: SEMANTIC_DEDUP_IMPLEMENTED_AWAITING_LOCAL_VERIFICATION
+Status: SEMANTIC_DEDUP_FIXTURE_CORRECTED_AWAITING_LOCAL_VERIFICATION
 
 ## مرحله
 
@@ -774,3 +774,66 @@ python -m unittest discover -s tests -p "test_*.py" -v
 Current marker:
 
 `PHASE_9_SEMANTIC_DEDUP_IMPLEMENTED_AWAITING_LOCAL_VERIFICATION`
+
+
+## Semantic-dedup verification failure and fixture correction
+
+The first local verification after adding semantic deduplication produced:
+
+- compile: PASS;
+- Hybrid Ranking unit suite: `22/22 PASS`;
+- Phase 9 evaluation: `3 PASS / 1 FAIL`;
+- Phase 9 performance: PASS;
+- DI/discovery: PASS;
+- real Phase 6 → Phase 7 → Phase 8 → Phase 9 integration: PASS;
+- full regression: `249 PASS / 1 FAIL` out of 250 tests.
+
+The single failure was:
+
+`AssertionError: 6 != 10`
+
+inside the Phase 9 evaluation baseline.
+
+### Root cause
+
+The runtime semantic deduplication was functioning correctly. The problem was the deterministic evaluation fixture: several candidates that were not declared as semantic duplicates had almost collinear synthetic vectors and therefore legitimately exceeded the configured raw cosine threshold of `0.95`.
+
+That caused semantic deduplication to remove more candidates than the evaluation fixture intended, reducing the first case below the fixed P@10 depth.
+
+### Correction
+
+The fixture vectors were redesigned so that:
+
+- every ordinary candidate is semantically separated from unrelated candidates;
+- only pairs listed in `high_similarity_pairs` cross the semantic dedup threshold;
+- lexical duplicate pairs remain independently tested through lexical similarity;
+- the declared lexical and semantic duplicate pairs are disjoint;
+- each case retains at least 10 expected survivors after the declared deduplication stages.
+
+The evaluation test now also fails if any undeclared semantic pair crosses the configured Production threshold. This prevents the same fixture-design error from silently returning.
+
+No runtime ranking behavior or semantic threshold was weakened to make the test pass.
+
+### Required re-verification
+
+The repository remains open pending rerun of:
+
+```powershell
+git pull origin main
+
+python -m compileall -q src tests
+
+python -m unittest discover -s tests/unit/core/services/ranking -p "test_*.py" -v
+
+python -m unittest tests.evaluation.test_hybrid_ranking_evaluation -v
+python -m unittest tests.evaluation.test_hybrid_ranking_performance -v
+
+$env:RUN_PHASE8_MODEL_INTEGRATION="1"
+python -m unittest tests.integration.foundation.test_hybrid_ranking_pipeline.HybridRankingPipelineIntegrationTests -v
+
+python -m unittest discover -s tests -p "test_*.py" -v
+```
+
+Current marker:
+
+`PHASE_9_SEMANTIC_DEDUP_FIXTURE_CORRECTED_AWAITING_LOCAL_VERIFICATION`
