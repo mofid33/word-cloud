@@ -287,7 +287,7 @@ class HybridRankingService:
 
         pool_size = min(
             len(candidates),
-            max(maximum_results, self._config.diversity_candidate_pool_size),
+            self._config.diversity_candidate_pool_size,
         )
         pool = tuple(candidates[:pool_size])
         target_count = min(maximum_results, len(pool))
@@ -524,6 +524,10 @@ class HybridRankingService:
             return self._config.maximum_ranked_results
         if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
             raise ValueError("maximum_results must be an integer > 0")
+        if value > self._config.diversity_candidate_pool_size:
+            raise ValueError(
+                "maximum_results must be <= diversity_candidate_pool_size"
+            )
         return value
 
     @classmethod
