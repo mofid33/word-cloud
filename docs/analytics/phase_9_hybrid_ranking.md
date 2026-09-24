@@ -1,6 +1,6 @@
 # Phase 9 — Hybrid Ranking
 
-Status: EVALUATION_CORRECTION_IMPLEMENTED_AWAITING_LOCAL_VERIFICATION
+Status: CLOSED
 
 ## مرحله
 
@@ -571,7 +571,7 @@ These changes do not freeze final profile weights, production-final MMR lambda, 
 
 ### Required post-correction verification
 
-The correction is implemented in the repository but must not be declared CLOSED until the following are rerun locally:
+The correction was implemented in the repository and has now been re-verified locally. The commands below are retained as the reproducible verification procedure:
 
 ```powershell
 git pull origin main
@@ -607,13 +607,56 @@ python -m unittest discover -s tests -p "test_*.py" -v
 - [x] Development/Production Phase 9 baseline equality test added.
 - [x] all-zero ranking unit regression added.
 - [x] language-specific deterministic unit regressions added.
-- [ ] post-correction compile verified locally.
-- [ ] post-correction focused ranking unit tests verified locally.
-- [ ] corrected Phase 9 evaluation verified locally.
-- [ ] Phase 9 performance baseline re-verified locally.
-- [ ] real Phase 6→7→8→9 integration re-verified locally.
-- [ ] full Phase 1→9 regression re-verified locally.
+- [x] post-correction compile verified locally.
+- [x] post-correction focused ranking unit tests verified locally: 19/19 PASS.
+- [x] corrected Phase 9 evaluation verified locally: 4/4 PASS.
+- [x] Phase 9 performance baseline re-verified locally.
+- [x] DI/discovery verification re-verified locally.
+- [x] real Phase 6→7→8→9 integration re-verified locally.
+- [x] full Phase 1→9 regression re-verified locally: 247/247 PASS.
+
+### Final local verification evidence — 2026-09-24
+
+Post-audit correction verification completed successfully on Windows / Python 3.12.
+
+Corrected shipped baseline used by the final Phase 9 evaluation:
+
+- statistical fusion weight: `0.5`;
+- semantic fusion weight: `0.5`;
+- lexical deduplication threshold: `0.92`;
+- MMR lambda: `0.7`.
+
+Focused verification:
+
+- `python -m compileall -q src tests`: PASS;
+- Hybrid Ranking unit suite: `19/19 PASS`;
+- corrected Phase 9 evaluation suite: `4/4 PASS`;
+- HybridRankingService DI/discovery integration: PASS;
+- real Phase 6 → Phase 7 → Phase 8 → Phase 9 integration: PASS;
+- full project regression: `247/247 PASS`;
+- failures: 0;
+- errors: 0.
+
+Corrected performance evidence:
+
+- 100 candidates: `0.9712695s`;
+- 500 candidates: `1.0099515s`;
+- 1000 candidates: `1.0356070s`;
+- ranked results: 25;
+- configured MMR pool: 50.
+
+The full-regression performance rerun remained stable:
+
+- 100 candidates: `0.8832830s`;
+- 500 candidates: `0.8855915s`;
+- 1000 candidates: `0.8931185s`.
+
+Corrected evaluation coverage now includes independent Persian-only, mixed Persian/Latin, and Latin-only cases and reports fixed-depth Precision@5/10, Recall@10, and NDCG@10 with at least 10 candidates per case.
+
+These remain regression/evaluation fixture measurements and are not represented as Production Gold Dataset quality.
+
+Phase 9 now satisfies the scoped Definition of Done after both the performance correction and the evaluation-methodology correction.
 
 Current marker:
 
-`PHASE_9_EVALUATION_CORRECTION_AWAITING_LOCAL_VERIFICATION`
+`PHASE_9_COMPLETE_READY_FOR_PHASE_10`
