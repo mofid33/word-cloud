@@ -60,8 +60,8 @@ class CandidateExtractionServiceTests(unittest.TestCase):
         }
         self.assertIn("مدل", texts)
         self.assertIn("BERT", texts)
-        self.assertIn("BERT برای NLP", texts)
-        self.assertIn("NLP فارسی", texts)
+        self.assertIn("BERT برای پردازش", texts)
+        self.assertIn("پردازش زبان طبیعی", texts)
 
     def test_technical_compound_tokens_are_not_resplit(self) -> None:
         texts = {
@@ -163,6 +163,7 @@ class CandidateExtractionServiceTests(unittest.TestCase):
                     "maximum_phrase_characters": 120,
                     "filter_pure_numeric": True,
                     "preserve_four_digit_year": True,
+                    "filter_stopword_unigrams": True,
                     "filter_edge_stopwords": True,
                     "reject_function_pos_unigrams": True,
                 }
@@ -186,6 +187,7 @@ class CandidateExtractionServiceTests(unittest.TestCase):
                     "maximum_phrase_characters": 120,
                     "filter_pure_numeric": False,
                     "preserve_four_digit_year": True,
+                    "filter_stopword_unigrams": False,
                     "filter_edge_stopwords": False,
                     "reject_function_pos_unigrams": False,
                 }
