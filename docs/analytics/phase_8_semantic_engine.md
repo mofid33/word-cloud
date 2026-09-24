@@ -1,6 +1,6 @@
 # Phase 8 — Semantic Engine
 
-Status: PHASE_8_IMPLEMENTED_AWAITING_LOCAL_VERIFICATION
+Status: CLOSED
 
 ## مرحله
 
@@ -239,17 +239,17 @@ For production-like verification, pre-populate the configured model cache becaus
 - [x] Real-provider DI integration test added.
 - [x] Persian profile benchmark fixture/test added.
 - [x] Raw text logging/persistence was not introduced.
-- [ ] Local dependency install verified.
-- [ ] Local compile verified.
-- [ ] Real-model integration executed.
-- [ ] Persian benchmark evidence captured on target hardware.
-- [ ] GPU RAM/VRAM evidence captured when CUDA hardware is available.
-- [ ] Full regression Phase 1–7 executed after Phase 8 dependency installation.
-- [ ] Final model selection justified by benchmark, or explicitly remains deferred after benchmark comparison.
+- [x] Local dependency install verified.
+- [x] Local compile verified.
+- [x] Real-model integration executed.
+- [x] Persian benchmark evidence captured on target CPU hardware.
+- [x] GPU RAM/VRAM evidence is not applicable to the verified CPU-only run; CUDA code path and unavailable-CUDA failure behavior are covered.
+- [x] Full regression Phase 1–8 executed after Phase 8 dependency installation.
+- [x] Final production model selection remains explicitly deferred; the current models remain benchmark candidates pending stronger Gold Dataset and multi-model comparison evidence.
 
 Current marker:
 
-PHASE_8_IMPLEMENTED_AWAITING_LOCAL_VERIFICATION
+PHASE_8_COMPLETE_READY_FOR_PHASE_9
 
 
 ## Local verification correction — DI namespace discovery
@@ -328,4 +328,132 @@ The successful 210-test run proved the runtime semantic path, but a Definition-o
 
 No hardware-specific performance threshold was introduced because no production SLO is frozen.
 
-Because these hardening changes were committed after the successful 210-test run, Phase 8 remains `PHASE_8_IMPLEMENTED_AWAITING_LOCAL_VERIFICATION` until the focused tests, enhanced benchmark and full regression are rerun on the updated commit.
+Those hardening changes were subsequently rerun and verified successfully; see the final local verification section below.
+
+
+## Final local verification — 2026-09-24
+
+The final hardening commit was pulled and verified locally on Windows / Python 3.12.
+
+### Dependency / compile
+
+- `psutil 7.2.2` installed successfully;
+- `python -m compileall -q src tests`: PASS.
+
+### Focused semantic tests
+
+- SemanticAnalysisService unit suite: 10 tests PASS;
+- semantic provider configuration/lifecycle suite: 12 tests PASS;
+- semantic provider DI discovery: 1 test PASS;
+- real Phase 6 → Phase 7 → Phase 8 integration: 2 tests PASS.
+
+The focused provider suite now verifies:
+
+- explicit CUDA-unavailable failure;
+- stable provider metadata/fingerprint;
+- batch-size validation against `batch.max_size`;
+- deterministic batching and order preservation;
+- empty inputs without model loading;
+- repeated/concurrent calls;
+- resolved model revision exposure;
+- `trust_remote_code=false` enforcement.
+
+### Real model metadata
+
+Verified CPU model artifacts:
+
+- embedding:
+  - `sentence-transformers/paraphrase-multilingual-mpnet-base-v2`;
+  - resolved revision: `4328cf26390c98c5e3c738b4460a05b95f4911f5`;
+- reranker:
+  - `BAAI/bge-reranker-v2-m3`;
+  - resolved revision: `953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e`.
+
+These remain benchmark candidates, not a frozen production-final model decision.
+
+### Enhanced semantic benchmark
+
+The standalone enhanced benchmark passed.
+
+Coverage includes:
+
+- Persian-only;
+- Persian/Latin mixed;
+- Latin-only;
+- technical strings such as model/version terms;
+- short keyphrases;
+- COURSE;
+- SOLDIER_CONCERN;
+- MEDIA.
+
+Observed standalone CPU baseline:
+
+- `precision_at_relevant_cutoff = 1.0` on the synthetic/public-safe Phase 8 evaluation smoke fixture;
+- evaluation elapsed: `100.3387637s`;
+- process RSS before: `70,393,856` bytes;
+- process RSS after: `2,521,624,576` bytes;
+- process RSS delta: `2,451,230,720` bytes;
+- Python tracked peak allocation: `223,361,307` bytes;
+- embedding batch size 1:
+  - `1.1865303s` for 7 items;
+  - `5.8995543561 items/s`;
+- embedding batch size 7:
+  - `0.8321161s` for 7 items;
+  - `8.4122876603 items/s`;
+- reranker batch size 1:
+  - `4.7736431s` for 7 pairs;
+  - `1.4663852855 pairs/s`;
+- reranker batch size 7:
+  - `2.6276188s` for 7 pairs;
+  - `2.6640089499 pairs/s`;
+- GPU evidence: `null` because the verification machine used CPU.
+
+The `1.0` relevance result is evidence for this smoke fixture only and is not interpreted as production accuracy or a final Gold Dataset metric.
+
+### Full regression
+
+Final full regression after all Phase 8 hardening:
+
+- total tests: 221;
+- passed: 221;
+- failures: 0;
+- errors: 0;
+- elapsed: `338.503s`.
+
+The semantic benchmark also ran inside the full regression and remained green:
+
+- `precision_at_relevant_cutoff = 1.0`;
+- evaluation elapsed: `200.38694s`;
+- RSS after: `2,525,315,072` bytes;
+- RSS delta: `2,439,106,560` bytes;
+- embedding throughput:
+  - batch 1: `2.6803683010 items/s`;
+  - batch 7: `3.3873312649 items/s`;
+- reranker throughput:
+  - batch 1: `0.9189647437 pairs/s`;
+  - batch 7: `1.8729045375 pairs/s`.
+
+The Phase 7 performance baseline also remained green inside the same regression.
+
+## Closure decision
+
+Phase 8 satisfies its scoped Definition of Done:
+
+- runtime semantic providers are real, not fake;
+- DI/discovery works without manual provider registration;
+- heavy models are singleton and reused;
+- batching and CPU/CUDA configuration are implemented;
+- Phase 6 → 7 → 8 runtime integration executes successfully;
+- semantic result contracts are explicit and reproducible;
+- model revisions are captured;
+- Persian/mixed/Latin smoke evaluation executes successfully;
+- process RAM, throughput and batch-size effects are measured;
+- privacy constraints remain intact;
+- no Phase 9 Hybrid Ranking logic was introduced;
+- full regression is green.
+
+Phase 8 is therefore CLOSED.
+
+Current readiness marker:
+
+`PHASE_8_COMPLETE_READY_FOR_PHASE_9`
