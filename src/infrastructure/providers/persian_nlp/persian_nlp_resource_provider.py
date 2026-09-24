@@ -20,6 +20,8 @@ class PersianNlpResources:
     canonical_terms: Mapping[str, str]
     lemmatization_enabled: bool
     pos_processing_enabled: bool
+    embedding_remove_stopwords: bool
+    embedding_use_lemmas: bool
 
 
 @inject
@@ -63,6 +65,7 @@ class PersianNlpResourceProvider:
         domain_stopwords = self._domain_stopwords(payload)
         synonyms = self._string_mapping(payload, "synonyms")
         canonical_terms = self._string_mapping(payload, "canonical_terms")
+        self._validate_mappings(synonyms, canonical_terms)
 
         return PersianNlpResources(
             version=version,
@@ -76,13 +79,46 @@ class PersianNlpResourceProvider:
             protected_terms=frozenset(protected_terms),
             synonyms=MappingProxyType(dict(sorted(synonyms.items()))),
             canonical_terms=MappingProxyType(dict(sorted(canonical_terms.items()))),
-            lemmatization_enabled=bool(
-                self._config_reader.get("persian_nlp.lemmatization.enabled", False)
+            lemmatization_enabled=self._required_bool(
+                "persian_nlp.lemmatization.enabled"
             ),
-            pos_processing_enabled=bool(
-                self._config_reader.get("persian_nlp.pos_processing.enabled", False)
+            pos_processing_enabled=self._required_bool(
+                "persian_nlp.pos_processing.enabled"
+            ),
+            embedding_remove_stopwords=self._required_bool(
+                "persian_nlp.embedding.remove_stopwords"
+            ),
+            embedding_use_lemmas=self._required_bool(
+                "persian_nlp.embedding.use_lemmas"
             ),
         )
+
+    def _required_bool(self, key: str) -> bool:
+        value = self._config_reader.require(key)
+        if not isinstance(value, bool):
+            raise ValueError(f"Configuration '{key}' must be a boolean")
+        return value
+
+    @staticmethod
+    def _validate_mappings(
+        synonyms: Mapping[str, str],
+        canonical_terms: Mapping[str, str],
+    ) -> None:
+        synonym_sources = set(synonyms)
+        canonical_sources = set(canonical_terms)
+        if synonym_sources & canonical_sources:
+            raise ValueError(
+                "Persian NLP synonym and canonical mapping sources must be disjoint"
+            )
+
+        all_sources = synonym_sources | canonical_sources
+        chained_targets = (
+            set(synonyms.values()) | set(canonical_terms.values())
+        ) & all_sources
+        if chained_targets:
+            raise ValueError(
+                "Persian NLP mapping chains or cycles are not allowed"
+            )
 
     @staticmethod
     def _required_string(payload: dict[str, object], key: str) -> str:

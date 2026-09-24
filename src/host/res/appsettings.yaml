@@ -39,3 +39,6 @@ persian_nlp:
     enabled: true
   pos_processing:
     enabled: true
+  embedding:
+    remove_stopwords: false
+    use_lemmas: false

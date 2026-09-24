@@ -25,7 +25,11 @@ class PersianNlpFoundationIntegrationTests(unittest.TestCase):
 
         result = processor.process("كِتاب‌ها و داده کاوی", domain="COURSE")
         self.assertEqual(result.normalized_text, "کتاب‌ها و داده کاوی")
-        self.assertEqual(result.embedding_tokens, ("کتاب", "داده‌کاوی"))
+        self.assertEqual(
+            result.embedding_tokens,
+            ("کتاب‌ها", "و", "داده‌کاوی"),
+        )
+        self.assertEqual(result.candidate_tokens[0].lemma, "کتاب")
 
 
 if __name__ == "__main__":

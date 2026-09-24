@@ -1,6 +1,6 @@
 # Phase 6 — Persian NLP Core
 
-Status: CLOSED
+Status: CORRECTION_IMPLEMENTED_AWAITING_LOCAL_VERIFICATION
 
 ## Scope implemented
 
@@ -43,8 +43,23 @@ Verified locally on 2026-09-24 on Windows / Python 3.12:
 
 The asyncio `Executing <Task ... took ...>` lines emitted during PostgreSQL integration tests are diagnostic slow-callback messages and did not fail the test suite.
 
-Phase 6 satisfies its Definition of Done and is CLOSED.
+The original 148-test verification is retained as the pre-correction baseline.
+
+## Accuracy correction pass
+
+A post-closure audit identified correctness gaps that could affect later candidate and semantic phases. The correction pass:
+
+- preserves internal technical/numeric compounds such as `GPT-4`, `BERT-base`, `v1.2` and `2026/09` as single tokens without creating false sentence boundaries;
+- makes plural lemmatization conservative by stripping only explicit ZWNJ plural suffixes, preventing false reductions such as `اژدها -> اژد` and `منتها -> منت`;
+- uses `X` for POS values that cannot be classified confidently instead of guessing `NOUN`;
+- keeps protected terms unchanged by lemmatization;
+- makes embedding stopword removal and lemma usage independently configurable, with conservative defaults that preserve natural normalized text until Phase 8 benchmarking;
+- validates NLP boolean configuration strictly;
+- rejects chained/cyclic synonym/canonical mappings so mapping precedence remains one-hop and deterministic;
+- expands unit/evaluation regression coverage for these cases.
+
+The correction is implemented but must pass local compile, Phase 6 unit/evaluation/integration tests and full project regression before Phase 6 is re-closed.
 
 Current readiness marker:
 
-`PHASE_6_COMPLETE_READY_FOR_PHASE_7`
+`PHASE_6_CORRECTION_AWAITING_LOCAL_VERIFICATION`

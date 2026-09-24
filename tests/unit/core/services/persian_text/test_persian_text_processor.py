@@ -25,19 +25,25 @@ class PersianTextProcessorTests(unittest.TestCase):
             json.dumps(
                 {
                     "version": "test-1",
-                    "general_stopwords": ["و", "در", "هوش"],
+                    "general_stopwords": ["و", "در", "هوش", "سامانه"],
                     "domain_stopwords": {
                         "COURSE": ["جلسه"],
                         "MEDIA": ["خبر"],
                     },
-                    "protected_terms": ["هوش مصنوعی"],
+                    "protected_terms": [
+                        "هوش مصنوعی",
+                        "مدل‌های ویژه",
+                        "سامانه ملی",
+                    ],
                     "synonyms": {
                         "AI": "هوش مصنوعی",
                         "ماشین لرنینگ": "یادگیری ماشین",
+                        "پلتفرم ملی": "سامانه ملی",
                     },
                     "canonical_terms": {
                         "داده کاوی": "داده‌کاوی",
                         "نرم افزار": "نرم‌افزار",
+                        "سامانه کشوری": "سامانه ملی",
                     },
                 },
                 ensure_ascii=False,
@@ -49,6 +55,10 @@ class PersianTextProcessorTests(unittest.TestCase):
                 "resources": {"path": str(resource_path)},
                 "lemmatization": {"enabled": True},
                 "pos_processing": {"enabled": True},
+                "embedding": {
+                    "remove_stopwords": True,
+                    "use_lemmas": True,
+                },
             }
         }
         for filename in ("appsettings.development.yaml", "appsettings.yaml"):
@@ -87,8 +97,20 @@ class PersianTextProcessorTests(unittest.TestCase):
 
     def test_tokenization_mixed_persian_latin_numbers(self) -> None:
         self.assertEqual(
-            self.processor.tokenize("نسخه GPT-4 در 2026/09 و عدد ١٢ است."),
-            ("نسخه", "GPT", "4", "در", "2026", "09", "و", "عدد", "۱۲", "است"),
+            self.processor.tokenize(
+                "نسخه GPT-4 در 2026/09 و BERT-base عدد ١٢ است."
+            ),
+            (
+                "نسخه",
+                "GPT-4",
+                "در",
+                "2026/09",
+                "و",
+                "BERT-base",
+                "عدد",
+                "۱۲",
+                "است",
+            ),
         )
 
     def test_stopwords_and_domain_stopwords_only_filter_embedding(self) -> None:
@@ -147,7 +169,7 @@ class PersianTextProcessorTests(unittest.TestCase):
         tagged = self.processor.process("من در ۱۲ پروژه می‌کنم GPT")
         self.assertEqual(
             [token.pos for token in tagged.candidate_tokens],
-            ["PRON", "ADP", "NUM", "NOUN", "VERB", "LATIN"],
+            ["PRON", "ADP", "NUM", "X", "VERB", "LATIN"],
         )
 
     def test_repeated_and_concurrent_execution_is_deterministic(self) -> None:
@@ -177,6 +199,92 @@ class PersianTextProcessorTests(unittest.TestCase):
 
     def test_resource_version_is_exposed(self) -> None:
         self.assertEqual(self.processor.process("داده").resource_version, "test-1")
+
+
+    def test_lemmatization_is_conservative_for_non_plural_words(self) -> None:
+        result = self.processor.process("اژدها منتها کتاب‌ها")
+        self.assertEqual(
+            [token.lemma for token in result.candidate_tokens],
+            ["اژدها", "منتها", "کتاب"],
+        )
+
+    def test_protected_terms_are_not_lemmatized(self) -> None:
+        result = self.processor.process("مدل‌های ویژه")
+        self.assertTrue(
+            all(token.is_protected for token in result.candidate_tokens)
+        )
+        self.assertEqual(
+            [token.lemma for token in result.candidate_tokens],
+            ["مدل‌های", "ویژه"],
+        )
+
+    def test_pos_processing_uses_unknown_instead_of_guessing_noun(self) -> None:
+        result = self.processor.process("رفت رفتند زیبا پروژه")
+        self.assertEqual(
+            [token.pos for token in result.candidate_tokens],
+            ["VERB", "VERB", "X", "X"],
+        )
+
+    def test_mapping_targets_become_protected_before_stopword_filtering(self) -> None:
+        synonym = self.processor.process("پلتفرم ملی و داده")
+        canonical = self.processor.process("سامانه کشوری و داده")
+        self.assertEqual(synonym.embedding_text, "سامانه ملی داده")
+        self.assertEqual(canonical.embedding_text, "سامانه ملی داده")
+        self.assertTrue(synonym.candidate_tokens[0].is_protected)
+        self.assertTrue(canonical.candidate_tokens[0].is_protected)
+
+    def test_disabled_linguistic_processing_and_embedding_filters(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            resource_path = root / "resources.json"
+            resource_path.write_text(
+                json.dumps(
+                    {
+                        "version": "test-disabled",
+                        "general_stopwords": ["و"],
+                        "domain_stopwords": {},
+                        "protected_terms": [],
+                        "synonyms": {},
+                        "canonical_terms": {},
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            config = {
+                "persian_nlp": {
+                    "resources": {"path": str(resource_path)},
+                    "lemmatization": {"enabled": False},
+                    "pos_processing": {"enabled": False},
+                    "embedding": {
+                        "remove_stopwords": False,
+                        "use_lemmas": False,
+                    },
+                }
+            }
+            for filename in ("appsettings.development.yaml", "appsettings.yaml"):
+                (root / filename).write_text(
+                    yaml.safe_dump(config, allow_unicode=True),
+                    encoding="utf-8",
+                )
+            processor = PersianTextProcessor(
+                PersianNlpResourceProvider(
+                    ConfigReader(config_dir=root, env_type="development")
+                )
+            )
+
+            result = processor.process("کتاب‌ها و داده")
+            self.assertEqual(
+                [token.lemma for token in result.candidate_tokens],
+                ["کتاب‌ها", "و", "داده"],
+            )
+            self.assertTrue(
+                all(token.pos is None for token in result.candidate_tokens)
+            )
+            self.assertEqual(
+                result.embedding_tokens,
+                ("کتاب‌ها", "و", "داده"),
+            )
 
 
 if __name__ == "__main__":

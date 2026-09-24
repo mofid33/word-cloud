@@ -39,6 +39,16 @@ class PersianPreprocessingEvaluationTests(unittest.TestCase):
                     list(result.embedding_tokens),
                     case["embedding_tokens"],
                 )
+                if "lemmas" in case:
+                    self.assertEqual(
+                        [token.lemma for token in result.candidate_tokens],
+                        case["lemmas"],
+                    )
+                if "pos" in case:
+                    self.assertEqual(
+                        [token.pos for token in result.candidate_tokens],
+                        case["pos"],
+                    )
 
 
 if __name__ == "__main__":

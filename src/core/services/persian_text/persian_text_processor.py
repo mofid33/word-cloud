@@ -23,6 +23,8 @@ _ARABIC_TO_PERSIAN = str.maketrans(
         "إ": "ا",
         "ٱ": "ا",
         "ـ": "",
+        "‐": "-",
+        "‑": "-",
         "٠": "۰",
         "١": "۱",
         "٢": "۲",
@@ -50,7 +52,7 @@ _MULTI_SPACE_RE = re.compile(r"\s+")
 _MULTI_ZWNJ_RE = re.compile(rf"{_ZWNJ}+")
 _ZWNJ_RIGHT_SPACE_RE = re.compile(rf"(?<=\w){_ZWNJ}\s+")
 _ZWNJ_LEFT_SPACE_RE = re.compile(rf"\s+{_ZWNJ}(?=\w)")
-_LATIN_RE = re.compile(r"^[A-Za-z]+(?:[._+-][A-Za-z0-9]+)*$")
+_LATIN_RE = re.compile(r"^[A-Za-z][A-Za-z0-9]*(?:[._+\-][A-Za-z0-9]+)*$")
 _NUMBER_RE = re.compile(r"^[0-9۰-۹]+(?:[./,:٫٬-][0-9۰-۹]+)*$")
 
 _ADPOSITIONS = frozenset({
@@ -62,7 +64,9 @@ _PRONOUNS = frozenset({
 })
 _COMMON_VERBS = frozenset({
     "است", "هست", "بود", "شد", "شود", "شده", "کرد", "کند", "کرده",
-    "داشت", "دارد", "دارند", "می‌شود", "می‌کند", "می‌کنند", "می‌توان",
+    "داشت", "دارد", "دارند", "رفت", "رفتند", "رفتیم", "رفتید", "رفتم",
+    "آمد", "آمدند", "آمدیم", "آمدید", "آمدم",
+    "می‌شود", "می‌کند", "می‌کنند", "می‌توان", "می‌رود", "می‌روند",
 })
 
 
@@ -155,7 +159,7 @@ class PersianTextProcessor:
         for index, token in enumerate(canonicalized):
             lemma = (
                 self._lemmatize(token.text)
-                if self._lemmatization_enabled
+                if self._lemmatization_enabled and not token.is_protected
                 else token.text
             )
             pos = self._pos_tag(token.text) if self._pos_enabled else None
@@ -170,8 +174,14 @@ class PersianTextProcessor:
                     is_protected=token.is_protected,
                 )
             )
-            if not is_stopword:
-                embedding_tokens.append(lemma)
+            include_in_embedding = (
+                not self._resources.embedding_remove_stopwords
+                or not is_stopword
+            )
+            if include_in_embedding:
+                embedding_tokens.append(
+                    lemma if self._resources.embedding_use_lemmas else token.text
+                )
 
         return PersianTextProcessingResult(
             normalized_text=normalized_text,
@@ -244,8 +254,12 @@ class PersianTextProcessor:
                 return None
             return _ScannedToken(value, segment_index)
 
-        for char in text:
-            if cls._is_word_char(char) or char == _ZWNJ:
+        for index, char in enumerate(text):
+            if (
+                cls._is_word_char(char)
+                or char == _ZWNJ
+                or cls._is_internal_connector(text, index)
+            ):
                 buffer.append(char)
                 continue
 
@@ -267,6 +281,35 @@ class PersianTextProcessor:
         if not char:
             return False
         return unicodedata.category(char)[0] in {"L", "N", "M"}
+
+    @staticmethod
+    def _is_decimal_digit(char: str) -> bool:
+        return bool(char) and unicodedata.category(char) == "Nd"
+
+    @staticmethod
+    def _is_ascii_alphanumeric(char: str) -> bool:
+        return bool(char) and char.isascii() and char.isalnum()
+
+    @classmethod
+    def _is_internal_connector(cls, text: str, index: int) -> bool:
+        char = text[index]
+        left = text[index - 1] if index > 0 else ""
+        right = text[index + 1] if index + 1 < len(text) else ""
+        if not cls._is_word_char(left) or not cls._is_word_char(right):
+            return False
+
+        if char in {"-", "_", "+"}:
+            return True
+        if char == ".":
+            return (
+                cls._is_decimal_digit(left) and cls._is_decimal_digit(right)
+            ) or (
+                cls._is_ascii_alphanumeric(left)
+                and cls._is_ascii_alphanumeric(right)
+            )
+        if char in {"/", ":", ",", "٫", "٬"}:
+            return cls._is_decimal_digit(left) and cls._is_decimal_digit(right)
+        return False
 
     @classmethod
     def _normalize_resource_term(cls, term: str) -> tuple[str, ...]:
@@ -414,7 +457,7 @@ class PersianTextProcessor:
         if len(token) <= 3 or _NUMBER_RE.match(token) or _LATIN_RE.match(token):
             return token
 
-        for suffix in ("‌هایی", "هایی", "‌های", "های", "‌ها", "ها"):
+        for suffix in ("‌هایی", "‌های", "‌ها"):
             if token.endswith(suffix) and len(token) - len(suffix) >= 3:
                 return token[: -len(suffix)].rstrip(_ZWNJ)
 
@@ -434,4 +477,4 @@ class PersianTextProcessor:
             return "PRON"
         if token in _COMMON_VERBS or token.startswith(("می‌", "نمی‌")):
             return "VERB"
-        return "NOUN"
+        return "X"

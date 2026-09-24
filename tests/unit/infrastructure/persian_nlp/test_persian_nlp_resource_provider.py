@@ -20,6 +20,10 @@ class PersianNlpResourceProviderTests(unittest.TestCase):
                 "resources": {"path": str(resource_path)},
                 "lemmatization": {"enabled": True},
                 "pos_processing": {"enabled": True},
+                "embedding": {
+                    "remove_stopwords": False,
+                    "use_lemmas": False,
+                },
             }
         }
         for filename in ("appsettings.development.yaml", "appsettings.yaml"):
@@ -60,6 +64,8 @@ class PersianNlpResourceProviderTests(unittest.TestCase):
             )
             self.assertTrue(resources.lemmatization_enabled)
             self.assertTrue(resources.pos_processing_enabled)
+            self.assertFalse(resources.embedding_remove_stopwords)
+            self.assertFalse(resources.embedding_use_lemmas)
             with self.assertRaises(TypeError):
                 resources.synonyms["x"] = "y"  # type: ignore[index]
 
@@ -71,6 +77,69 @@ class PersianNlpResourceProviderTests(unittest.TestCase):
             config = self._config(root, resource_path)
 
             with self.assertRaisesRegex(ValueError, "resource 'version'"):
+                PersianNlpResourceProvider(config)
+
+
+    def test_string_boolean_configuration_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            resource_path = root / "resources.json"
+            resource_path.write_text(
+                json.dumps(
+                    {
+                        "version": "v1",
+                        "general_stopwords": [],
+                        "domain_stopwords": {},
+                        "protected_terms": [],
+                        "synonyms": {},
+                        "canonical_terms": {},
+                    }
+                ),
+                encoding="utf-8",
+            )
+            config = {
+                "persian_nlp": {
+                    "resources": {"path": str(resource_path)},
+                    "lemmatization": {"enabled": "false"},
+                    "pos_processing": {"enabled": True},
+                    "embedding": {
+                        "remove_stopwords": False,
+                        "use_lemmas": False,
+                    },
+                }
+            }
+            for filename in ("appsettings.development.yaml", "appsettings.yaml"):
+                (root / filename).write_text(
+                    yaml.safe_dump(config),
+                    encoding="utf-8",
+                )
+
+            with self.assertRaisesRegex(ValueError, "must be a boolean"):
+                PersianNlpResourceProvider(
+                    ConfigReader(config_dir=root, env_type="development")
+                )
+
+    def test_mapping_chains_are_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            resource_path = root / "resources.json"
+            resource_path.write_text(
+                json.dumps(
+                    {
+                        "version": "v1",
+                        "general_stopwords": [],
+                        "domain_stopwords": {},
+                        "protected_terms": [],
+                        "synonyms": {"الف": "ب"},
+                        "canonical_terms": {"ب": "ج"},
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            config = self._config(root, resource_path)
+
+            with self.assertRaisesRegex(ValueError, "chains or cycles"):
                 PersianNlpResourceProvider(config)
 
 
