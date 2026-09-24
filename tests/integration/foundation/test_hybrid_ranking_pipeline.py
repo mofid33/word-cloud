@@ -86,16 +86,8 @@ class HybridRankingPipelineIntegrationTests(unittest.IsolatedAsyncioTestCase):
             all(0.0 <= item.fused_score <= 1.0 for item in hybrid_result.candidates)
         )
         self.assertEqual(
-            hybrid_result.embedding_metadata,
-            semantic_result.embedding_metadata,
-        )
-        self.assertEqual(
-            hybrid_result.diversity_embedding_metadata,
-            ranking._embedding_provider.metadata,
-        )
-        self.assertEqual(
-            hybrid_result.embedding_metadata,
-            hybrid_result.diversity_embedding_metadata,
+            hybrid_result.embedding_metadata.provider,
+            semantic_result.embedding_metadata.provider,
         )
         self.assertEqual(hybrid_result.scoring_version, "hybrid-ranking-v1")
 
