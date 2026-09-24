@@ -208,11 +208,35 @@ class HybridRankingEvaluationTests(unittest.IsolatedAsyncioTestCase):
                 item["canonical_text"]: item["vector"]
                 for item in case["candidates"]
             }
+            declared_semantic_pairs = {
+                frozenset((left, right))
+                for left, right in case["high_similarity_pairs"]
+            }
             for left, right in case["high_similarity_pairs"]:
                 self.assertGreaterEqual(
                     _cosine(vectors[left], vectors[right]),
                     semantic_threshold,
                 )
+
+            candidate_names = list(vectors)
+            for left_index, left in enumerate(candidate_names):
+                for right in candidate_names[left_index + 1:]:
+                    pair = frozenset((left, right))
+                    similarity = _cosine(vectors[left], vectors[right])
+                    if pair in declared_semantic_pairs:
+                        self.assertGreaterEqual(
+                            similarity,
+                            semantic_threshold,
+                        )
+                    else:
+                        self.assertLess(
+                            similarity,
+                            semantic_threshold,
+                            msg=(
+                                f"undeclared semantic duplicate in {case['name']}: "
+                                f"{left!r} vs {right!r} = {similarity}"
+                            ),
+                        )
 
     def test_production_and_development_hybrid_baselines_match(self):
         keys = (
