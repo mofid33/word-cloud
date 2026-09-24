@@ -178,14 +178,18 @@
       "kind": "service",
       "inject": true,
       "singleton": false,
-      "dependencies": []
+      "dependencies": [
+        "ConfigReader"
+      ]
     },
     "StatisticalAnalysisService": {
       "layer": "Core",
       "kind": "service",
       "inject": true,
       "singleton": false,
-      "dependencies": []
+      "dependencies": [
+        "ConfigReader"
+      ]
     },
     "SemanticAnalysisService": {
       "layer": "Core",
