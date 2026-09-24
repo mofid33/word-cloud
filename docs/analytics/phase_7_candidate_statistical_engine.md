@@ -1,6 +1,6 @@
 # Phase 7 — Candidate & Statistical Engine
 
-Status: CORRECTION_IMPLEMENTED_AWAITING_LOCAL_VERIFICATION
+Status: CLOSED
 
 ## مرحله
 
@@ -247,6 +247,32 @@ The controlled corpus still measures runtime and enforces bounded candidate grow
 
 Runtime is printed as baseline evidence. A time gate is optional through `PHASE7_PERF_MAX_SECONDS`; when supplied by CI or a known environment it must be positive and the measured runtime must remain below it. This avoids inventing a universal production latency SLO before that SLO is frozen.
 
+## Post-correction verification evidence
+
+Verified locally on 2026-09-24 on Windows / Python 3.12 after the coverage/profile/performance corrections:
+
+- `python -m compileall -q src tests`: PASS;
+- Candidate extraction unit suite: 18 tests, PASS;
+- Statistical analysis unit suite: 16 tests, PASS;
+- Phase 6 → Phase 7 DI integration: 1 test, PASS;
+- Persian candidate/statistical evaluation: 1 test, PASS;
+- profile-aware regression: 3 tests, PASS;
+  - COURSE: PASS;
+  - SOLDIER_CONCERN: PASS;
+  - MEDIA: PASS;
+- controlled performance baseline: PASS;
+  - isolated measured engine baseline: 1.300s;
+  - full-regression measured engine baseline: 1.214s;
+  - tokens: 16000;
+  - occurrences: 27700;
+- full project regression: 195 tests, PASS;
+- failures: 0;
+- errors: 0.
+
+The corrected section/chunk denominator behavior is covered by unit and COURSE profile regression tests, including sections/chunks that produce zero surviving candidates.
+
+Phase 7 satisfies the project Definition of Done after correction and is CLOSED.
+
 ## Privacy
 
 Phase 7 adds no logging of raw text or candidate text, no persistence, no metrics labels, no trace attributes and no durable queue payload.
@@ -326,8 +352,8 @@ python -m unittest discover -s tests -p "test_*.py" -v
 - [x] Coverage denominator correctness fix implemented.
 - [x] COURSE/SOLDIER_CONCERN/MEDIA profile-aware regression tests added.
 - [x] Hardware-dependent fixed performance threshold removed.
-- [ ] Post-correction local compile/test/regression evidence captured.
+- [x] Post-correction local compile/test/regression evidence captured.
 
 Current readiness marker:
 
-`PHASE_7_CORRECTION_AWAITING_LOCAL_VERIFICATION`
+`PHASE_7_COMPLETE_READY_FOR_PHASE_8`
