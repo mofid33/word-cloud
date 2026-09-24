@@ -1,6 +1,6 @@
 # Phase 6 — Persian NLP Core
 
-Status: IMPLEMENTED_AWAITING_LOCAL_VERIFICATION
+Status: CLOSED
 
 ## Scope implemented
 
@@ -29,6 +29,22 @@ PersianNlpResourceProvider is an immutable singleton Infrastructure provider dis
 
 No network access, semantic model, candidate generation, statistical scoring, hybrid ranking, profile workflow, topic/trend, queue/worker or rendering implementation is introduced in this phase.
 
-## Verification state
+## Final verification evidence
 
-Phase 6 includes unit tests, a Persian preprocessing evaluation fixture, DI/resource lifecycle integration coverage and is ready for the repository-wide local regression gate. It must not be marked CLOSED until those commands pass on the user's machine.
+Verified locally on 2026-09-24 on Windows / Python 3.12:
+
+- `python -m compileall -q src tests`: PASS;
+- Phase 6 unit suite: 14 tests, PASS;
+- Persian preprocessing evaluation: 1 test, PASS;
+- Persian NLP DI/resource lifecycle integration: 1 test, PASS;
+- full project regression: 148 tests, PASS;
+- failures: 0;
+- errors: 0.
+
+The asyncio `Executing <Task ... took ...>` lines emitted during PostgreSQL integration tests are diagnostic slow-callback messages and did not fail the test suite.
+
+Phase 6 satisfies its Definition of Done and is CLOSED.
+
+Current readiness marker:
+
+`PHASE_6_COMPLETE_READY_FOR_PHASE_7`
