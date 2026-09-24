@@ -59,3 +59,18 @@ statistical_analysis:
     frequency: 0.3333333333333333
     document_coverage: 0.3333333333333333
     phrase_quality: 0.3333333333333334
+
+semantic:
+  embedding:
+    model_identifier: "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
+    model_revision: null
+    batch_size: 16
+    max_length: 512
+  reranker:
+    model_identifier: "BAAI/bge-reranker-v2-m3"
+    model_revision: null
+    batch_size: 8
+    max_length: 512
+
+semantic_analysis:
+  rerank_top_n: 25
