@@ -1,6 +1,6 @@
 # Phase 7 — Candidate & Statistical Engine
 
-Status: CLOSED
+Status: CORRECTION_IN_PROGRESS
 
 ## مرحله
 
@@ -286,4 +286,4 @@ python -m unittest discover -s tests -p "test_*.py" -v
 
 Current readiness marker:
 
-`PHASE_7_COMPLETE_READY_FOR_PHASE_8`
+`PHASE_7_CORRECTION_IN_PROGRESS`
