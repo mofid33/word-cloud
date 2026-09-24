@@ -36,6 +36,7 @@ class _Config:
             "hybrid_ranking.baseline_weights.statistical": 0.5,
             "hybrid_ranking.baseline_weights.semantic": 0.5,
             "hybrid_ranking.lexical_deduplication_threshold": 0.92,
+            "hybrid_ranking.semantic_deduplication_threshold": 0.95,
             "hybrid_ranking.mmr_lambda": 0.7,
             "hybrid_ranking.diversity_candidate_pool_size": 10,
             "hybrid_ranking.maximum_ranked_results": 5,
@@ -245,9 +246,89 @@ class HybridRankingServiceTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(len(ranked.candidates), 2)
 
+    async def test_semantic_near_duplicate_deduplication(self):
+        ranked = await self.service().rank_async(
+            (
+                _stat("هوش مصنوعی", 0.9),
+                _stat("یادگیری ماشین", 0.8),
+                _stat("تحلیل داده", 0.7),
+            ),
+            _result((
+                _semantic("هوش مصنوعی", 0.9, 1),
+                _semantic("یادگیری ماشین", 0.8, 2),
+                _semantic("تحلیل داده", 0.7, 3),
+            )),
+            maximum_results=3,
+        )
+        self.assertEqual(
+            [item.canonical_text for item in ranked.candidates],
+            ["هوش مصنوعی", "تحلیل داده"],
+        )
+        semantic_removed = [
+            item
+            for item in ranked.deduplicated
+            if item.reason == "semantic_near_duplicate"
+        ]
+        self.assertEqual(len(semantic_removed), 1)
+        self.assertEqual(
+            semantic_removed[0].removed_canonical_text,
+            "یادگیری ماشین",
+        )
+        self.assertEqual(
+            semantic_removed[0].kept_canonical_text,
+            "هوش مصنوعی",
+        )
+        self.assertGreaterEqual(
+            semantic_removed[0].similarity,
+            ranked.semantic_deduplication_threshold,
+        )
+
+    async def test_semantic_threshold_is_configurable(self):
+        ranked = await self.service({
+            "hybrid_ranking.semantic_deduplication_threshold": 0.99,
+        }).rank_async(
+            (
+                _stat("هوش مصنوعی", 0.9),
+                _stat("یادگیری ماشین", 0.8),
+            ),
+            _result((
+                _semantic("هوش مصنوعی", 0.9, 1),
+                _semantic("یادگیری ماشین", 0.8, 2),
+            )),
+            maximum_results=2,
+        )
+        self.assertEqual(len(ranked.candidates), 2)
+        self.assertFalse(
+            any(
+                item.reason == "semantic_near_duplicate"
+                for item in ranked.deduplicated
+            )
+        )
+
+    async def test_protected_terms_bypass_semantic_deduplication(self):
+        ranked = await self.service().rank_async(
+            (
+                _stat("هوش مصنوعی", 0.9, protected=True),
+                _stat("یادگیری ماشین", 0.8),
+            ),
+            _result((
+                _semantic("هوش مصنوعی", 0.9, 1),
+                _semantic("یادگیری ماشین", 0.8, 2),
+            )),
+            maximum_results=2,
+        )
+        self.assertEqual(len(ranked.candidates), 2)
+        self.assertFalse(
+            any(
+                item.reason == "semantic_near_duplicate"
+                for item in ranked.deduplicated
+            )
+        )
+
     async def test_mmr_promotes_diversity(self):
         ranked = await self.service({
             "hybrid_ranking.lexical_deduplication_threshold": 1.0,
+            "hybrid_ranking.semantic_deduplication_threshold": 1.0,
             "hybrid_ranking.mmr_lambda": 0.4,
         }).rank_async(
             (
@@ -333,7 +414,11 @@ class HybridRankingServiceTests(unittest.IsolatedAsyncioTestCase):
 
             async def embed_async(self, texts):
                 self.batch_sizes.append(len(texts))
-                return tuple((1.0, float(index + 1), 0.5) for index, _ in enumerate(texts))
+                size = len(texts)
+                return tuple(
+                    tuple(1.0 if axis == index else 0.0 for axis in range(size))
+                    for index, _ in enumerate(texts)
+                )
 
         embedding = TrackingEmbedding()
         service = HybridRankingService(embedding, _Config())
@@ -363,6 +448,9 @@ class HybridRankingServiceTests(unittest.IsolatedAsyncioTestCase):
             {"hybrid_ranking.baseline_weights.statistical": math.nan},
             {"hybrid_ranking.baseline_weights.statistical": 0.8},
             {"hybrid_ranking.lexical_deduplication_threshold": 1.1},
+            {"hybrid_ranking.semantic_deduplication_threshold": True},
+            {"hybrid_ranking.semantic_deduplication_threshold": math.nan},
+            {"hybrid_ranking.semantic_deduplication_threshold": 1.1},
             {"hybrid_ranking.mmr_lambda": -0.1},
             {"hybrid_ranking.diversity_candidate_pool_size": 0},
             {
