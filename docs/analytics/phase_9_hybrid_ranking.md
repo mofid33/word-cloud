@@ -150,6 +150,8 @@ The exact production MMR lambda remains deferred pending Gold Dataset evidence.
 
 Pairwise similarity uses normalized cosine similarity. The bounded pool prevents MMR pairwise work from growing with the full candidate corpus after preselection.
 
+Deduplication is also bounded to the same top fused candidate pool. This is behavior-preserving for the final ranked output: downstream MMR can only consume the first `diversity_candidate_pool_size` deduplicated candidates, so scanning lower-ranked candidates after that pool is full cannot change the result. This changes worst-case ranking work from an unnecessary all-candidate lexical comparison path toward `O(N * P)`, where `P` is the configured bounded pool, instead of `O(N²)` over the full candidate set.
+
 ## Determinism
 
 Deterministic behavior is enforced through:
@@ -320,9 +322,44 @@ Persistence of this metadata remains owned by later profile/persistence orchestr
 
 ## Evaluation / Benchmark Results
 
-Repository implementation and test artifacts are committed.
+### First local verification pass — 2026-09-24
 
-Final execution evidence is intentionally pending the required local verification step. No unexecuted test is reported as PASS.
+The first local verification on Windows / Python 3.12 produced strong correctness evidence:
+
+- `python -m compileall -q src tests`: PASS;
+- Phase 9 ranking unit suite: 16/16 PASS;
+- HybridRankingService DI/discovery integration: PASS;
+- real Phase 6 → Phase 7 → Phase 8 → Phase 9 integration: PASS;
+- Phase 9 evaluation: PASS;
+- full project regression: 241/241 PASS;
+- failures: 0;
+- errors: 0.
+
+The real-model integration completed successfully using the existing Phase 8 providers.
+
+The regression fixture produced real Precision@5/10, Recall@10 and NDCG@10 evidence. These remain fixture/regression measurements, not Production Gold Dataset claims.
+
+### Performance blocker discovered
+
+The first performance run exposed an unacceptable scaling characteristic in the ranking implementation:
+
+- 100 candidates: about 2.9 seconds;
+- 500 candidates: about 43–50 seconds;
+- 1000 candidates: about 188–201 seconds.
+
+Memory remained modest, while runtime scaled approximately quadratically.
+
+Root cause analysis showed that MMR itself was correctly bounded to 50 candidates, but lexical deduplication still scanned the entire fused candidate list and compared each candidate against the accumulated kept candidates using `SequenceMatcher`. That created unnecessary `O(N²)` lexical comparison work before MMR.
+
+### Performance correction
+
+The deduplication pass now stops once `diversity_candidate_pool_size` unique candidates have been collected.
+
+This is output-preserving because MMR only receives that bounded deduplicated pool; candidates below the first complete pool cannot affect the final ranked result.
+
+A regression test now verifies that a 100-candidate input with pool size 10 sends exactly 10 candidates to the diversity embedding stage and records the bounded deduplication strategy.
+
+Because this correction was committed after the successful 241-test run, the final Phase 9 verification gates must be rerun before closure.
 
 The previous verified baseline entering Phase 9 was Phase 8 full regression: 221/221 tests PASS.
 
@@ -390,12 +427,17 @@ If production config is being verified offline, pre-populate the configured mode
 - [x] final profile weights remain deferred.
 - [x] semantic dedup production threshold remains deferred.
 - [x] exact production MMR lambda remains deferred.
-- [ ] local compile evidence received.
-- [ ] local focused Phase 9 tests verified.
-- [ ] local real-model Phase 6→7→8→9 integration verified.
-- [ ] local evaluation evidence reviewed.
-- [ ] local performance evidence reviewed.
-- [ ] local full regression Phase 1–9 reviewed.
+- [x] first local compile evidence received before performance correction.
+- [x] first local focused Phase 9 tests verified before performance correction.
+- [x] first local real-model Phase 6→7→8→9 integration verified before performance correction.
+- [x] first local evaluation evidence reviewed before performance correction.
+- [x] performance evidence reviewed and scaling blocker identified.
+- [x] bounded deduplication correction implemented.
+- [ ] post-correction local compile verified.
+- [ ] post-correction focused Phase 9 tests verified.
+- [ ] post-correction performance baseline verified.
+- [ ] post-correction real-model Phase 6→7→8→9 integration verified.
+- [ ] post-correction full regression Phase 1–9 reviewed.
 
 Current marker:
 
