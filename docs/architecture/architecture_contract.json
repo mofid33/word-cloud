@@ -210,7 +210,10 @@
       "kind": "service",
       "inject": true,
       "singleton": false,
-      "dependencies": []
+      "dependencies": [
+        "EmbeddingProvider",
+        "ConfigReader"
+      ]
     },
     "TopicAnalysisService": {
       "layer": "Core",
