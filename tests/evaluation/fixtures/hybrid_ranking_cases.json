@@ -28,7 +28,7 @@
       "profile": "COURSE",
       "coverage": "mixed",
       "near_duplicate_pairs": [["machine learning", "machine learnings"]],
-      "high_similarity_pairs": [["GPT-4", "BERT-base"]],
+      "high_similarity_pairs": [["semantic ranking", "cross-encoder"]],
       "candidates": [
         {"canonical_text": "GPT-4", "statistical": 0.78, "semantic": 0.96, "relevance": 3, "vector": [1.0, 0.0, 0.0, 0.0]},
         {"canonical_text": "BERT-base", "statistical": 0.73, "semantic": 0.91, "relevance": 3, "vector": [0.96, 0.04, 0.0, 0.0]},
