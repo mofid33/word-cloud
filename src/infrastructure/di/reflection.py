@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import importlib
 import inspect
-import pkgutil
 from collections.abc import Iterable
+from pathlib import Path
 from types import ModuleType
 
 from src.infrastructure.di.inject import register_provider
@@ -38,14 +38,28 @@ def iter_modules(package_name: str) -> Iterable[str]:
     if package_paths is None:
         return ()
 
-    modules: list[str] = []
-    for module_info in pkgutil.walk_packages(package_paths, package.__name__ + "."):
-        module_name = module_info.name
-        parts = set(module_name.split("."))
-        if parts & EXCLUDED_PARTS or module_name in EXCLUDED_MODULES:
+    modules: set[str] = set()
+    for package_path in package_paths:
+        root = Path(package_path)
+        if not root.is_dir():
             continue
-        modules.append(module_name)
-    return modules
+
+        for file_path in root.rglob("*.py"):
+            relative = file_path.relative_to(root)
+            relative_parts = relative.parts
+
+            if any(part in EXCLUDED_PARTS for part in relative_parts[:-1]):
+                continue
+            if relative.name == "__init__.py":
+                continue
+
+            module_parts = relative.with_suffix("").parts
+            module_name = ".".join((package.__name__, *module_parts))
+            if module_name in EXCLUDED_MODULES:
+                continue
+            modules.add(module_name)
+
+    return tuple(sorted(modules))
 
 
 def _register_cached_module_providers(module: ModuleType) -> None:
