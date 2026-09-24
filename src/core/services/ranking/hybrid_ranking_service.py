@@ -95,7 +95,7 @@ class _JoinedCandidate:
 
 @inject
 class HybridRankingService:
-    SCORING_VERSION = "hybrid-ranking-v1"
+    SCORING_VERSION = "hybrid-ranking-v2"
 
     def __init__(
         self,
