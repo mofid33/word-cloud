@@ -1,6 +1,6 @@
 # Phase 9 — Hybrid Ranking
 
-Status: CLOSED
+Status: EVALUATION_CORRECTION_IMPLEMENTED_AWAITING_LOCAL_VERIFICATION
 
 ## مرحله
 
@@ -496,7 +496,7 @@ If production config is being verified offline, pre-populate the configured mode
 
 Current marker:
 
-`PHASE_9_COMPLETE_READY_FOR_PHASE_10`
+`PHASE_9_EVALUATION_CORRECTION_AWAITING_LOCAL_VERIFICATION`
 
 
 ## Closure decision
@@ -515,8 +515,114 @@ Phase 9 satisfies its scoped Definition of Done:
 - no Phase 10 profile workflow was introduced;
 - compile, focused tests, real-model integration and full regression are green.
 
-Phase 9 is therefore CLOSED.
+The previous closure is superseded by the post-closure evaluation audit described below. Phase 9 remains open until the corrected evaluation and full regression are verified locally.
 
 Current readiness marker:
 
-`PHASE_9_COMPLETE_READY_FOR_PHASE_10`
+`PHASE_9_EVALUATION_CORRECTION_AWAITING_LOCAL_VERIFICATION`
+
+
+## Post-closure evaluation audit correction
+
+A stricter post-closure audit found that the Core/runtime Hybrid Ranking implementation remained sound, but the evaluation evidence had three methodological gaps that made the previous closure premature.
+
+### Root causes
+
+1. `Precision@5` / `Precision@10` divided by the number of returned items instead of the fixed cutoff `K`. On fixtures with fewer than 10 candidates, the value labeled `Precision@10` was therefore not a fixed-depth Precision@10 measurement.
+2. The final `Hybrid + dedup + MMR` evaluation used ad-hoc threshold/lambda values instead of proving the shipped Development/Production baseline configuration.
+3. The Phase 9 fixture covered all three profiles, but did not provide explicit independent `persian_only`, `mixed`, and `latin_only` evaluation cases with at least 10 candidates each.
+
+The previously printed Phase 9 Precision@K values are therefore historical/superseded evidence and must not be used as final Phase 9 closure metrics.
+
+### Corrections implemented
+
+- `tests/evaluation/fixtures/hybrid_ranking_cases.json` now contains:
+  - all three profiles;
+  - explicit `persian_only`, `mixed`, and `latin_only` coverage;
+  - at least 10 candidates per evaluation case;
+  - technical keyphrases including `GPT-4`, `BERT-base`, and `v1.2`;
+  - declared lexical near-duplicate pairs;
+  - declared highly similar semantic pairs.
+- `tests/evaluation/test_hybrid_ranking_evaluation.py` now:
+  - computes Precision@K using a fixed denominator `K`;
+  - has a direct regression test proving the fixed-K denominator;
+  - validates fixture coverage requirements;
+  - validates declared lexical near-duplicates against the real configured threshold;
+  - validates declared high-similarity vector pairs;
+  - loads the real production Hybrid Ranking config;
+  - verifies Development and Production baseline config remain aligned;
+  - uses the shipped `lexical_deduplication_threshold = 0.92` and `mmr_lambda = 0.7` for the final `Hybrid + dedup + MMR` baseline;
+  - retains controlled ablations for statistical-only, semantic-only, fusion-only, and fusion+dedup comparisons;
+  - requires exactly 10 final candidates before reporting fixed-depth P@10 evidence;
+  - retains deterministic reversed-input regression.
+- Hybrid Ranking unit coverage now explicitly includes:
+  - all-zero scores;
+  - Persian-only deterministic ranking;
+  - Latin-only deterministic ranking;
+  - mixed Persian/Latin deterministic ranking.
+- Reproducibility was hardened:
+  - Phase 9 now validates that the actual MMR/diversity `EmbeddingProvider` metadata matches the Phase 8 embedding metadata;
+  - mismatch fails fast;
+  - `HybridRankingResult` exposes both the Phase 8 `embedding_metadata` and actual `diversity_embedding_metadata`.
+
+These changes do not freeze final profile weights, production-final MMR lambda, or a semantic deduplication threshold. Those decisions remain deferred exactly as required by the Phase 9 prompt.
+
+### Files modified by the audit correction
+
+- `tests/evaluation/fixtures/hybrid_ranking_cases.json`
+- `tests/evaluation/test_hybrid_ranking_evaluation.py`
+- `src/core/services/ranking/hybrid_ranking_service.py`
+- `tests/unit/core/services/ranking/test_hybrid_ranking_service.py`
+- `tests/integration/foundation/test_hybrid_ranking_pipeline.py`
+- `docs/analytics/phase_9_hybrid_ranking.md`
+
+### Required post-correction verification
+
+The correction is implemented in the repository but must not be declared CLOSED until the following are rerun locally:
+
+```powershell
+git pull origin main
+
+python -m compileall -q src tests
+
+python -m unittest discover -s tests/unit/core/services/ranking -p "test_*.py" -v
+
+python -m unittest tests.evaluation.test_hybrid_ranking_evaluation -v
+python -m unittest tests.evaluation.test_hybrid_ranking_performance -v
+
+python -m unittest tests.integration.foundation.test_hybrid_ranking_pipeline.HybridRankingDiscoveryIntegrationTests -v
+
+$env:RUN_PHASE8_MODEL_INTEGRATION="1"
+python -m unittest tests.integration.foundation.test_hybrid_ranking_pipeline.HybridRankingPipelineIntegrationTests -v
+
+python -m unittest discover -s tests -p "test_*.py" -v
+```
+
+### Audit-correction acceptance checklist
+
+- [x] fixed-K Precision@5/10 implementation corrected.
+- [x] fixed-K denominator regression test added.
+- [x] evaluation cases expanded to at least 10 candidates.
+- [x] COURSE/SOLDIER_CONCERN/MEDIA coverage preserved.
+- [x] Persian-only coverage added explicitly.
+- [x] mixed Persian/Latin coverage added explicitly.
+- [x] Latin-only coverage added explicitly.
+- [x] technical-keyphrase coverage preserved.
+- [x] lexical near-duplicate fixture validation added.
+- [x] semantic high-similarity fixture validation added.
+- [x] shipped Production baseline threshold/lambda used by final evaluation path.
+- [x] Development/Production Phase 9 baseline equality test added.
+- [x] all-zero ranking unit regression added.
+- [x] language-specific deterministic unit regressions added.
+- [x] Phase 8/MMR embedding metadata compatibility validation added.
+- [x] diversity embedding metadata exposed for reproducibility.
+- [ ] post-correction compile verified locally.
+- [ ] post-correction focused ranking unit tests verified locally.
+- [ ] corrected Phase 9 evaluation verified locally.
+- [ ] Phase 9 performance baseline re-verified locally.
+- [ ] real Phase 6→7→8→9 integration re-verified locally.
+- [ ] full Phase 1→9 regression re-verified locally.
+
+Current marker:
+
+`PHASE_9_EVALUATION_CORRECTION_AWAITING_LOCAL_VERIFICATION`
