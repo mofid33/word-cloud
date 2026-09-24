@@ -253,11 +253,11 @@ class HybridRankingService:
         candidate: _JoinedCandidate,
         kept: Sequence[_JoinedCandidate],
     ) -> tuple[_JoinedCandidate, str, float] | None:
-        text_key = self._identity_key(candidate.statistical.text)
+        text_key = self._exact_text_key(candidate.statistical.text)
         canonical_key = self._identity_key(candidate.statistical.canonical_text)
 
         for existing in kept:
-            if text_key == self._identity_key(existing.statistical.text):
+            if text_key == self._exact_text_key(existing.statistical.text):
                 return existing, "exact_text", 1.0
             if canonical_key == self._identity_key(existing.statistical.canonical_text):
                 return existing, "canonical", 1.0
@@ -453,6 +453,11 @@ class HybridRankingService:
         if not isinstance(value, str) or not value.strip():
             raise ValueError("candidate canonical_text must be a non-empty string")
         return value.strip()
+
+    @staticmethod
+    def _exact_text_key(value: str) -> str:
+        normalized = unicodedata.normalize("NFKC", value)
+        return _SPACE_RE.sub(" ", normalized).strip()
 
     @staticmethod
     def _identity_key(value: str) -> str:
