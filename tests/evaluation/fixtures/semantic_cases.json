@@ -1,24 +1,48 @@
 {
-  "version": "1.0",
-  "note": "Synthetic/public-safe Persian fixtures; not a frozen production gold dataset.",
+  "version": "1.1",
+  "note": "Synthetic/public-safe Persian fixtures for Phase 8 semantic evaluation; not a frozen production Gold Dataset.",
   "cases": [
     {
       "profile": "COURSE",
+      "coverage": "persian_only",
       "context": "درس درباره هوش مصنوعی، یادگیری ماشین و تحلیل داده است.",
       "relevant": ["هوش مصنوعی", "یادگیری ماشین", "تحلیل داده"],
       "irrelevant": ["آشپزی"]
     },
     {
+      "profile": "COURSE",
+      "coverage": "mixed_technical",
+      "context": "در این بخش مدل‌های GPT-4 و BERT-base برای پردازش زبان طبیعی بررسی می‌شوند.",
+      "relevant": ["GPT-4", "BERT-base", "پردازش زبان طبیعی"],
+      "irrelevant": ["مدیریت مالی"]
+    },
+    {
       "profile": "SOLDIER_CONCERN",
+      "coverage": "persian_only",
       "context": "نگرانی درباره مرخصی، خانواده و شرایط خدمت است.",
       "relevant": ["مرخصی", "خانواده", "شرایط خدمت"],
       "irrelevant": ["بازاریابی"]
     },
     {
+      "profile": "SOLDIER_CONCERN",
+      "coverage": "short_keyphrases",
+      "context": "دغدغه اصلی دسترسی به اینترنت، تماس با خانواده و زمان مرخصی است.",
+      "relevant": ["اینترنت", "تماس با خانواده", "مرخصی"],
+      "irrelevant": ["تحلیل بورس"]
+    },
+    {
       "profile": "MEDIA",
+      "coverage": "persian_only",
       "context": "محتوا و بازخورد مخاطب درباره هوش مصنوعی و رسانه دیجیتال است.",
       "relevant": ["هوش مصنوعی", "رسانه دیجیتال", "بازخورد مخاطب"],
       "irrelevant": ["کشاورزی"]
+    },
+    {
+      "profile": "MEDIA",
+      "coverage": "mixed_technical",
+      "context": "بازخورد کاربران درباره نسخه v1.2 محصول AI و محتوای منتشرشده در شبکه اجتماعی بررسی می‌شود.",
+      "relevant": ["v1.2", "AI", "بازخورد کاربران"],
+      "irrelevant": ["مهندسی عمران"]
     }
   ]
 }
