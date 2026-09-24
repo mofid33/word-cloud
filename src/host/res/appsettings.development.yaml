@@ -43,3 +43,18 @@ persian_nlp:
   embedding:
     remove_stopwords: false
     use_lemmas: false
+
+candidate_extraction:
+  minimum_ngram: 1
+  maximum_ngram: 3
+  maximum_phrase_characters: 120
+  filter_pure_numeric: true
+  preserve_four_digit_year: true
+  filter_edge_stopwords: true
+  reject_function_pos_unigrams: true
+
+statistical_analysis:
+  weights:
+    frequency: 0.3333333333333333
+    document_coverage: 0.3333333333333333
+    phrase_quality: 0.3333333333333334
