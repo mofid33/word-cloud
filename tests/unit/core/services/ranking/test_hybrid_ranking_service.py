@@ -217,7 +217,7 @@ class HybridRankingServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(ranked.deduplicated[0].reason, "canonical")
 
     async def test_lexical_near_duplicate_deduplication(self):
-        ranked = await self.service({"hybrid_ranking.lexical_deduplication_threshold": 0.8}).rank_async(
+        ranked = await self.service({"hybrid_ranking.lexical_deduplication_threshold": 0.7}).rank_async(
             (
                 _stat("هوش مصنوعی", 0.9),
                 _stat("هوش مصنوعی پیشرفته", 0.8),
@@ -232,7 +232,7 @@ class HybridRankingServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(ranked.deduplicated[0].reason, "lexical_near_duplicate")
 
     async def test_protected_terms_bypass_near_duplicate_filter(self):
-        ranked = await self.service({"hybrid_ranking.lexical_deduplication_threshold": 0.8}).rank_async(
+        ranked = await self.service({"hybrid_ranking.lexical_deduplication_threshold": 0.7}).rank_async(
             (
                 _stat("هوش مصنوعی", 0.9, protected=True),
                 _stat("هوش مصنوعی پیشرفته", 0.8),
