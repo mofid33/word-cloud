@@ -34,6 +34,7 @@ class HybridRankingConfig:
     normalization_strategy: str
     baseline_weights: FusionWeights
     lexical_deduplication_threshold: float
+    semantic_deduplication_threshold: float
     mmr_lambda: float
     diversity_candidate_pool_size: int
     maximum_ranked_results: int
@@ -72,6 +73,7 @@ class HybridRankingResult:
     weights: FusionWeights
     deduplication_strategy: str
     lexical_deduplication_threshold: float
+    semantic_deduplication_threshold: float
     diversity_strategy: str
     mmr_lambda: float
     diversity_candidate_pool_size: int
@@ -135,14 +137,14 @@ class HybridRankingService:
             selected_weights,
         )
         deduplicated, removed = self._deduplicate(joined)
-        ranked = await self._apply_mmr_async(
+        ranked, semantic_removed = await self._apply_semantic_dedup_and_mmr_async(
             deduplicated,
             maximum_results=selected_maximum,
         )
 
         return self._build_result(
             candidates=ranked,
-            deduplicated=removed,
+            deduplicated=removed + semantic_removed,
             weights=selected_weights,
             maximum_results=selected_maximum,
             semantic_result=semantic_result,
@@ -278,14 +280,17 @@ class HybridRankingService:
                 return existing, "lexical_near_duplicate", similarity
         return None
 
-    async def _apply_mmr_async(
+    async def _apply_semantic_dedup_and_mmr_async(
         self,
         candidates: tuple[_JoinedCandidate, ...],
         *,
         maximum_results: int,
-    ) -> tuple[HybridRankedCandidate, ...]:
+    ) -> tuple[
+        tuple[HybridRankedCandidate, ...],
+        tuple[DeduplicationRecord, ...],
+    ]:
         if not candidates:
-            return ()
+            return (), ()
 
         pool_size = min(
             len(candidates),
@@ -294,9 +299,18 @@ class HybridRankingService:
         pool = tuple(candidates[:pool_size])
         target_count = min(maximum_results, len(pool))
 
-        if target_count == 1:
+        if len(pool) == 1:
             candidate = pool[0]
-            return (self._to_ranked(candidate, mmr_score=candidate.fused_score, rank=1),)
+            return (
+                (
+                    self._to_ranked(
+                        candidate,
+                        mmr_score=candidate.fused_score,
+                        rank=1,
+                    ),
+                ),
+                (),
+            )
 
         vectors_raw = await self._embedding_provider.embed_async(
             tuple(item.statistical.canonical_text for item in pool)
@@ -311,7 +325,27 @@ class HybridRankingService:
         if len(dimensions) != 1:
             raise ValueError("embedding provider returned inconsistent diversity dimensions")
 
-        remaining = list(range(len(pool)))
+        semantic_pool, semantic_vectors, semantic_removed = self._semantic_deduplicate(
+            pool,
+            vectors,
+        )
+        target_count = min(maximum_results, len(semantic_pool))
+        if target_count == 0:
+            return (), semantic_removed
+        if target_count == 1:
+            candidate = semantic_pool[0]
+            return (
+                (
+                    self._to_ranked(
+                        candidate,
+                        mmr_score=candidate.fused_score,
+                        rank=1,
+                    ),
+                ),
+                semantic_removed,
+            )
+
+        remaining = list(range(len(semantic_pool)))
         selected: list[int] = []
         mmr_by_index: dict[int, float] = {}
 
@@ -325,18 +359,23 @@ class HybridRankingService:
                     diversity_similarity = 0.0
                 else:
                     diversity_similarity = max(
-                        self._normalized_cosine(vectors[index], vectors[chosen])
+                        self._normalized_cosine(
+                            semantic_vectors[index],
+                            semantic_vectors[chosen],
+                        )
                         for chosen in selected
                     )
 
                 mmr_score = (
-                    self._config.mmr_lambda * pool[index].fused_score
+                    self._config.mmr_lambda * semantic_pool[index].fused_score
                     - (1.0 - self._config.mmr_lambda) * diversity_similarity
                 )
                 key = (
                     mmr_score,
-                    pool[index].fused_score,
-                    self._reverse_lexical_key(pool[index].statistical.canonical_text),
+                    semantic_pool[index].fused_score,
+                    self._reverse_lexical_key(
+                        semantic_pool[index].statistical.canonical_text
+                    ),
                 )
                 if best_key is None or key > best_key:
                     best_key = key
@@ -348,13 +387,72 @@ class HybridRankingService:
             remaining.remove(best_index)
             mmr_by_index[best_index] = best_mmr
 
-        return tuple(
-            self._to_ranked(
-                pool[index],
-                mmr_score=mmr_by_index[index],
-                rank=rank,
+        return (
+            tuple(
+                self._to_ranked(
+                    semantic_pool[index],
+                    mmr_score=mmr_by_index[index],
+                    rank=rank,
+                )
+                for rank, index in enumerate(selected, start=1)
+            ),
+            semantic_removed,
+        )
+
+    def _semantic_deduplicate(
+        self,
+        candidates: tuple[_JoinedCandidate, ...],
+        vectors: tuple[tuple[float, ...], ...],
+    ) -> tuple[
+        tuple[_JoinedCandidate, ...],
+        tuple[tuple[float, ...], ...],
+        tuple[DeduplicationRecord, ...],
+    ]:
+        kept_indices: list[int] = []
+        removed: list[DeduplicationRecord] = []
+
+        for index, candidate in enumerate(candidates):
+            if candidate.statistical.is_protected:
+                kept_indices.append(index)
+                continue
+
+            duplicate_index: int | None = None
+            duplicate_similarity = -1.0
+
+            for kept_index in kept_indices:
+                kept_candidate = candidates[kept_index]
+                if kept_candidate.statistical.is_protected:
+                    continue
+                similarity = self._cosine_similarity(
+                    vectors[index],
+                    vectors[kept_index],
+                )
+                if (
+                    similarity >= self._config.semantic_deduplication_threshold
+                    and similarity > duplicate_similarity
+                ):
+                    duplicate_index = kept_index
+                    duplicate_similarity = similarity
+
+            if duplicate_index is None:
+                kept_indices.append(index)
+                continue
+
+            removed.append(
+                DeduplicationRecord(
+                    removed_canonical_text=candidate.statistical.canonical_text,
+                    kept_canonical_text=(
+                        candidates[duplicate_index].statistical.canonical_text
+                    ),
+                    reason="semantic_near_duplicate",
+                    similarity=duplicate_similarity,
+                )
             )
-            for rank, index in enumerate(selected, start=1)
+
+        return (
+            tuple(candidates[index] for index in kept_indices),
+            tuple(vectors[index] for index in kept_indices),
+            tuple(removed),
         )
 
     @staticmethod
@@ -400,9 +498,12 @@ class HybridRankingService:
             weights=weights,
             deduplication_strategy=(
                 "bounded_top_fused_pool:"
-                "exact_text+canonical+lexical_sequence_ratio"
+                "exact_text+canonical+lexical_sequence_ratio+semantic_cosine"
             ),
             lexical_deduplication_threshold=self._config.lexical_deduplication_threshold,
+            semantic_deduplication_threshold=(
+                self._config.semantic_deduplication_threshold
+            ),
             diversity_strategy="mmr_cosine",
             mmr_lambda=self._config.mmr_lambda,
             diversity_candidate_pool_size=self._config.diversity_candidate_pool_size,
@@ -509,7 +610,7 @@ class HybridRankingService:
         return vector
 
     @classmethod
-    def _normalized_cosine(
+    def _cosine_similarity(
         cls,
         left: tuple[float, ...],
         right: tuple[float, ...],
@@ -526,8 +627,15 @@ class HybridRankingService:
         ) / (left_norm * right_norm)
         if not math.isfinite(cosine):
             raise ValueError("diversity cosine similarity must be finite")
-        cosine = min(max(cosine, -1.0), 1.0)
-        return (cosine + 1.0) / 2.0
+        return min(max(cosine, -1.0), 1.0)
+
+    @classmethod
+    def _normalized_cosine(
+        cls,
+        left: tuple[float, ...],
+        right: tuple[float, ...],
+    ) -> float:
+        return (cls._cosine_similarity(left, right) + 1.0) / 2.0
 
     def _validate_maximum_results(self, value: int | None) -> int:
         if value is None:
@@ -584,6 +692,12 @@ class HybridRankingService:
             minimum=0.0,
             maximum=1.0,
         )
+        semantic_threshold = cls._required_float(
+            config_reader,
+            "hybrid_ranking.semantic_deduplication_threshold",
+            minimum=0.0,
+            maximum=1.0,
+        )
         mmr_lambda = cls._required_float(
             config_reader,
             "hybrid_ranking.mmr_lambda",
@@ -608,6 +722,7 @@ class HybridRankingService:
             normalization_strategy="min_max",
             baseline_weights=baseline_weights,
             lexical_deduplication_threshold=threshold,
+            semantic_deduplication_threshold=semantic_threshold,
             mmr_lambda=mmr_lambda,
             diversity_candidate_pool_size=pool_size,
             maximum_ranked_results=maximum_results,
