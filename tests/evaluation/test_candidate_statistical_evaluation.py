@@ -46,6 +46,16 @@ class CandidateStatisticalEvaluationTests(unittest.TestCase):
         results = self.statistical.analyze(
             occurrences,
             document_ids=tuple(document.document_id for document in documents),
+            section_keys=tuple(
+                (document.document_id, document.section_id)
+                for document in documents
+                if document.section_id is not None
+            ),
+            chunk_keys=tuple(
+                (document.document_id, document.chunk_id)
+                for document in documents
+                if document.chunk_id is not None
+            ),
         )
         texts = {item.text for item in results}
 
