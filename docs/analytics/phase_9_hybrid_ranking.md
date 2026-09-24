@@ -560,20 +560,13 @@ The previously printed Phase 9 Precision@K values are therefore historical/super
   - Persian-only deterministic ranking;
   - Latin-only deterministic ranking;
   - mixed Persian/Latin deterministic ranking.
-- Reproducibility was hardened:
-  - Phase 9 now validates that the actual MMR/diversity `EmbeddingProvider` metadata matches the Phase 8 embedding metadata;
-  - mismatch fails fast;
-  - `HybridRankingResult` exposes both the Phase 8 `embedding_metadata` and actual `diversity_embedding_metadata`.
-
 These changes do not freeze final profile weights, production-final MMR lambda, or a semantic deduplication threshold. Those decisions remain deferred exactly as required by the Phase 9 prompt.
 
 ### Files modified by the audit correction
 
 - `tests/evaluation/fixtures/hybrid_ranking_cases.json`
 - `tests/evaluation/test_hybrid_ranking_evaluation.py`
-- `src/core/services/ranking/hybrid_ranking_service.py`
 - `tests/unit/core/services/ranking/test_hybrid_ranking_service.py`
-- `tests/integration/foundation/test_hybrid_ranking_pipeline.py`
 - `docs/analytics/phase_9_hybrid_ranking.md`
 
 ### Required post-correction verification
@@ -614,8 +607,6 @@ python -m unittest discover -s tests -p "test_*.py" -v
 - [x] Development/Production Phase 9 baseline equality test added.
 - [x] all-zero ranking unit regression added.
 - [x] language-specific deterministic unit regressions added.
-- [x] Phase 8/MMR embedding metadata compatibility validation added.
-- [x] diversity embedding metadata exposed for reproducibility.
 - [ ] post-correction compile verified locally.
 - [ ] post-correction focused ranking unit tests verified locally.
 - [ ] corrected Phase 9 evaluation verified locally.
