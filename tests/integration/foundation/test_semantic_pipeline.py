@@ -3,12 +3,34 @@ from __future__ import annotations
 import os
 import unittest
 
-from src.core.services.candidate.candidate_extraction_service import CandidateDocument, CandidateExtractionService
+from src.core.services.candidate.candidate_extraction_service import (
+    CandidateDocument,
+    CandidateExtractionService,
+)
 from src.core.services.persian_text.persian_text_processor import PersianTextProcessor
+from src.core.services.semantic.providers.embedding_provider import EmbeddingProvider
+from src.core.services.semantic.providers.reranker_provider import RerankerProvider
 from src.core.services.semantic.semantic_analysis_service import SemanticAnalysisService
-from src.core.services.statistical.statistical_analysis_service import StatisticalAnalysisService
+from src.core.services.statistical.statistical_analysis_service import (
+    StatisticalAnalysisService,
+)
 from src.infrastructure.di.bootstrap import bootstrap_di
 from src.infrastructure.di.inject import reset_di_state, resolve
+
+
+class SemanticProviderDiscoveryIntegrationTests(unittest.TestCase):
+    def setUp(self) -> None:
+        reset_di_state()
+        bootstrap_di()
+
+    def test_semantic_provider_interfaces_resolve_via_discovery(self) -> None:
+        embedding = resolve(EmbeddingProvider)
+        reranker = resolve(RerankerProvider)
+
+        self.assertEqual(embedding.metadata.provider, "transformers_embedding")
+        self.assertEqual(reranker.metadata.provider, "transformers_reranker")
+        self.assertIsNone(embedding._model)
+        self.assertIsNone(reranker._model)
 
 
 @unittest.skipUnless(
