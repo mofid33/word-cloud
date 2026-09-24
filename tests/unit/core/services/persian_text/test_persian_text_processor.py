@@ -25,7 +25,7 @@ class PersianTextProcessorTests(unittest.TestCase):
             json.dumps(
                 {
                     "version": "test-1",
-                    "general_stopwords": ["و", "در", "هوش", "سامانه"],
+                    "general_stopwords": ["و", "در", "هوش"],
                     "domain_stopwords": {
                         "COURSE": ["جلسه"],
                         "MEDIA": ["خبر"],
@@ -39,11 +39,13 @@ class PersianTextProcessorTests(unittest.TestCase):
                         "AI": "هوش مصنوعی",
                         "ماشین لرنینگ": "یادگیری ماشین",
                         "پلتفرم ملی": "سامانه ملی",
+                        "پلتفرم هوشمند": "هوش مصنوعی",
                     },
                     "canonical_terms": {
                         "داده کاوی": "داده‌کاوی",
                         "نرم افزار": "نرم‌افزار",
                         "سامانه کشوری": "سامانه ملی",
+                        "سامانه هوشمند": "هوش مصنوعی",
                     },
                 },
                 ensure_ascii=False,
@@ -226,12 +228,14 @@ class PersianTextProcessorTests(unittest.TestCase):
         )
 
     def test_mapping_targets_become_protected_before_stopword_filtering(self) -> None:
-        synonym = self.processor.process("پلتفرم ملی و داده")
-        canonical = self.processor.process("سامانه کشوری و داده")
-        self.assertEqual(synonym.embedding_text, "سامانه ملی داده")
-        self.assertEqual(canonical.embedding_text, "سامانه ملی داده")
+        synonym = self.processor.process("پلتفرم هوشمند و داده")
+        canonical = self.processor.process("سامانه هوشمند و داده")
+        self.assertEqual(synonym.embedding_text, "هوش مصنوعی داده")
+        self.assertEqual(canonical.embedding_text, "هوش مصنوعی داده")
         self.assertTrue(synonym.candidate_tokens[0].is_protected)
+        self.assertTrue(synonym.candidate_tokens[1].is_protected)
         self.assertTrue(canonical.candidate_tokens[0].is_protected)
+        self.assertTrue(canonical.candidate_tokens[1].is_protected)
 
     def test_disabled_linguistic_processing_and_embedding_filters(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
