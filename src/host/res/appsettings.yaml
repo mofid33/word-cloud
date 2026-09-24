@@ -49,6 +49,7 @@ candidate_extraction:
   maximum_phrase_characters: 120
   filter_pure_numeric: true
   preserve_four_digit_year: true
+  filter_stopword_unigrams: true
   filter_edge_stopwords: true
   reject_function_pos_unigrams: true
 
