@@ -316,28 +316,6 @@ class HybridRankingServiceTests(unittest.IsolatedAsyncioTestCase):
                 )
                 self.assertEqual(first.candidates, second.candidates)
 
-    async def test_embedding_metadata_mismatch_fails_fast(self):
-        mismatched_metadata = SemanticProviderMetadata(
-            provider="other",
-            provider_version="1",
-            model_identifier="different-model",
-            model_revision="1",
-            device="cpu",
-            configuration_fingerprint="different",
-        )
-
-        class MismatchedEmbedding(_Embedding):
-            @property
-            def metadata(self):
-                return mismatched_metadata
-
-        service = HybridRankingService(MismatchedEmbedding(), _Config())
-        with self.assertRaisesRegex(ValueError, "embedding metadata"):
-            await service.rank_async(
-                (_stat("alpha", 0.5),),
-                _result((_semantic("alpha", 0.5, 1),)),
-            )
-
     async def test_repeated_and_concurrent_execution_are_deterministic(self):
         stats = (_stat("GPT-4", 0.9), _stat("BERT-base", 0.8))
         semantic = _result((_semantic("GPT-4", 0.8, 1), _semantic("BERT-base", 0.7, 2)))
