@@ -253,12 +253,12 @@ class HybridRankingServiceTests(unittest.IsolatedAsyncioTestCase):
             (
                 _stat("هوش مصنوعی", 1.0),
                 _stat("هوش مصنوعی پیشرفته", 0.95),
-                _stat("تحلیل داده", 0.8),
+                _stat("تحلیل داده", 0.9),
             ),
             _result((
                 _semantic("هوش مصنوعی", 1.0, 1),
                 _semantic("هوش مصنوعی پیشرفته", 0.95, 2),
-                _semantic("تحلیل داده", 0.8, 3),
+                _semantic("تحلیل داده", 0.9, 3),
             )),
             maximum_results=2,
         )
