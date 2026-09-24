@@ -73,3 +73,13 @@ semantic:
 
 semantic_analysis:
   rerank_top_n: 25
+
+hybrid_ranking:
+  normalization_strategy: "min_max"
+  baseline_weights:
+    statistical: 0.5
+    semantic: 0.5
+  lexical_deduplication_threshold: 0.92
+  mmr_lambda: 0.7
+  diversity_candidate_pool_size: 50
+  maximum_ranked_results: 25
