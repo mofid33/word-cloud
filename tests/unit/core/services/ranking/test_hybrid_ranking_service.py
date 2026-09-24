@@ -316,6 +316,12 @@ class HybridRankingServiceTests(unittest.IsolatedAsyncioTestCase):
                 _result((_semantic("alpha", 0.5, 1),)),
                 maximum_results=True,
             )
+        with self.assertRaisesRegex(ValueError, "diversity_candidate_pool_size"):
+            await self.service().rank_async(
+                (_stat("alpha", 0.5),),
+                _result((_semantic("alpha", 0.5, 1),)),
+                maximum_results=11,
+            )
 
 
 if __name__ == "__main__":
