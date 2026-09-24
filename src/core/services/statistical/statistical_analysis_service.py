@@ -63,21 +63,54 @@ class StatisticalAnalysisService:
         occurrences: tuple[CandidateOccurrence, ...],
         *,
         document_ids: tuple[str, ...],
+        section_keys: tuple[tuple[str, str], ...] = (),
+        chunk_keys: tuple[tuple[str, str], ...] = (),
     ) -> tuple[StatisticalCandidateResult, ...]:
         normalized_document_ids = self._normalize_document_ids(document_ids)
         if not normalized_document_ids:
-            if occurrences:
+            if occurrences or section_keys or chunk_keys:
                 raise ValueError(
-                    "document_ids must include every document represented by occurrences"
+                    "document_ids must include every document represented by the corpus"
                 )
             return ()
 
         allowed_documents = set(normalized_document_ids)
+        normalized_section_keys = self._normalize_scope_keys(
+            section_keys,
+            field_name="section_keys",
+            allowed_documents=allowed_documents,
+        )
+        normalized_chunk_keys = self._normalize_scope_keys(
+            chunk_keys,
+            field_name="chunk_keys",
+            allowed_documents=allowed_documents,
+        )
+        section_universe = set(normalized_section_keys)
+        chunk_universe = set(normalized_chunk_keys)
+
         for occurrence in occurrences:
             if occurrence.document_id not in allowed_documents:
                 raise ValueError(
                     "occurrence document_id is not present in document_ids"
                 )
+            if occurrence.section_id is not None:
+                if not section_universe:
+                    raise ValueError(
+                        "section_keys are required when occurrences contain section_id"
+                    )
+                if (occurrence.document_id, occurrence.section_id) not in section_universe:
+                    raise ValueError(
+                        "occurrence section boundary is not present in section_keys"
+                    )
+            if occurrence.chunk_id is not None:
+                if not chunk_universe:
+                    raise ValueError(
+                        "chunk_keys are required when occurrences contain chunk_id"
+                    )
+                if (occurrence.document_id, occurrence.chunk_id) not in chunk_universe:
+                    raise ValueError(
+                        "occurrence chunk boundary is not present in chunk_keys"
+                    )
 
         if not occurrences:
             return ()
@@ -92,17 +125,6 @@ class StatisticalAnalysisService:
         maximum_frequency = max(len(item.occurrences) for item in grouped.values())
         total_occurrences = len(occurrences)
         total_documents = len(normalized_document_ids)
-
-        section_universe = {
-            (occurrence.document_id, occurrence.section_id)
-            for occurrence in occurrences
-            if occurrence.section_id is not None
-        }
-        chunk_universe = {
-            (occurrence.document_id, occurrence.chunk_id)
-            for occurrence in occurrences
-            if occurrence.chunk_id is not None
-        }
 
         results: list[StatisticalCandidateResult] = []
         for canonical_text, aggregate in grouped.items():
@@ -222,6 +244,38 @@ class StatisticalAnalysisService:
                 raise ValueError("document_ids must be unique")
             seen.add(value)
             normalized.append(value)
+        return tuple(normalized)
+
+    @staticmethod
+    def _normalize_scope_keys(
+        keys: tuple[tuple[str, str], ...],
+        *,
+        field_name: str,
+        allowed_documents: set[str],
+    ) -> tuple[tuple[str, str], ...]:
+        normalized: list[tuple[str, str]] = []
+        seen: set[tuple[str, str]] = set()
+        for item in keys:
+            if (
+                not isinstance(item, tuple)
+                or len(item) != 2
+                or not isinstance(item[0], str)
+                or not isinstance(item[1], str)
+                or not item[0].strip()
+                or not item[1].strip()
+            ):
+                raise ValueError(
+                    f"{field_name} must contain (document_id, boundary_id) pairs"
+                )
+            key = (item[0].strip(), item[1].strip())
+            if key[0] not in allowed_documents:
+                raise ValueError(
+                    f"{field_name} contains a document_id not present in document_ids"
+                )
+            if key in seen:
+                raise ValueError(f"{field_name} must contain unique pairs")
+            seen.add(key)
+            normalized.append(key)
         return tuple(normalized)
 
     @staticmethod
