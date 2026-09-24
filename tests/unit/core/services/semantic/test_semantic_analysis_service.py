@@ -7,7 +7,9 @@ from src.core.services.semantic.providers.embedding_provider import EmbeddingPro
 from src.core.services.semantic.providers.provider_metadata import SemanticProviderMetadata
 from src.core.services.semantic.providers.reranker_provider import RerankerProvider
 from src.core.services.semantic.semantic_analysis_service import SemanticAnalysisService
-from src.core.services.statistical.statistical_analysis_service import StatisticalCandidateResult
+from src.core.services.statistical.statistical_analysis_service import (
+    StatisticalCandidateResult,
+)
 
 
 _METADATA = SemanticProviderMetadata(
@@ -21,9 +23,12 @@ _METADATA = SemanticProviderMetadata(
 
 
 class _Config:
+    def __init__(self, top_n=2):
+        self.top_n = top_n
+
     def require(self, key: str):
         if key == "semantic_analysis.rerank_top_n":
-            return 2
+            return self.top_n
         raise KeyError(key)
 
 
@@ -94,6 +99,28 @@ class SemanticAnalysisServiceTests(unittest.IsolatedAsyncioTestCase):
         result = await service.analyze_async("", ())
         self.assertEqual(result.candidates, ())
 
+    async def test_one_candidate_and_top_n_above_candidate_count(self):
+        service = SemanticAnalysisService(
+            _Embedding(),
+            _Reranker(),
+            _Config(top_n=10),
+        )
+        result = await service.analyze_async(
+            "هوش مصنوعی در آموزش",
+            (_candidate("هوش مصنوعی"),),
+        )
+        self.assertEqual(len(result.candidates), 1)
+        self.assertTrue(result.candidates[0].reranked)
+        self.assertEqual(result.candidates[0].rank, 1)
+
+    def test_non_positive_rerank_top_n_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "integer > 0"):
+            SemanticAnalysisService(
+                _Embedding(),
+                _Reranker(),
+                _Config(top_n=0),
+            )
+
     async def test_duplicate_canonical_candidates_fail_fast(self):
         service = SemanticAnalysisService(_Embedding(), _Reranker(), _Config())
         candidate = _candidate("هوش مصنوعی")
@@ -112,6 +139,44 @@ class SemanticAnalysisServiceTests(unittest.IsolatedAsyncioTestCase):
                 (_candidate("هوش مصنوعی"), _candidate("یادگیری ماشین")),
             )
 
+    async def test_non_finite_embedding_value_is_rejected(self):
+        class InvalidEmbedding(_Embedding):
+            async def embed_async(self, texts):
+                return (
+                    (1.0, 0.0),
+                    (math.inf, 0.0),
+                )
+
+        service = SemanticAnalysisService(
+            InvalidEmbedding(),
+            _Reranker(),
+            _Config(),
+        )
+        with self.assertRaisesRegex(ValueError, "NaN or Inf"):
+            await service.analyze_async(
+                "هوش مصنوعی در آموزش",
+                (_candidate("هوش مصنوعی"),),
+            )
+
+    async def test_zero_norm_embedding_is_rejected(self):
+        class ZeroEmbedding(_Embedding):
+            async def embed_async(self, texts):
+                return (
+                    (1.0, 0.0),
+                    (0.0, 0.0),
+                )
+
+        service = SemanticAnalysisService(
+            ZeroEmbedding(),
+            _Reranker(),
+            _Config(),
+        )
+        with self.assertRaisesRegex(ValueError, "zero-norm"):
+            await service.analyze_async(
+                "هوش مصنوعی در آموزش",
+                (_candidate("هوش مصنوعی"),),
+            )
+
     async def test_invalid_embedding_output_length_is_rejected(self):
         class InvalidEmbedding(_Embedding):
             async def embed_async(self, texts):
@@ -123,6 +188,37 @@ class SemanticAnalysisServiceTests(unittest.IsolatedAsyncioTestCase):
                 "هوش مصنوعی در آموزش",
                 (_candidate("هوش مصنوعی"),),
             )
+
+    async def test_duplicate_scores_use_canonical_text_tie_breaking(self):
+        class TieEmbedding(EmbeddingProvider):
+            @property
+            def metadata(self):
+                return _METADATA
+
+            async def embed_async(self, texts):
+                return tuple((1.0, 0.0) for _ in texts)
+
+        class TieReranker(RerankerProvider):
+            @property
+            def metadata(self):
+                return _METADATA
+
+            async def rerank_async(self, query, candidates):
+                return tuple(0.5 for _ in candidates)
+
+        service = SemanticAnalysisService(
+            TieEmbedding(),
+            TieReranker(),
+            _Config(top_n=10),
+        )
+        result = await service.analyze_async(
+            "زمینه",
+            (_candidate("ب"), _candidate("الف")),
+        )
+        self.assertEqual(
+            [item.canonical_text for item in result.candidates],
+            ["الف", "ب"],
+        )
 
 
 if __name__ == "__main__":
