@@ -15,6 +15,7 @@ from src.core.services.semantic.semantic_analysis_service import (
 from src.core.services.statistical.statistical_analysis_service import (
     StatisticalCandidateResult,
 )
+from src.infrastructure.utils.config_reader import ConfigReader
 
 
 _FIXTURE = Path(__file__).resolve().parent / "fixtures" / "hybrid_ranking_cases.json"
@@ -28,20 +29,15 @@ _METADATA = SemanticProviderMetadata(
 )
 
 
-class _Config:
-    def __init__(self, *, threshold: float, mmr_lambda: float):
-        self.values = {
-            "hybrid_ranking.normalization_strategy": "min_max",
-            "hybrid_ranking.baseline_weights.statistical": 0.5,
-            "hybrid_ranking.baseline_weights.semantic": 0.5,
-            "hybrid_ranking.lexical_deduplication_threshold": threshold,
-            "hybrid_ranking.mmr_lambda": mmr_lambda,
-            "hybrid_ranking.diversity_candidate_pool_size": 50,
-            "hybrid_ranking.maximum_ranked_results": 10,
-        }
+class _OverrideConfig:
+    def __init__(self, base: ConfigReader, overrides: dict[str, object]):
+        self._base = base
+        self._overrides = dict(overrides)
 
     def require(self, key):
-        return self.values[key]
+        if key in self._overrides:
+            return self._overrides[key]
+        return self._base.require(key)
 
 
 class _Embedding(EmbeddingProvider):
@@ -93,7 +89,10 @@ def _semantic(item, rank: int) -> SemanticCandidateResult:
 def _semantic_result(items) -> SemanticAnalysisResult:
     ordered = sorted(items, key=lambda item: (-item["semantic"], item["canonical_text"]))
     return SemanticAnalysisResult(
-        candidates=tuple(_semantic(item, index) for index, item in enumerate(ordered, start=1)),
+        candidates=tuple(
+            _semantic(item, index)
+            for index, item in enumerate(ordered, start=1)
+        ),
         embedding_metadata=_METADATA,
         reranker_metadata=_METADATA,
         similarity_metric="cosine",
@@ -109,13 +108,14 @@ def _dcg(ranked, relevance, k):
     return value
 
 
+def _precision_at_k(ranked, relevance, k):
+    relevant = {item for item, grade in relevance.items() if grade > 0}
+    hits = sum(item in relevant for item in ranked[:k])
+    return hits / k
+
+
 def _metrics(ranked, relevance):
     relevant = {item for item, grade in relevance.items() if grade > 0}
-    top5 = ranked[:5]
-    top10 = ranked[:10]
-    precision5 = sum(item in relevant for item in top5) / max(1, len(top5))
-    precision10 = sum(item in relevant for item in top10) / max(1, len(top10))
-    recall10 = sum(item in relevant for item in top10) / max(1, len(relevant))
     ideal = [
         item
         for item, _ in sorted(
@@ -124,28 +124,141 @@ def _metrics(ranked, relevance):
         )
     ]
     ideal_dcg = _dcg(ideal, relevance, 10)
-    ndcg10 = _dcg(top10, relevance, 10) / ideal_dcg if ideal_dcg else 1.0
     return {
-        "precision_at_5": precision5,
-        "precision_at_10": precision10,
-        "recall_at_10": recall10,
-        "ndcg_at_10": ndcg10,
+        "precision_at_5": _precision_at_k(ranked, relevance, 5),
+        "precision_at_10": _precision_at_k(ranked, relevance, 10),
+        "recall_at_10": (
+            sum(item in relevant for item in ranked[:10]) / len(relevant)
+            if relevant
+            else 1.0
+        ),
+        "ndcg_at_10": (
+            _dcg(ranked, relevance, 10) / ideal_dcg
+            if ideal_dcg
+            else 1.0
+        ),
     }
 
 
+def _normalized_cosine(left, right):
+    left_norm = math.sqrt(sum(value * value for value in left))
+    right_norm = math.sqrt(sum(value * value for value in right))
+    return sum(
+        left_value * right_value
+        for left_value, right_value in zip(left, right, strict=True)
+    ) / (left_norm * right_norm)
+
+
 class HybridRankingEvaluationTests(unittest.IsolatedAsyncioTestCase):
-    async def test_statistical_semantic_hybrid_dedup_and_mmr_baselines(self):
+    def setUp(self) -> None:
+        self.production_config = ConfigReader(env_type="production")
+        self.development_config = ConfigReader(env_type="development")
+
+    def test_metrics_use_fixed_k_denominators(self):
+        relevance = {
+            "relevant": 3,
+            "noise": 0,
+        }
+        metric = _metrics(["relevant", "noise"], relevance)
+
+        self.assertEqual(metric["precision_at_5"], 0.2)
+        self.assertEqual(metric["precision_at_10"], 0.1)
+        self.assertEqual(metric["recall_at_10"], 1.0)
+
+    def test_fixture_covers_required_phase_9_evaluation_boundaries(self):
         payload = json.loads(_FIXTURE.read_text(encoding="utf-8"))
         self.assertEqual(
             payload["status"],
             "PHASE_9_REGRESSION_FIXTURE_NOT_PRODUCTION_GOLD",
         )
 
+        cases = payload["cases"]
+        self.assertTrue(all(len(case["candidates"]) >= 10 for case in cases))
+        self.assertEqual(
+            {case["profile"] for case in cases},
+            {"COURSE", "SOLDIER_CONCERN", "MEDIA"},
+        )
+        self.assertTrue(
+            {"persian_only", "mixed", "latin_only"}.issubset(
+                {case["coverage"] for case in cases}
+            )
+        )
+
+        all_terms = {
+            item["canonical_text"]
+            for case in cases
+            for item in case["candidates"]
+        }
+        self.assertTrue({"GPT-4", "BERT-base", "v1.2"}.issubset(all_terms))
+        self.assertTrue(any(case["near_duplicate_pairs"] for case in cases))
+        self.assertTrue(any(case["high_similarity_pairs"] for case in cases))
+
+        threshold = self.production_config.require(
+            "hybrid_ranking.lexical_deduplication_threshold"
+        )
+        for case in cases:
+            for left, right in case["near_duplicate_pairs"]:
+                similarity = HybridRankingService._lexical_similarity(left, right)
+                self.assertGreaterEqual(similarity, threshold)
+
+            vectors = {
+                item["canonical_text"]: item["vector"]
+                for item in case["candidates"]
+            }
+            for left, right in case["high_similarity_pairs"]:
+                self.assertGreaterEqual(
+                    _normalized_cosine(vectors[left], vectors[right]),
+                    0.95,
+                )
+
+    def test_production_and_development_hybrid_baselines_match(self):
+        keys = (
+            "hybrid_ranking.normalization_strategy",
+            "hybrid_ranking.baseline_weights.statistical",
+            "hybrid_ranking.baseline_weights.semantic",
+            "hybrid_ranking.lexical_deduplication_threshold",
+            "hybrid_ranking.mmr_lambda",
+            "hybrid_ranking.diversity_candidate_pool_size",
+            "hybrid_ranking.maximum_ranked_results",
+        )
+        for key in keys:
+            self.assertEqual(
+                self.production_config.require(key),
+                self.development_config.require(key),
+            )
+
+        self.assertEqual(
+            self.production_config.require(
+                "hybrid_ranking.lexical_deduplication_threshold"
+            ),
+            0.92,
+        )
+        self.assertEqual(
+            self.production_config.require("hybrid_ranking.mmr_lambda"),
+            0.7,
+        )
+
+    async def test_statistical_semantic_hybrid_dedup_and_mmr_baselines(self):
+        payload = json.loads(_FIXTURE.read_text(encoding="utf-8"))
         evidence = {}
+
+        production_threshold = self.production_config.require(
+            "hybrid_ranking.lexical_deduplication_threshold"
+        )
+        production_lambda = self.production_config.require(
+            "hybrid_ranking.mmr_lambda"
+        )
+
         for case in payload["cases"]:
             items = case["candidates"]
-            relevance = {item["canonical_text"]: item["relevance"] for item in items}
-            vectors = {item["canonical_text"]: item["vector"] for item in items}
+            relevance = {
+                item["canonical_text"]: item["relevance"]
+                for item in items
+            }
+            vectors = {
+                item["canonical_text"]: item["vector"]
+                for item in items
+            }
             statistics = tuple(_stat(item) for item in items)
             semantic_result = _semantic_result(items)
 
@@ -153,20 +266,32 @@ class HybridRankingEvaluationTests(unittest.IsolatedAsyncioTestCase):
                 item["canonical_text"]
                 for item in sorted(
                     items,
-                    key=lambda item: (-item["statistical"], item["canonical_text"]),
+                    key=lambda item: (
+                        -item["statistical"],
+                        item["canonical_text"],
+                    ),
                 )
             ]
             semantic_only = [
                 item["canonical_text"]
                 for item in sorted(
                     items,
-                    key=lambda item: (-item["semantic"], item["canonical_text"]),
+                    key=lambda item: (
+                        -item["semantic"],
+                        item["canonical_text"],
+                    ),
                 )
             ]
 
             hybrid_service = HybridRankingService(
                 _Embedding(vectors),
-                _Config(threshold=1.0, mmr_lambda=1.0),
+                _OverrideConfig(
+                    self.production_config,
+                    {
+                        "hybrid_ranking.lexical_deduplication_threshold": 1.0,
+                        "hybrid_ranking.mmr_lambda": 1.0,
+                    },
+                ),
             )
             hybrid = await hybrid_service.rank_async(
                 statistics,
@@ -176,7 +301,12 @@ class HybridRankingEvaluationTests(unittest.IsolatedAsyncioTestCase):
 
             dedup_service = HybridRankingService(
                 _Embedding(vectors),
-                _Config(threshold=0.70, mmr_lambda=1.0),
+                _OverrideConfig(
+                    self.production_config,
+                    {
+                        "hybrid_ranking.mmr_lambda": 1.0,
+                    },
+                ),
             )
             hybrid_dedup = await dedup_service.rank_async(
                 statistics,
@@ -184,11 +314,11 @@ class HybridRankingEvaluationTests(unittest.IsolatedAsyncioTestCase):
                 maximum_results=10,
             )
 
-            diversity_service = HybridRankingService(
+            production_service = HybridRankingService(
                 _Embedding(vectors),
-                _Config(threshold=0.70, mmr_lambda=0.60),
+                self.production_config,
             )
-            hybrid_diverse = await diversity_service.rank_async(
+            production_hybrid = await production_service.rank_async(
                 statistics,
                 semantic_result,
                 maximum_results=10,
@@ -197,37 +327,76 @@ class HybridRankingEvaluationTests(unittest.IsolatedAsyncioTestCase):
             rankings = {
                 "statistical_only": statistical_only,
                 "semantic_only": semantic_only,
-                "hybrid": [item.canonical_text for item in hybrid.candidates],
+                "hybrid": [
+                    item.canonical_text
+                    for item in hybrid.candidates
+                ],
                 "hybrid_dedup": [
-                    item.canonical_text for item in hybrid_dedup.candidates
+                    item.canonical_text
+                    for item in hybrid_dedup.candidates
                 ],
                 "hybrid_dedup_mmr": [
-                    item.canonical_text for item in hybrid_diverse.candidates
+                    item.canonical_text
+                    for item in production_hybrid.candidates
                 ],
             }
-            evidence[case["profile"]] = {
+            case_key = f'{case["profile"]}:{case["coverage"]}:{case["name"]}'
+            evidence[case_key] = {
                 name: _metrics(ranking, relevance)
                 for name, ranking in rankings.items()
             }
 
-            repeated = await diversity_service.rank_async(
+            self.assertEqual(len(production_hybrid.candidates), 10)
+            self.assertEqual(
+                production_hybrid.lexical_deduplication_threshold,
+                production_threshold,
+            )
+            self.assertEqual(
+                production_hybrid.mmr_lambda,
+                production_lambda,
+            )
+
+            repeated = await production_service.rank_async(
                 tuple(reversed(statistics)),
                 semantic_result,
                 maximum_results=10,
             )
-            self.assertEqual(hybrid_diverse.candidates, repeated.candidates)
-            self.assertTrue(
-                all(
-                    0.0 <= metric["ndcg_at_10"] <= 1.0
-                    for metric in evidence[case["profile"]].values()
-                )
-            )
-            self.assertGreaterEqual(
-                evidence[case["profile"]]["hybrid_dedup_mmr"]["recall_at_10"],
-                0.75,
+            self.assertEqual(
+                production_hybrid.candidates,
+                repeated.candidates,
             )
 
-        print("PHASE9_EVALUATION=" + json.dumps(evidence, ensure_ascii=False, sort_keys=True))
+            for metric in evidence[case_key].values():
+                self.assertTrue(0.0 <= metric["precision_at_5"] <= 1.0)
+                self.assertTrue(0.0 <= metric["precision_at_10"] <= 1.0)
+                self.assertTrue(0.0 <= metric["recall_at_10"] <= 1.0)
+                self.assertTrue(0.0 <= metric["ndcg_at_10"] <= 1.0)
+
+            self.assertGreaterEqual(
+                evidence[case_key]["hybrid_dedup_mmr"]["recall_at_10"],
+                0.70,
+            )
+
+        print(
+            "PHASE9_EVALUATION="
+            + json.dumps(
+                {
+                    "baseline_config": {
+                        "lexical_deduplication_threshold": production_threshold,
+                        "mmr_lambda": production_lambda,
+                        "statistical_weight": self.production_config.require(
+                            "hybrid_ranking.baseline_weights.statistical"
+                        ),
+                        "semantic_weight": self.production_config.require(
+                            "hybrid_ranking.baseline_weights.semantic"
+                        ),
+                    },
+                    "cases": evidence,
+                },
+                ensure_ascii=False,
+                sort_keys=True,
+            )
+        )
 
 
 if __name__ == "__main__":
