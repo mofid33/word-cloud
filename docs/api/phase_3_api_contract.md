@@ -1,6 +1,6 @@
 # Phase 3 — API & DTO Contract
 
-Status: IMPLEMENTED_AWAITING_REVERIFICATION
+Status: COMPLETE
 Correction: 2026-09-22
 
 ## Executable routes
@@ -137,8 +137,16 @@ Coverage includes:
 - sanitized 404 behavior for caller-controlled analysis IDs, verified in the PostgreSQL-isolated lifecycle suite;
 - execution-mode resolution.
 
-The previous 126-test gate predates these final Phase 3 corrections. A fresh compile and full regression are required before Phase 3 is re-closed.
+## Final verification evidence
+
+Verified locally on 2026-09-24:
+- `python -m compileall -q src tests`: PASS;
+- lifecycle API integration against PostgreSQL: 5 tests passed;
+- persistence/migration integration: 9 tests passed;
+- full regression suite: 132 tests passed;
+- failures: 0;
+- errors: 0.
 
 Current marker:
 
-`PHASE_3_IMPLEMENTED_AWAITING_REVERIFICATION`
+`PHASE_3_COMPLETE`
