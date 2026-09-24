@@ -284,3 +284,48 @@ Phase 8 remains:
 `PHASE_8_IMPLEMENTED_AWAITING_LOCAL_VERIFICATION`
 
 A new local compile, focused DI test, real-model integration, benchmark and full regression are required after pulling this correction.
+
+
+## Successful local verification evidence — 2026-09-24
+
+After the namespace-discovery correction, local verification on Windows / Python 3.12 produced the following evidence:
+
+- `python -m compileall -q src tests`: PASS;
+- namespace-package DI regression: 1 PASS;
+- semantic provider discovery regression: 1 PASS;
+- real Phase 6 → Phase 7 → Phase 8 integration with actual downloaded models: 2 PASS;
+- configured embedding model downloaded and loaded successfully on CPU;
+- configured reranker model downloaded and loaded successfully on CPU;
+- semantic benchmark: PASS;
+  - standalone semantic relevance baseline: `precision_at_relevant_cutoff=1.0000`;
+  - standalone measured evaluation time: `159.743s`;
+  - Python tracked peak allocation: `223354411` bytes;
+- full regression: 210 tests PASS, 0 failures, 0 errors;
+- full-regression semantic benchmark:
+  - `precision_at_relevant_cutoff=1.0000`;
+  - measured evaluation time: `74.591s`;
+  - Python tracked peak allocation: `221533803` bytes;
+- Phase 7 controlled performance baseline inside the same regression: `1.033s`, 16000 tokens, 27700 occurrences.
+
+The Hugging Face Windows symlink warning and missing optional `hf_xet` optimization warning were non-failing cache/download efficiency warnings. They did not affect semantic correctness or test status.
+
+The verification device was CPU. Therefore GPU VRAM evidence is not applicable to this local run.
+
+## Final Phase 8 hardening pass after successful integration
+
+The successful 210-test run proved the runtime semantic path, but a Definition-of-Done audit found several explicit Phase 8 evidence requirements that were not yet measured strongly enough. A minimal hardening pass was therefore added before closure:
+
+- semantic provider batch size is now validated against global `batch.max_size`;
+- provider metadata exposes the resolved Hugging Face model commit revision after model loading when available;
+- repeated and concurrent provider calls now have deterministic lifecycle regression coverage;
+- DI integration explicitly verifies semantic providers are singleton instances;
+- configured CUDA-unavailable behavior has direct regression coverage;
+- semantic service edge cases now cover one candidate, `Top-N > candidate_count`, invalid `Top-N <= 0`, non-finite embeddings, zero-norm embeddings and deterministic duplicate-score tie breaking;
+- benchmark fixture now covers Persian-only, Persian/Latin mixed, Latin-only, technical strings and short keyphrases across COURSE / SOLDIER_CONCERN / MEDIA;
+- benchmark now reports real process RSS through `psutil`;
+- benchmark now reports embedding and reranker latency/throughput at batch size 1 versus configured batch size;
+- CUDA runs report allocated/reserved/peak VRAM through PyTorch when CUDA is configured.
+
+No hardware-specific performance threshold was introduced because no production SLO is frozen.
+
+Because these hardening changes were committed after the successful 210-test run, Phase 8 remains `PHASE_8_IMPLEMENTED_AWAITING_LOCAL_VERIFICATION` until the focused tests, enhanced benchmark and full regression are rerun on the updated commit.
