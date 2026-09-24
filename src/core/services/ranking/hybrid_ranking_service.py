@@ -235,6 +235,8 @@ class HybridRankingService:
             duplicate = self._find_duplicate(candidate, kept)
             if duplicate is None:
                 kept.append(candidate)
+                if len(kept) >= self._config.diversity_candidate_pool_size:
+                    break
                 continue
             kept_candidate, reason, similarity = duplicate
             removed.append(
@@ -396,7 +398,10 @@ class HybridRankingService:
             scoring_version=self.SCORING_VERSION,
             normalization_strategy=self._config.normalization_strategy,
             weights=weights,
-            deduplication_strategy="exact_text+canonical+lexical_sequence_ratio",
+            deduplication_strategy=(
+                "bounded_top_fused_pool:"
+                "exact_text+canonical+lexical_sequence_ratio"
+            ),
             lexical_deduplication_threshold=self._config.lexical_deduplication_threshold,
             diversity_strategy="mmr_cosine",
             mmr_lambda=self._config.mmr_lambda,
