@@ -161,6 +161,9 @@ Statistical coverage includes:
 - relative/normalized frequency;
 - bounded statistical score;
 - section/chunk generic coverage;
+- explicit corpus boundary validation;
+- filtered-empty section/chunk denominator correctness;
+- inconsistent scope metadata rejection;
 - source occurrence tracking;
 - deterministic ranking;
 - empty input;
@@ -173,11 +176,11 @@ Statistical coverage includes:
 
 ### Evaluation
 
-A small Persian multi-document fixture checks expected educational phrases, protected phrases, mixed technical terms and known noise exclusions.
+A small Persian multi-document fixture checks expected educational phrases, protected phrases, mixed technical terms and known noise exclusions. Additional profile-aware corpus regressions cover COURSE, SOLDIER_CONCERN and MEDIA while keeping profile workflow/scoring out of Phase 7.
 
 ### Performance baseline
 
-A controlled 100-document corpus verifies bounded candidate growth (`<= 3 * token_count`) and records a loose non-flaky runtime guard.
+A controlled 100-document corpus verifies bounded candidate growth (`<= 3 * token_count`), measures runtime, and supports an optional environment-specific time gate through `PHASE7_PERF_MAX_SECONDS`.
 
 ## Local verification correction pass
 
