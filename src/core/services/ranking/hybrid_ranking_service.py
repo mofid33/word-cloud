@@ -77,7 +77,6 @@ class HybridRankingResult:
     diversity_candidate_pool_size: int
     maximum_ranked_results: int
     embedding_metadata: SemanticProviderMetadata
-    diversity_embedding_metadata: SemanticProviderMetadata
     semantic_score_strategy: str
     deterministic_tie_breaking: str
 
@@ -135,7 +134,6 @@ class HybridRankingService:
             semantic_result.candidates,
             selected_weights,
         )
-        self._validate_embedding_metadata(semantic_result)
         deduplicated, removed = self._deduplicate(joined)
         ranked = await self._apply_mmr_async(
             deduplicated,
@@ -410,7 +408,6 @@ class HybridRankingService:
             diversity_candidate_pool_size=self._config.diversity_candidate_pool_size,
             maximum_ranked_results=maximum_results,
             embedding_metadata=semantic_result.embedding_metadata,
-            diversity_embedding_metadata=self._embedding_provider.metadata,
             semantic_score_strategy=semantic_result.semantic_score_strategy,
             deterministic_tie_breaking=(
                 "fused_score, semantic_score, statistical_score, canonical_text"
@@ -531,16 +528,6 @@ class HybridRankingService:
             raise ValueError("diversity cosine similarity must be finite")
         cosine = min(max(cosine, -1.0), 1.0)
         return (cosine + 1.0) / 2.0
-
-    def _validate_embedding_metadata(
-        self,
-        semantic_result: SemanticAnalysisResult,
-    ) -> None:
-        if self._embedding_provider.metadata != semantic_result.embedding_metadata:
-            raise ValueError(
-                "Phase 8 embedding metadata does not match the "
-                "Phase 9 diversity embedding provider"
-            )
 
     def _validate_maximum_results(self, value: int | None) -> int:
         if value is None:
