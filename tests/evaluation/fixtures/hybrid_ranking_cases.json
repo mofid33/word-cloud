@@ -1,0 +1,38 @@
+{
+  "status": "PHASE_9_REGRESSION_FIXTURE_NOT_PRODUCTION_GOLD",
+  "description": "Public-safe deterministic fixture for comparing statistical, semantic, hybrid, deduplicated and MMR ranking behavior. Final profile weights and semantic dedup thresholds remain deferred.",
+  "cases": [
+    {
+      "profile": "COURSE",
+      "candidates": [
+        {"canonical_text": "هوش مصنوعی", "statistical": 0.95, "semantic": 0.98, "relevance": 3, "vector": [1.0, 0.0, 0.0]},
+        {"canonical_text": "هوش مصنوعی پیشرفته", "statistical": 0.90, "semantic": 0.95, "relevance": 2, "vector": [0.99, 0.01, 0.0]},
+        {"canonical_text": "یادگیری ماشین", "statistical": 0.85, "semantic": 0.92, "relevance": 3, "vector": [0.8, 0.2, 0.0]},
+        {"canonical_text": "تحلیل داده", "statistical": 0.75, "semantic": 0.88, "relevance": 3, "vector": [0.0, 1.0, 0.0]},
+        {"canonical_text": "GPT-4", "statistical": 0.55, "semantic": 0.80, "relevance": 2, "vector": [0.0, 0.0, 1.0]},
+        {"canonical_text": "کلاس", "statistical": 0.70, "semantic": 0.20, "relevance": 0, "vector": [0.3, 0.3, 0.3]}
+      ]
+    },
+    {
+      "profile": "SOLDIER_CONCERN",
+      "candidates": [
+        {"canonical_text": "مشکل خواب", "statistical": 0.95, "semantic": 0.94, "relevance": 3, "vector": [1.0, 0.0, 0.0]},
+        {"canonical_text": "مشکلات خواب", "statistical": 0.88, "semantic": 0.90, "relevance": 2, "vector": [0.99, 0.01, 0.0]},
+        {"canonical_text": "فشار روانی", "statistical": 0.82, "semantic": 0.91, "relevance": 3, "vector": [0.0, 1.0, 0.0]},
+        {"canonical_text": "ارتباط با خانواده", "statistical": 0.78, "semantic": 0.86, "relevance": 3, "vector": [0.0, 0.0, 1.0]},
+        {"canonical_text": "BERT-base", "statistical": 0.10, "semantic": 0.05, "relevance": 0, "vector": [0.3, 0.3, 0.3]}
+      ]
+    },
+    {
+      "profile": "MEDIA",
+      "candidates": [
+        {"canonical_text": "تعامل مخاطب", "statistical": 0.92, "semantic": 0.95, "relevance": 3, "vector": [1.0, 0.0, 0.0]},
+        {"canonical_text": "بازخورد مخاطب", "statistical": 0.87, "semantic": 0.93, "relevance": 3, "vector": [0.0, 1.0, 0.0]},
+        {"canonical_text": "محتوای منتشرشده", "statistical": 0.84, "semantic": 0.90, "relevance": 3, "vector": [0.0, 0.0, 1.0]},
+        {"canonical_text": "رسانه", "statistical": 0.90, "semantic": 0.30, "relevance": 1, "vector": [0.4, 0.4, 0.1]},
+        {"canonical_text": "v1.2", "statistical": 0.30, "semantic": 0.40, "relevance": 1, "vector": [0.2, 0.2, 0.8]},
+        {"canonical_text": "advertisement", "statistical": 0.40, "semantic": 0.10, "relevance": 0, "vector": [0.3, 0.3, 0.3]}
+      ]
+    }
+  ]
+}
