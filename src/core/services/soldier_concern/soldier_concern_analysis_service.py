@@ -191,6 +191,16 @@ class SoldierConcernAnalysisService:
                     "configured_weights": dict(self._config.weights),
                     "profile_scoring_version": self._config.scoring_version,
                     "hybrid_scoring_version": hybrid.scoring_version,
+                    "hybrid": {
+                        "normalization_strategy": hybrid.normalization_strategy,
+                        "lexical_deduplication_threshold": hybrid.lexical_deduplication_threshold,
+                        "semantic_deduplication_threshold": hybrid.semantic_deduplication_threshold,
+                        "diversity_strategy": hybrid.diversity_strategy,
+                        "mmr_lambda": hybrid.mmr_lambda,
+                        "diversity_candidate_pool_size": hybrid.diversity_candidate_pool_size,
+                        "maximum_ranked_results": hybrid.maximum_ranked_results,
+                        "deterministic_tie_breaking": hybrid.deterministic_tie_breaking,
+                    },
                 },
                 "keywords": keyword_signals,
                 "deduplication": [
