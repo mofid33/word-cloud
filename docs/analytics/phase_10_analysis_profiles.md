@@ -306,7 +306,7 @@ The first COURSE source pool is now frozen before human annotation and scoring-w
 - 20 tuning units in 7 case groups and 10 pre-frozen holdout units in 4 case groups;
 - four domains: fluid mechanics, Python programming, mathematics/economics, and Linux CLI, represented in both splits;
 - tuning and holdout are disjoint by both case group and page/revision identity to prevent source leakage;
-- each unit records case group, page title, revision id, exact section title, permanent URL, attribution URL, and minimum materialized length;
+- each unit records case group, page title, revision id, exact section title, permanent URL, attribution URL, and minimum materialized length; ambiguous repeated headings can additionally pin `section_level`;
 - materializer: `tests/evaluation/materialize_course_gold_sources.py`;
 - source text must be materialized outside the repository;
 - section headings are provenance/selection metadata and are not automatically treated as Gold keyphrases.
