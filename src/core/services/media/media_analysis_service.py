@@ -295,10 +295,13 @@ class MediaAnalysisService:
         for document in documents:
             document_id = document.get("document_id")
             text = document.get("text")
-            metadata = document.get("metadata") or {}
+            metadata = document.get("metadata", {})
+            if metadata is None:
+                metadata = {}
             if not isinstance(document_id, str) or not document_id.strip():
                 raise ValueError("MEDIA document_id must be a non-empty string")
-            if document_id in seen:
+            normalized_document_id = document_id.strip()
+            if normalized_document_id in seen:
                 raise ValueError("MEDIA document_id values must be unique")
             if not isinstance(text, str) or not text.strip():
                 raise ValueError("MEDIA document text must be non-empty")
@@ -309,10 +312,10 @@ class MediaAnalysisService:
                 raise ValueError(
                     "MEDIA metadata.role must be published_content or audience_feedback"
                 )
-            seen.add(document_id)
+            seen.add(normalized_document_id)
             normalized.append(
                 {
-                    "document_id": document_id.strip(),
+                    "document_id": normalized_document_id,
                     "text": text,
                     "metadata": dict(metadata),
                 }
