@@ -118,6 +118,7 @@ Materialized row شامل provenance، revision، permanent attribution URL، SH
 
 - live page را به‌جای revision ثابت استفاده نمی‌کند؛
 - section heading را در همان revision resolve می‌کند؛
+- برای headingهای تکراری، manifest می‌تواند `section_level` صریح داشته باشد تا ambiguity بدون fuzzy selection رفع شود؛
 - section map هر revision را در همان اجرا cache می‌کند تا درخواست تکراری حذف شود؛
 - درخواست‌ها را serial/throttled ارسال می‌کند و `maxlag` را برای MediaWiki API فعال می‌کند؛
 - برای HTTP `429` و `503` مقدار `Retry-After` را رعایت می‌کند و در نبود آن exponential backoff دارد؛
