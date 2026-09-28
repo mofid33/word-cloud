@@ -227,12 +227,15 @@ class SoldierConcernAnalysisService:
         for document in documents:
             document_id = document.get("document_id")
             text = document.get("text")
-            metadata = document.get("metadata") or {}
+            metadata = document.get("metadata", {})
+            if metadata is None:
+                metadata = {}
             if not isinstance(document_id, str) or not document_id.strip():
                 raise ValueError(
                     "SOLDIER_CONCERN document_id must be a non-empty string"
                 )
-            if document_id in seen:
+            normalized_document_id = document_id.strip()
+            if normalized_document_id in seen:
                 raise ValueError(
                     "SOLDIER_CONCERN document_id values must be unique"
                 )
@@ -244,10 +247,10 @@ class SoldierConcernAnalysisService:
                 raise ValueError(
                     "SOLDIER_CONCERN metadata must be a mapping"
                 )
-            seen.add(document_id)
+            seen.add(normalized_document_id)
             normalized.append(
                 {
-                    "document_id": document_id.strip(),
+                    "document_id": normalized_document_id,
                     "text": text,
                     "metadata": dict(metadata),
                 }
