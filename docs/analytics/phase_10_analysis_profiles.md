@@ -313,6 +313,20 @@ The first COURSE source pool is now frozen before human annotation and scoring-w
 
 The source pool is therefore reproducible, but Phase 10 is still waiting for human relevance annotations/adjudication. Source selection alone does not satisfy the Production Gold Dataset closure gate.
 
+Local materialization evidence:
+
+- source manifest: `course-wikibooks-fa-v1`;
+- manifest version: `1.0.0`;
+- materialized source units: 30/30;
+- tuning units: 20;
+- holdout units: 10;
+- materialized file SHA-256: `ea6fc2af90570db504cce5e31f594410d4505917aa15289e699c8e59d7f98d78`;
+- focused COURSE source-manifest tests: 14/14 PASS;
+- `python -m compileall -q src tests`: PASS;
+- no source unit was silently skipped.
+
+The materialized corpus remains outside the repository. The fingerprint above is the reproducibility reference for the input corpus that will be used to build the human annotation package.
+
 ## Remaining closure dependency
 
 Runtime/local verification is complete.
