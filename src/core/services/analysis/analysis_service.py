@@ -7,6 +7,7 @@ from typing import Any
 from src.core.services.analysis.analysis_execution_policy_service import (
     AnalysisExecutionPolicyService,
 )
+from src.core.services.analysis.analysis_processor_service import AnalysisProcessorService
 from src.infrastructure.di.inject import inject
 from src.infrastructure.repositories.analysis.word_cloud_analysis_repository import (
     WordCloudAnalysisRepository,
@@ -108,9 +109,11 @@ class AnalysisService:
     def __init__(
         self,
         execution_policy_service: AnalysisExecutionPolicyService,
+        analysis_processor_service: AnalysisProcessorService,
         analysis_repository: WordCloudAnalysisRepository,
     ):
         self._execution_policy_service = execution_policy_service
+        self._analysis_processor_service = analysis_processor_service
         self._analysis_repository = analysis_repository
 
     async def validate_async(
@@ -189,6 +192,18 @@ class AnalysisService:
             options=options,
             persist_raw_text=False,
         )
+        if validation.resolved_execution_mode == "sync":
+            await self._analysis_processor_service.process_async(
+                analysis_id=analysis.id,
+                analysis_type=analysis_type,
+                documents=documents,
+            )
+            completed = await self._analysis_repository.get_aggregate_by_id_async(
+                analysis.id
+            )
+            if completed is None:
+                raise RuntimeError("Completed analysis could not be reloaded")
+            return self._status_result(completed)
         return self._status_result(analysis)
 
     async def get_status_async(
