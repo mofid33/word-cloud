@@ -327,6 +327,19 @@ Local materialization evidence:
 
 The materialized corpus remains outside the repository. The fingerprint above is the reproducibility reference for the input corpus that will be used to build the human annotation package.
 
+Human annotation package tooling local verification evidence:
+
+- `python -m unittest tests.evaluation.test_course_gold_annotation_package -v`: 6/6 PASS;
+- deterministic case ordering: PASS;
+- tuning/holdout case-boundary protection: PASS;
+- repository-local output rejection: PASS;
+- blinded annotation package generation: PASS;
+- per-document SHA-256 integrity validation: PASS;
+- verified corpus SHA-256 validation: PASS;
+- `python -m compileall -q src tests`: PASS.
+
+The COURSE annotation package infrastructure is therefore verified. The remaining COURSE dependency is actual independent human annotation and adjudication; no annotation workbook is considered Gold merely because the package builder generated it.
+
 COURSE human-annotation preparation is now implemented:
 
 - verification metadata: `tests/evaluation/gold/course_source_materialization_v1.json`;
