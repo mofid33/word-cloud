@@ -67,11 +67,25 @@ class _Repository:
         return self.analysis
 
 
+class _Processor:
+    def __init__(self, repository):
+        self._repository = repository
+        self.calls = []
+
+    async def process_async(self, *, analysis_id, analysis_type, documents):
+        self.calls.append((analysis_id, analysis_type, documents))
+        self._repository.analysis.status = "completed"
+        self._repository.analysis.model_version = "model-v1"
+        self._repository.analysis.scoring_version = "score-v1"
+        self._repository.analysis.completed_at = datetime.now(UTC)
+
+
 class AnalysisServiceTests(unittest.TestCase):
     def setUp(self) -> None:
         policy = AnalysisExecutionPolicyService(_Config())
         self.repository = _Repository()
-        self.service = AnalysisService(policy, self.repository)
+        self.processor = _Processor(self.repository)
+        self.service = AnalysisService(policy, self.processor, self.repository)
 
     def test_rejects_duplicate_document_ids(self) -> None:
         async def run() -> None:
@@ -228,8 +242,9 @@ class AnalysisServiceTests(unittest.TestCase):
         )
 
         self.assertEqual(result.analysis_id, "analysis-1")
-        self.assertEqual(result.status, "pending")
+        self.assertEqual(result.status, "completed")
         self.assertEqual(result.execution_mode, "sync")
+        self.assertEqual(len(self.processor.calls), 1)
         self.assertEqual(
             self.repository.last_create["execution_mode"],
             "sync",
@@ -310,7 +325,7 @@ class AnalysisServiceTests(unittest.TestCase):
         asyncio.run(
             self.service.create_async(
                 analysis_type="COURSE",
-                execution_mode="sync",
+                execution_mode="async",
                 documents=[
                     {"document_id": "a", "text": "abc", "metadata": {}},
                 ],
