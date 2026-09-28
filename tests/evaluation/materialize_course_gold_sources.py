@@ -33,8 +33,11 @@ class CourseSourceMaterializationError(RuntimeError):
 def normalize_heading(value: str) -> str:
     normalized = unicodedata.normalize("NFKC", value)
     normalized = normalized.replace("ي", "ی").replace("ك", "ک")
-    normalized = normalized.replace("\u200c", " ")
-    normalized = re.sub(r"\s+", " ", normalized).strip()
+    normalized = normalized.replace("\\u200c", " ")
+    normalized = re.sub(r"\\s+", " ", normalized).strip()
+    normalized = re.sub(r"\\(\\s+", "(", normalized)
+    normalized = re.sub(r"\\s+\\)", ")", normalized)
+    normalized = re.sub(r"\\s*([,:،])\\s*", r"\\1", normalized)
     return normalized.rstrip(":：").strip()
 
 
