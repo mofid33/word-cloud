@@ -5,7 +5,7 @@
   "source_platform": "Persian Wikibooks",
   "source_project_url": "https://fa.wikibooks.org/",
   "license_policy_url": "https://foundation.wikimedia.org/wiki/Terms_of_Use",
-  "license_label": "Creative Commons Attribution-ShareAlike (page footer); Wikimedia Terms also describe CC BY-SA 4.0/GFDL licensing",
+  "license_label": "Wikimedia text licensing with page-specific notices; verify applicable terms before redistribution",
   "verified_on": "2026-09-28",
   "selection_policy": {
     "total_source_units": 30,
@@ -29,7 +29,8 @@
       "section_title": "تعریف شاره یا سَیّال",
       "permanent_url": "https://fa.wikibooks.org/w/index.php?oldid=133116",
       "attribution_url": "https://fa.wikibooks.org/w/index.php?oldid=133116",
-      "minimum_materialized_chars": 200
+      "minimum_materialized_chars": 200,
+      "license_review_required_before_redistribution": true
     },
     {
       "source_unit_id": "course-fluid-002",
@@ -40,7 +41,8 @@
       "section_title": "لزجت یا گرانروی",
       "permanent_url": "https://fa.wikibooks.org/w/index.php?oldid=133116",
       "attribution_url": "https://fa.wikibooks.org/w/index.php?oldid=133116",
-      "minimum_materialized_chars": 200
+      "minimum_materialized_chars": 200,
+      "license_review_required_before_redistribution": true
     },
     {
       "source_unit_id": "course-fluid-003",
@@ -51,7 +53,8 @@
       "section_title": "تعریف فشار",
       "permanent_url": "https://fa.wikibooks.org/w/index.php?oldid=100895",
       "attribution_url": "https://fa.wikibooks.org/w/index.php?oldid=100895",
-      "minimum_materialized_chars": 200
+      "minimum_materialized_chars": 200,
+      "license_review_required_before_redistribution": true
     },
     {
       "source_unit_id": "course-fluid-004",
@@ -62,7 +65,8 @@
       "section_title": "اندازه گیری فشار",
       "permanent_url": "https://fa.wikibooks.org/w/index.php?oldid=100895",
       "attribution_url": "https://fa.wikibooks.org/w/index.php?oldid=100895",
-      "minimum_materialized_chars": 200
+      "minimum_materialized_chars": 200,
+      "license_review_required_before_redistribution": true
     },
     {
       "source_unit_id": "course-fluid-005",
@@ -73,7 +77,8 @@
       "section_title": "جریان در لوله",
       "permanent_url": "https://fa.wikibooks.org/w/index.php?oldid=129785",
       "attribution_url": "https://fa.wikibooks.org/w/index.php?oldid=129785",
-      "minimum_materialized_chars": 200
+      "minimum_materialized_chars": 200,
+      "license_review_required_before_redistribution": true
     },
     {
       "source_unit_id": "course-fluid-006",
@@ -84,7 +89,8 @@
       "section_title": "عدد رینولدز",
       "permanent_url": "https://fa.wikibooks.org/w/index.php?oldid=129785",
       "attribution_url": "https://fa.wikibooks.org/w/index.php?oldid=129785",
-      "minimum_materialized_chars": 200
+      "minimum_materialized_chars": 200,
+      "license_review_required_before_redistribution": true
     },
     {
       "source_unit_id": "course-fluid-007",
@@ -95,7 +101,8 @@
       "section_title": "قضیه پای باکینگهام",
       "permanent_url": "https://fa.wikibooks.org/w/index.php?oldid=131452",
       "attribution_url": "https://fa.wikibooks.org/w/index.php?oldid=131452",
-      "minimum_materialized_chars": 200
+      "minimum_materialized_chars": 200,
+      "license_review_required_before_redistribution": true
     },
     {
       "source_unit_id": "course-fluid-008",
@@ -106,7 +113,8 @@
       "section_title": "روش‌های دیگر برای حل مسائل تحلیل ابعادی:",
       "permanent_url": "https://fa.wikibooks.org/w/index.php?oldid=131452",
       "attribution_url": "https://fa.wikibooks.org/w/index.php?oldid=131452",
-      "minimum_materialized_chars": 200
+      "minimum_materialized_chars": 200,
+      "license_review_required_before_redistribution": true
     },
     {
       "source_unit_id": "course-python-001",
@@ -117,7 +125,8 @@
       "section_title": "مفهوم شیءگرایی",
       "permanent_url": "https://fa.wikibooks.org/w/index.php?oldid=112222",
       "attribution_url": "https://fa.wikibooks.org/w/index.php?oldid=112222",
-      "minimum_materialized_chars": 200
+      "minimum_materialized_chars": 200,
+      "license_review_required_before_redistribution": true
     },
     {
       "source_unit_id": "course-python-002",
@@ -128,7 +137,8 @@
       "section_title": "مزایای شیءگرایی",
       "permanent_url": "https://fa.wikibooks.org/w/index.php?oldid=112222",
       "attribution_url": "https://fa.wikibooks.org/w/index.php?oldid=112222",
-      "minimum_materialized_chars": 200
+      "minimum_materialized_chars": 200,
+      "license_review_required_before_redistribution": true
     },
     {
       "source_unit_id": "course-python-003",
@@ -139,7 +149,8 @@
       "section_title": "مفهوم کلاس",
       "permanent_url": "https://fa.wikibooks.org/w/index.php?oldid=112222",
       "attribution_url": "https://fa.wikibooks.org/w/index.php?oldid=112222",
-      "minimum_materialized_chars": 200
+      "minimum_materialized_chars": 200,
+      "license_review_required_before_redistribution": true
     },
     {
       "source_unit_id": "course-python-004",
@@ -150,7 +161,8 @@
       "section_title": "پیاده‌سازی کلاس‌ها",
       "permanent_url": "https://fa.wikibooks.org/w/index.php?oldid=112222",
       "attribution_url": "https://fa.wikibooks.org/w/index.php?oldid=112222",
-      "minimum_materialized_chars": 200
+      "minimum_materialized_chars": 200,
+      "license_review_required_before_redistribution": true
     },
     {
       "source_unit_id": "course-python-005",
@@ -161,7 +173,8 @@
       "section_title": "مفهوم اشیا",
       "permanent_url": "https://fa.wikibooks.org/w/index.php?oldid=112222",
       "attribution_url": "https://fa.wikibooks.org/w/index.php?oldid=112222",
-      "minimum_materialized_chars": 200
+      "minimum_materialized_chars": 200,
+      "license_review_required_before_redistribution": true
     },
     {
       "source_unit_id": "course-python-006",
@@ -172,7 +185,8 @@
       "section_title": "استفاده از اشیا",
       "permanent_url": "https://fa.wikibooks.org/w/index.php?oldid=112222",
       "attribution_url": "https://fa.wikibooks.org/w/index.php?oldid=112222",
-      "minimum_materialized_chars": 200
+      "minimum_materialized_chars": 200,
+      "license_review_required_before_redistribution": true
     },
     {
       "source_unit_id": "course-python-007",
@@ -183,7 +197,8 @@
       "section_title": "وراثت چیست؟",
       "permanent_url": "https://fa.wikibooks.org/w/index.php?oldid=112222",
       "attribution_url": "https://fa.wikibooks.org/w/index.php?oldid=112222",
-      "minimum_materialized_chars": 200
+      "minimum_materialized_chars": 200,
+      "license_review_required_before_redistribution": true
     },
     {
       "source_unit_id": "course-python-008",
@@ -194,7 +209,8 @@
       "section_title": "سربارگذاری عملگر",
       "permanent_url": "https://fa.wikibooks.org/w/index.php?oldid=112222",
       "attribution_url": "https://fa.wikibooks.org/w/index.php?oldid=112222",
-      "minimum_materialized_chars": 200
+      "minimum_materialized_chars": 200,
+      "license_review_required_before_redistribution": true
     },
     {
       "source_unit_id": "course-math-001",
@@ -205,7 +221,8 @@
       "section_title": "دترمینان ماتریس",
       "permanent_url": "https://fa.wikibooks.org/w/index.php?oldid=116469",
       "attribution_url": "https://fa.wikibooks.org/w/index.php?oldid=116469",
-      "minimum_materialized_chars": 200
+      "minimum_materialized_chars": 200,
+      "license_review_required_before_redistribution": true
     },
     {
       "source_unit_id": "course-math-002",
@@ -216,7 +233,8 @@
       "section_title": "رنک یک ماتریس",
       "permanent_url": "https://fa.wikibooks.org/w/index.php?oldid=116469",
       "attribution_url": "https://fa.wikibooks.org/w/index.php?oldid=116469",
-      "minimum_materialized_chars": 200
+      "minimum_materialized_chars": 200,
+      "license_review_required_before_redistribution": true
     },
     {
       "source_unit_id": "course-math-003",
@@ -227,7 +245,8 @@
       "section_title": "فضای برداری (vector space)",
       "permanent_url": "https://fa.wikibooks.org/w/index.php?oldid=115654",
       "attribution_url": "https://fa.wikibooks.org/w/index.php?oldid=115654",
-      "minimum_materialized_chars": 200
+      "minimum_materialized_chars": 200,
+      "license_review_required_before_redistribution": true
     },
     {
       "source_unit_id": "course-math-004",
@@ -238,7 +257,8 @@
       "section_title": "تبدیل خطی",
       "permanent_url": "https://fa.wikibooks.org/w/index.php?oldid=115654",
       "attribution_url": "https://fa.wikibooks.org/w/index.php?oldid=115654",
-      "minimum_materialized_chars": 200
+      "minimum_materialized_chars": 200,
+      "license_review_required_before_redistribution": true
     },
     {
       "source_unit_id": "course-math-005",
@@ -249,7 +269,8 @@
       "section_title": "تقعر و تحدب توابع",
       "permanent_url": "https://fa.wikibooks.org/w/index.php?oldid=116227",
       "attribution_url": "https://fa.wikibooks.org/w/index.php?oldid=116227",
-      "minimum_materialized_chars": 200
+      "minimum_materialized_chars": 200,
+      "license_review_required_before_redistribution": true
     },
     {
       "source_unit_id": "course-math-006",
@@ -260,7 +281,8 @@
       "section_title": "ماتریس هشین",
       "permanent_url": "https://fa.wikibooks.org/w/index.php?oldid=116227",
       "attribution_url": "https://fa.wikibooks.org/w/index.php?oldid=116227",
-      "minimum_materialized_chars": 200
+      "minimum_materialized_chars": 200,
+      "license_review_required_before_redistribution": true
     },
     {
       "source_unit_id": "course-math-007",
@@ -271,7 +293,8 @@
       "section_title": "رسم نگارهٔ فاز: مباحث اولیه",
       "permanent_url": "https://fa.wikibooks.org/w/index.php?oldid=116400",
       "attribution_url": "https://fa.wikibooks.org/w/index.php?oldid=116400",
-      "minimum_materialized_chars": 200
+      "minimum_materialized_chars": 200,
+      "license_review_required_before_redistribution": true
     },
     {
       "source_unit_id": "course-linux-001",
@@ -282,7 +305,8 @@
       "section_title": "ساختار دستورات لینوکس",
       "permanent_url": "https://fa.wikibooks.org/w/index.php?oldid=131189",
       "attribution_url": "https://fa.wikibooks.org/w/index.php?oldid=131189",
-      "minimum_materialized_chars": 200
+      "minimum_materialized_chars": 200,
+      "license_review_required_before_redistribution": true
     },
     {
       "source_unit_id": "course-linux-002",
@@ -293,7 +317,8 @@
       "section_title": "دیرکتوری کنونی یا current directory",
       "permanent_url": "https://fa.wikibooks.org/w/index.php?oldid=131189",
       "attribution_url": "https://fa.wikibooks.org/w/index.php?oldid=131189",
-      "minimum_materialized_chars": 200
+      "minimum_materialized_chars": 200,
+      "license_review_required_before_redistribution": true
     },
     {
       "source_unit_id": "course-linux-003",
@@ -304,7 +329,8 @@
       "section_title": "دستورات مهم لینوکس(ls, cd, mv, cp, rm, mkdir)",
       "permanent_url": "https://fa.wikibooks.org/w/index.php?oldid=131189",
       "attribution_url": "https://fa.wikibooks.org/w/index.php?oldid=131189",
-      "minimum_materialized_chars": 200
+      "minimum_materialized_chars": 200,
+      "license_review_required_before_redistribution": true
     },
     {
       "source_unit_id": "course-linux-004",
@@ -315,7 +341,8 @@
       "section_title": "آدرس مطلق (Absolute address) و نسبی(Relative Address)",
       "permanent_url": "https://fa.wikibooks.org/w/index.php?oldid=131189",
       "attribution_url": "https://fa.wikibooks.org/w/index.php?oldid=131189",
-      "minimum_materialized_chars": 200
+      "minimum_materialized_chars": 200,
+      "license_review_required_before_redistribution": true
     },
     {
       "source_unit_id": "course-linux-005",
@@ -326,7 +353,8 @@
       "section_title": "Globbing یا استفاده از wildcard ها یا regular expression ها در نام فایل‌ها در دستورات",
       "permanent_url": "https://fa.wikibooks.org/w/index.php?oldid=131189",
       "attribution_url": "https://fa.wikibooks.org/w/index.php?oldid=131189",
-      "minimum_materialized_chars": 200
+      "minimum_materialized_chars": 200,
+      "license_review_required_before_redistribution": true
     },
     {
       "source_unit_id": "course-linux-006",
@@ -337,7 +365,8 @@
       "section_title": "متغیرهای محیطی (Environment Variables)",
       "permanent_url": "https://fa.wikibooks.org/w/index.php?oldid=131189",
       "attribution_url": "https://fa.wikibooks.org/w/index.php?oldid=131189",
-      "minimum_materialized_chars": 200
+      "minimum_materialized_chars": 200,
+      "license_review_required_before_redistribution": true
     },
     {
       "source_unit_id": "course-linux-007",
@@ -348,7 +377,9 @@
       "section_title": "مشاهدهٔ داکیومنت دستورات(--help و man)",
       "permanent_url": "https://fa.wikibooks.org/w/index.php?oldid=131189",
       "attribution_url": "https://fa.wikibooks.org/w/index.php?oldid=131189",
-      "minimum_materialized_chars": 200
+      "minimum_materialized_chars": 200,
+      "license_review_required_before_redistribution": true
     }
-  ]
+  ],
+  "license_provenance_note": "Preserve each permanent attribution URL. Wikimedia Terms describe CC BY-SA/GFDL licensing for text, while individual pages or imported works may carry additional or different compatible notices."
 }
