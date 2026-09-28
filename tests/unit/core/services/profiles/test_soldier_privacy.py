@@ -19,8 +19,11 @@ class SoldierPrivacyRegressionTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.service = build_profile_services()["SOLDIER_CONCERN"]
 
-    async def test_raw_concern_text_is_absent_from_logs_results_metrics_and_profile_metadata(self):
-        raw = "SOLDIER-PRIVATE-RAW-TEXT-9f4196d1"
+    async def test_raw_document_payload_is_not_retained_in_logs_metrics_or_structured_metadata(self):
+        raw = (
+            "SOLDIER PRIVATE RAW TEXT 9f4196d1 "
+            "MUST NOT BE RETAINED AS A DOCUMENT PAYLOAD"
+        )
         handler = _CaptureHandler()
         root = logging.getLogger()
         root.addHandler(handler)
@@ -39,6 +42,10 @@ class SoldierPrivacyRegressionTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn(raw, repr(result.metrics))
         self.assertNotIn(raw, repr(result.profile_result))
         self.assertNotIn(raw, repr(result))
+        self.assertFalse(result.profile_result["privacy"]["raw_text_persisted"])
+        self.assertFalse(
+            result.profile_result["privacy"]["raw_document_payload_retained"]
+        )
 
     async def test_user_controlled_raw_text_is_not_echoed_by_validation_errors(self):
         raw = "SOLDIER-SECRET-MALFORMED-0d49"
