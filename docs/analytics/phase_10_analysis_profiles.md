@@ -260,6 +260,32 @@ Phase 10 orchestration performance evidence with the deterministic fixture provi
 
 These performance numbers measure orchestration using the deterministic fixture provider and must not be represented as production model latency.
 
+## Gold Dataset evaluation infrastructure
+
+The Phase 10 Gold Dataset infrastructure is implemented on `main` and awaits local verification before its evidence is added to the regression baseline.
+
+Implemented files:
+
+- `tests/evaluation/phase10_gold_dataset.py`: strict loader, profile-aware validation, privacy-safe Soldier path enforcement, dataset fingerprinting, and ranking metrics;
+- `tests/evaluation/run_phase10_gold_evaluation.py`: real-DI evaluation runner for COURSE, SOLDIER_CONCERN, and MEDIA;
+- `tests/evaluation/gold/phase10_gold_schema.json`: machine-readable `phase10-gold-v1` contract;
+- `tests/evaluation/gold/README.md`: annotation, relevance grading, split discipline, privacy, and execution guidance;
+- `tests/evaluation/test_phase10_gold_dataset.py`: validation, privacy, split isolation, fixed-k metric, and adjudication tests.
+
+Gold Dataset contract decisions:
+
+- each dataset contains both `tuning` and `holdout` cases;
+- runner evaluates exactly one split per execution;
+- human annotations use graded relevance `0..3` so NDCG@10 remains graded;
+- Precision@5, Precision@10, and Recall@10 treat grades greater than zero as relevant;
+- evaluation requires `adjudicated=true`;
+- the schema records `annotator_count` but does not hard-code a minimum greater than one;
+- dataset/guideline versions and a SHA-256 dataset fingerprint are included in evaluation output;
+- Soldier Gold raw text must live outside the repository; the loader rejects repository-local Soldier datasets;
+- Gold data is not generated from synthetic fixtures or model output.
+
+This infrastructure does not create Production Gold labels by itself. Real human-adjudicated COURSE, SOLDIER_CONCERN, and MEDIA datasets are still required.
+
 ## Remaining closure dependency
 
 Runtime/local verification is complete.
