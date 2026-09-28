@@ -14,6 +14,7 @@ from tests.evaluation.materialize_course_gold_sources import (
     _retry_after_seconds,
     _section_index,
     _sections_for_revision,
+    heading_key,
     html_to_visible_text,
     load_manifest,
     materialize,
@@ -177,6 +178,24 @@ class CourseGoldSourceManifestTests(unittest.TestCase):
             self.assertEqual(_section_index(999, "بخش دو"), "2")
         self.assertEqual(request_json.call_count, 1)
         _sections_for_revision.cache_clear()
+
+    def test_heading_key_ignores_mediawiki_markup_and_punctuation_variants(self) -> None:
+        api_heading = (
+            'دستورات مهم لینوکس'
+            '<span class="mw-headline-note">( ls، cd, mv, cp, rm, mkdir )</span>'
+        )
+        manifest_heading = (
+            "دستورات مهم لینوکس(ls, cd, mv, cp, rm, mkdir)"
+        )
+        self.assertEqual(
+            heading_key(api_heading),
+            heading_key(manifest_heading),
+        )
+
+        self.assertEqual(
+            heading_key("مشاهدهٔ داکیومنت دستورات( --help و man)"),
+            heading_key("مشاهدهٔ داکیومنت دستورات(--help و man)"),
+        )
 
     def test_html_extractor_keeps_visible_text_and_drops_script_style(self) -> None:
         text = html_to_visible_text(
