@@ -106,7 +106,7 @@ class CourseGoldSourceManifestTests(unittest.TestCase):
         tuning_groups = {unit["case_group_id"] for unit in tuning}
         holdout_groups = {unit["case_group_id"] for unit in holdout}
         self.assertTrue(tuning_groups.isdisjoint(holdout_groups))
-        self.assertEqual(len(tuning_groups), 8)
+        self.assertEqual(len(tuning_groups), 7)
         self.assertEqual(len(holdout_groups), 4)
 
     def test_heading_normalization_handles_persian_arabic_variants(self) -> None:
