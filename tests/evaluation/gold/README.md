@@ -93,7 +93,7 @@ Evaluator از Profile Service واقعی و DI موجود استفاده می�
 - manifest: `tests/evaluation/gold/course_source_manifest_v1.json`;
 - source: Persian Wikibooks;
 - تعداد source unit: 30؛
-- `tuning`: 20 unit در 8 case group؛
+- `tuning`: 20 unit در 7 case group؛
 - `holdout`: 10 unit در 4 case group؛
 - domainها: `fluid_mechanics`، `python_programming`، `mathematics_economics` و `linux_cli`؛
 - توزیع domainها: 8 Fluid، 8 Python، 7 Math/Economics و 7 Linux؛
