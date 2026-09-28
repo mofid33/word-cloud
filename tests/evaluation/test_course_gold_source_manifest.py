@@ -75,18 +75,39 @@ class CourseGoldSourceManifestTests(unittest.TestCase):
         self.assertEqual(
             holdout_ids,
             {
-                "course-fluid-003",
-                "course-fluid-006",
-                "course-python-004",
-                "course-python-007",
+                "course-fluid-007",
+                "course-fluid-008",
                 "course-python-008",
-                "course-math-002",
                 "course-math-005",
+                "course-math-006",
                 "course-math-007",
                 "course-linux-004",
+                "course-linux-005",
+                "course-linux-006",
                 "course-linux-007",
             },
         )
+
+    def test_tuning_and_holdout_are_source_page_and_case_group_disjoint(self) -> None:
+        manifest = load_manifest(MANIFEST_PATH)
+        tuning = [unit for unit in manifest["units"] if unit["split"] == "tuning"]
+        holdout = [unit for unit in manifest["units"] if unit["split"] == "holdout"]
+
+        tuning_pages = {
+            (unit["page_title"], unit["revision_id"])
+            for unit in tuning
+        }
+        holdout_pages = {
+            (unit["page_title"], unit["revision_id"])
+            for unit in holdout
+        }
+        self.assertTrue(tuning_pages.isdisjoint(holdout_pages))
+
+        tuning_groups = {unit["case_group_id"] for unit in tuning}
+        holdout_groups = {unit["case_group_id"] for unit in holdout}
+        self.assertTrue(tuning_groups.isdisjoint(holdout_groups))
+        self.assertEqual(len(tuning_groups), 8)
+        self.assertEqual(len(holdout_groups), 4)
 
     def test_heading_normalization_handles_persian_arabic_variants(self) -> None:
         self.assertEqual(
@@ -125,6 +146,7 @@ class CourseGoldSourceManifestTests(unittest.TestCase):
             text = f"materialized-{unit['source_unit_id']}"
             return {
                 "source_unit_id": unit["source_unit_id"],
+                "case_group_id": unit["case_group_id"],
                 "split": unit["split"],
                 "domain": unit["domain"],
                 "page_title": unit["page_title"],
