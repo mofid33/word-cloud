@@ -302,8 +302,8 @@ The expected skip remains the separately gated Phase 8 semantic benchmark requir
 The first COURSE source pool is now frozen before human annotation and scoring-weight tuning:
 
 - source manifest: `tests/evaluation/gold/course_source_manifest_v1.json`;
-- 30 revision-pinned Persian Wikibooks source units grouped into 12 COURSE cases;
-- 20 tuning units in 8 case groups and 10 pre-frozen holdout units in 4 case groups;
+- 30 revision-pinned Persian Wikibooks source units grouped into 11 COURSE cases;
+- 20 tuning units in 7 case groups and 10 pre-frozen holdout units in 4 case groups;
 - four domains: fluid mechanics, Python programming, mathematics/economics, and Linux CLI, represented in both splits;
 - tuning and holdout are disjoint by both case group and page/revision identity to prevent source leakage;
 - each unit records case group, page title, revision id, exact section title, permanent URL, attribution URL, and minimum materialized length;
