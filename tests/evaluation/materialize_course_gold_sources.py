@@ -205,7 +205,15 @@ def materialize(manifest_path: Path, output_path: Path) -> dict[str, Any]:
         )
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    rows = [materialize_unit(unit) for unit in manifest["units"]]
+    rows: list[dict[str, Any]] = []
+    for unit in manifest["units"]:
+        try:
+            rows.append(materialize_unit(unit))
+        except CourseSourceMaterializationError as exc:
+            raise CourseSourceMaterializationError(
+                f"Failed to materialize source unit {unit['source_unit_id']}: {exc}"
+            ) from exc
+
     output_path.write_text(
         "".join(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n" for row in rows),
         encoding="utf-8",
