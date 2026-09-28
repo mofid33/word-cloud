@@ -43,14 +43,42 @@ class CourseSourceMaterializationError(RuntimeError):
 
 
 def normalize_heading(value: str) -> str:
-    normalized = unicodedata.normalize("NFKC", value)
+    normalized = html.unescape(str(value))
+    normalized = re.sub(r"<[^>]+>", " ", normalized)
+    normalized = unicodedata.normalize("NFKC", normalized)
     normalized = normalized.replace("ي", "ی").replace("ك", "ک")
+    normalized = "".join(
+        " "
+        if unicodedata.category(character) == "Cf"
+        else character
+        for character in normalized
+    )
     normalized = normalized.replace("\u200c", " ")
+    normalized = normalized.translate(
+        str.maketrans(
+            {
+                "،": ",",
+                "؛": ";",
+                "：": ":",
+                "（": "(",
+                "）": ")",
+            }
+        )
+    )
     normalized = re.sub(r"\s+", " ", normalized).strip()
     normalized = re.sub(r"\s*\(\s*", "(", normalized)
     normalized = re.sub(r"\s*\)", ")", normalized)
-    normalized = re.sub(r"\s*([,:،])\s*", r"\1", normalized)
-    return normalized.rstrip(":：").strip()
+    normalized = re.sub(r"\s*([,:;])\s*", r"\1", normalized)
+    return normalized.rstrip(":").strip()
+
+
+def heading_key(value: str) -> tuple[str, ...]:
+    normalized = normalize_heading(value).casefold()
+    return tuple(
+        token
+        for token in re.findall(r"[^\W_]+", normalized, flags=re.UNICODE)
+        if token
+    )
 
 
 class _VisibleTextExtractor(HTMLParser):
@@ -218,11 +246,11 @@ def _sections_for_revision(
 
 
 def _section_index(revision_id: int, section_title: str) -> str:
-    wanted = normalize_heading(section_title)
+    wanted = heading_key(section_title)
     matches = [
         index
         for normalized_title, index in _sections_for_revision(revision_id)
-        if normalized_title == wanted
+        if heading_key(normalized_title) == wanted
     ]
     if len(matches) != 1:
         raise CourseSourceMaterializationError(
