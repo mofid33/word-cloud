@@ -35,13 +35,15 @@ class CourseGoldSourceManifestTests(unittest.TestCase):
             Counter({"tuning": 20, "holdout": 10}),
         )
         self.assertEqual(
-            set(unit["domain"] for unit in units),
-            {
-                "fluid_mechanics",
-                "python_programming",
-                "mathematics_economics",
-                "linux_cli",
-            },
+            Counter(unit["domain"] for unit in units),
+            Counter(
+                {
+                    "fluid_mechanics": 8,
+                    "python_programming": 8,
+                    "mathematics_economics": 7,
+                    "linux_cli": 7,
+                }
+            ),
         )
 
     def test_manifest_units_are_unique_and_revision_pinned(self) -> None:
@@ -61,6 +63,7 @@ class CourseGoldSourceManifestTests(unittest.TestCase):
             )
             self.assertEqual(unit["attribution_url"], unit["permanent_url"])
             self.assertGreaterEqual(unit["minimum_materialized_chars"], 200)
+            self.assertTrue(unit["license_review_required_before_redistribution"])
 
     def test_holdout_assignments_are_explicit_and_not_derived_at_runtime(self) -> None:
         manifest = load_manifest(MANIFEST_PATH)
