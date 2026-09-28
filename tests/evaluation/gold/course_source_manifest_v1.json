@@ -404,7 +404,8 @@
       "permanent_url": "https://fa.wikibooks.org/w/index.php?oldid=125183",
       "attribution_url": "https://fa.wikibooks.org/w/index.php?oldid=125183",
       "minimum_materialized_chars": 200,
-      "license_review_required_before_redistribution": true
+      "license_review_required_before_redistribution": true,
+      "section_level": 2
     },
     {
       "source_unit_id": "course-linux-007",
