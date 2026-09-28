@@ -1,6 +1,6 @@
 # Phase 10 — Analysis Profiles
 
-Status: IMPLEMENTED_AWAITING_LOCAL_VERIFICATION
+Status: IMPLEMENTED_LOCAL_VERIFIED_AWAITING_GOLD_DATASET_EVALUATION
 
 ## Scope
 
@@ -225,14 +225,58 @@ It must not be represented as Production Gold evidence, and the baseline profile
 
 This is the remaining external acceptance dependency for final Phase 10 closure after runtime/local verification.
 
-## Local verification required before closure
+## Local verification evidence
 
-Run compile, focused unit/integration/privacy/evaluation/performance tests, real-model integration where configured, DB integration, and full regression.
+Local verification was executed on Windows / Python 3.12 against the repository head after the Soldier privacy regression correction.
 
-Only after successful local evidence may this document be changed to CLOSED and the marker changed to:
+Verified evidence:
+
+- `python -m compileall -q src tests`: PASS;
+- PostgreSQL persistence integration: 9/9 PASS;
+- lifecycle API integration: 5/5 PASS;
+- Soldier privacy regression: 3/3 PASS;
+- Phase 10 DI/discovery: PASS;
+- Phase 6→7→8→9→10 real-model COURSE integration: PASS;
+- Phase 6→7→8→9→10 real-model SOLDIER_CONCERN integration: PASS;
+- Phase 6→7→8→9→10 real-model MEDIA integration: PASS;
+- full regression: 277 tests executed, PASS with 1 expected skipped benchmark;
+- no FAIL and no ERROR.
+
+The skipped test is the separately gated Phase 8 semantic benchmark requiring `RUN_PHASE8_BENCHMARK=1`. It is not a Phase 10 implementation failure.
+
+Phase 10 synthetic evaluation evidence:
+
+- COURSE: NDCG@10 = 0.7646065393046344, Precision@5 = 0.2, Precision@10 = 0.2, Recall@10 = 0.6666666666666666;
+- SOLDIER_CONCERN: NDCG@10 = 0.7309292742059024, Precision@5 = 0.4, Precision@10 = 0.2, Recall@10 = 1.0;
+- MEDIA: NDCG@10 = 0.5349710957202363, Precision@5 = 0.2, Precision@10 = 0.2, Recall@10 = 0.6666666666666666.
+
+These values are regression evidence only. They are not Production Gold quality claims.
+
+Phase 10 orchestration performance evidence with the deterministic fixture provider:
+
+- COURSE: P50 = 1.023873 s, P95 = 1.103443 s, throughput = 12.1063 documents/s, peak Python memory = 329660 bytes;
+- SOLDIER_CONCERN: P50 = 1.011361 s, P95 = 1.011634 s, throughput = 51.2447 documents/s, peak Python memory = 530487 bytes;
+- MEDIA: P50 = 0.720427 s, P95 = 0.835789 s, throughput = 52.7173 documents/s, peak Python memory = 242207 bytes.
+
+These performance numbers measure orchestration using the deterministic fixture provider and must not be represented as production model latency.
+
+## Remaining closure dependency
+
+Runtime/local verification is complete.
+
+The remaining Phase 10 closure dependency is a verified Production Gold Dataset and Human Evaluation for COURSE, SOLDIER_CONCERN, and MEDIA, followed by profile-weight evaluation/tuning against that data.
+
+Until that evidence exists:
+
+- baseline profile weights remain provisional;
+- synthetic fixture metrics remain regression-only;
+- Phase 10 must not be marked CLOSED;
+- Phase 11 entry approval must not be issued.
+
+After accepted Gold Dataset evaluation, this document may be changed to CLOSED and the marker changed to:
 
 `PHASE_10_COMPLETE_READY_FOR_PHASE_11`
 
 Current marker:
 
-`PHASE_10_IMPLEMENTED_AWAITING_LOCAL_VERIFICATION`
+`PHASE_10_IMPLEMENTED_LOCAL_VERIFIED_AWAITING_GOLD_DATASET_EVALUATION`
