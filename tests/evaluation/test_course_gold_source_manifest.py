@@ -159,6 +159,35 @@ class CourseGoldSourceManifestTests(unittest.TestCase):
             75.0,
         )
 
+    def test_section_index_matches_mediawiki_markup_variant(self) -> None:
+        _sections_for_revision.cache_clear()
+        payload = {
+            "parse": {
+                "revid": 131189,
+                "sections": [
+                    {
+                        "index": "3",
+                        "line": (
+                            'دستورات مهم لینوکس'
+                            '<span>( ls، cd, mv, cp, rm, mkdir )</span>'
+                        ),
+                    }
+                ],
+            }
+        }
+        with patch(
+            "tests.evaluation.materialize_course_gold_sources._request_json",
+            return_value=payload,
+        ):
+            self.assertEqual(
+                _section_index(
+                    131189,
+                    "دستورات مهم لینوکس(ls, cd, mv, cp, rm, mkdir)",
+                ),
+                "3",
+            )
+        _sections_for_revision.cache_clear()
+
     def test_section_map_is_cached_per_revision(self) -> None:
         _sections_for_revision.cache_clear()
         payload = {
