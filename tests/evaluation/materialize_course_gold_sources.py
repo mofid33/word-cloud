@@ -10,6 +10,8 @@ import unicodedata
 import urllib.error
 import urllib.parse
 import urllib.request
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from functools import lru_cache
 from html.parser import HTMLParser
 from pathlib import Path
@@ -112,9 +114,18 @@ def _retry_after_seconds(headers: Any, attempt: int) -> float:
         try:
             seconds = float(value)
             if seconds >= 0:
-                return min(seconds, MAX_RETRY_SECONDS)
+                return seconds
         except (TypeError, ValueError):
-            pass
+            try:
+                retry_at = parsedate_to_datetime(str(value))
+                if retry_at.tzinfo is None:
+                    retry_at = retry_at.replace(tzinfo=timezone.utc)
+                return max(
+                    0.0,
+                    (retry_at - datetime.now(timezone.utc)).total_seconds(),
+                )
+            except (TypeError, ValueError, OverflowError):
+                pass
     return min(
         DEFAULT_RETRY_SECONDS * (2 ** attempt),
         MAX_RETRY_SECONDS,
