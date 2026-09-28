@@ -70,6 +70,14 @@ class CourseGoldSourceManifestTests(unittest.TestCase):
             self.assertGreaterEqual(unit["minimum_materialized_chars"], 200)
             self.assertTrue(unit["license_review_required_before_redistribution"])
 
+        tar_unit = next(
+            unit
+            for unit in units
+            if unit["source_unit_id"] == "course-linux-006"
+        )
+        self.assertEqual(tar_unit["section_title"], "Tar")
+        self.assertEqual(tar_unit["section_level"], 2)
+
     def test_holdout_assignments_are_explicit_and_not_derived_at_runtime(self) -> None:
         manifest = load_manifest(MANIFEST_PATH)
         holdout_ids = {
@@ -167,6 +175,7 @@ class CourseGoldSourceManifestTests(unittest.TestCase):
                 "sections": [
                     {
                         "index": "3",
+                        "level": "2",
                         "line": (
                             'دستورات مهم لینوکس'
                             '<span>( ls، cd, mv, cp, rm, mkdir )</span>'
@@ -188,14 +197,53 @@ class CourseGoldSourceManifestTests(unittest.TestCase):
             )
         _sections_for_revision.cache_clear()
 
+    def test_ambiguous_heading_requires_explicit_section_level(self) -> None:
+        _sections_for_revision.cache_clear()
+        payload = {
+            "parse": {
+                "revid": 125183,
+                "sections": [
+                    {
+                        "index": "1",
+                        "line": "Tar\u200c",
+                        "level": "4",
+                    },
+                    {
+                        "index": "7",
+                        "line": "Tar",
+                        "level": "2",
+                    },
+                ],
+            }
+        }
+        with patch(
+            "tests.evaluation.materialize_course_gold_sources._request_json",
+            return_value=payload,
+        ):
+            with self.assertRaisesRegex(
+                CourseSourceMaterializationError,
+                "exactly one requested section heading",
+            ):
+                _section_index(125183, "Tar")
+
+            self.assertEqual(
+                _section_index(
+                    125183,
+                    "Tar",
+                    section_level=2,
+                ),
+                "7",
+            )
+        _sections_for_revision.cache_clear()
+
     def test_section_map_is_cached_per_revision(self) -> None:
         _sections_for_revision.cache_clear()
         payload = {
             "parse": {
                 "revid": 999,
                 "sections": [
-                    {"index": "1", "line": "بخش یک"},
-                    {"index": "2", "line": "بخش دو"},
+                    {"index": "1", "line": "بخش یک", "level": "2"},
+                    {"index": "2", "line": "بخش دو", "level": "2"},
                 ],
             }
         }
