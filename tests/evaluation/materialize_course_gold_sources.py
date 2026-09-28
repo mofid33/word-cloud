@@ -182,9 +182,13 @@ def materialize_unit(unit: dict[str, Any]) -> dict[str, Any]:
         "permanent_url": unit["permanent_url"],
         "attribution_url": unit["attribution_url"],
         "license_label": (
-            "Creative Commons Attribution-ShareAlike; see source page footer "
-            "and Wikimedia Terms of Use"
+            "Wikimedia text licensing with page-specific notices; "
+            "verify applicable terms before redistribution"
         ),
+        "license_policy_url": (
+            "https://foundation.wikimedia.org/wiki/Terms_of_Use"
+        ),
+        "license_review_required_before_redistribution": True,
         "text_sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
         "character_count": len(text),
         "text": text,
