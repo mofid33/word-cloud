@@ -1,6 +1,6 @@
 # Phase 10 — Analysis Profiles
 
-Status: IMPLEMENTED_LOCAL_VERIFIED_AWAITING_GOLD_DATASET_EVALUATION
+Status: IMPLEMENTED_GOLD_INFRA_VERIFIED_AWAITING_HUMAN_GOLD_DATASETS
 
 ## Scope
 
@@ -286,6 +286,15 @@ Gold Dataset contract decisions:
 
 This infrastructure does not create Production Gold labels by itself. Real human-adjudicated COURSE, SOLDIER_CONCERN, and MEDIA datasets are still required.
 
+Gold infrastructure local verification evidence:
+
+- `python -m unittest tests.evaluation.test_phase10_gold_dataset -v`: 9/9 PASS;
+- `python -m compileall -q src tests`: PASS;
+- full regression after Gold infrastructure addition: 286 tests executed, PASS with 1 expected skipped benchmark;
+- no FAIL and no ERROR.
+
+The expected skip remains the separately gated Phase 8 semantic benchmark requiring `RUN_PHASE8_BENCHMARK=1`.
+
 ## Remaining closure dependency
 
 Runtime/local verification is complete.
@@ -305,4 +314,4 @@ After accepted Gold Dataset evaluation, this document may be changed to CLOSED a
 
 Current marker:
 
-`PHASE_10_IMPLEMENTED_LOCAL_VERIFIED_AWAITING_GOLD_DATASET_EVALUATION`
+`PHASE_10_IMPLEMENTED_GOLD_INFRA_VERIFIED_AWAITING_HUMAN_GOLD_DATASETS`
