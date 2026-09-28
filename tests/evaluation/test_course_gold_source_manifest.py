@@ -90,6 +90,10 @@ class CourseGoldSourceManifestTests(unittest.TestCase):
             normalize_heading("  ماتريس\u200cها: "),
             normalize_heading("ماتریس ها"),
         )
+        self.assertEqual(
+            normalize_heading("مشاهدهٔ داکیومنت دستورات( --help و man)"),
+            normalize_heading("مشاهدهٔ داکیومنت دستورات(--help و man)"),
+        )
 
     def test_html_extractor_keeps_visible_text_and_drops_script_style(self) -> None:
         text = html_to_visible_text(
