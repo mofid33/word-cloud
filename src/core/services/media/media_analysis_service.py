@@ -104,6 +104,7 @@ class MediaAnalysisService:
                     for keyword in role_keywords
                 ],
                 "deduplication": role_result["deduplication"],
+                "hybrid": role_result["hybrid"],
             }
 
         combined.sort(
@@ -156,6 +157,7 @@ class MediaAnalysisService:
                     "status": "baseline_requires_production_gold_evaluation",
                     "configured_weights": dict(self._config.weights),
                     "profile_scoring_version": self._config.scoring_version,
+                    "hybrid_scoring_version": HybridRankingService.SCORING_VERSION,
                 },
                 "unsupported_phase_10_signals": {
                     "normalized_engagement": (
@@ -281,6 +283,16 @@ class MediaAnalysisService:
                 }
                 for item in hybrid.deduplicated
             ],
+            "hybrid": {
+                "normalization_strategy": hybrid.normalization_strategy,
+                "lexical_deduplication_threshold": hybrid.lexical_deduplication_threshold,
+                "semantic_deduplication_threshold": hybrid.semantic_deduplication_threshold,
+                "diversity_strategy": hybrid.diversity_strategy,
+                "mmr_lambda": hybrid.mmr_lambda,
+                "diversity_candidate_pool_size": hybrid.diversity_candidate_pool_size,
+                "maximum_ranked_results": hybrid.maximum_ranked_results,
+                "deterministic_tie_breaking": hybrid.deterministic_tie_breaking,
+            },
         }
 
     @classmethod
