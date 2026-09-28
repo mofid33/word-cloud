@@ -5,10 +5,12 @@ import hashlib
 import html
 import json
 import re
+import time
 import unicodedata
 import urllib.error
 import urllib.parse
 import urllib.request
+from functools import lru_cache
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
@@ -23,7 +25,15 @@ DEFAULT_MANIFEST = (
     / "course_source_manifest_v1.json"
 )
 MEDIAWIKI_API = "https://fa.wikibooks.org/w/api.php"
-USER_AGENT = "WordCloudPhase10GoldMaterializer/1.0"
+USER_AGENT = (
+    "WordCloudPhase10GoldMaterializer/1.1 "
+    "(https://github.com/Amirmahdimtz/Word_Cloud) Python-urllib"
+)
+MAX_REQUEST_ATTEMPTS = 6
+MIN_REQUEST_INTERVAL_SECONDS = 1.0
+DEFAULT_RETRY_SECONDS = 5.0
+MAX_RETRY_SECONDS = 60.0
+_last_request_monotonic = 0.0
 
 
 class CourseSourceMaterializationError(RuntimeError):
@@ -96,28 +106,83 @@ def load_manifest(path: Path) -> dict[str, Any]:
     return payload
 
 
+def _retry_after_seconds(headers: Any, attempt: int) -> float:
+    value = headers.get("Retry-After") if headers is not None else None
+    if value is not None:
+        try:
+            seconds = float(value)
+            if seconds >= 0:
+                return min(seconds, MAX_RETRY_SECONDS)
+        except (TypeError, ValueError):
+            pass
+    return min(
+        DEFAULT_RETRY_SECONDS * (2 ** attempt),
+        MAX_RETRY_SECONDS,
+    )
+
+
+def _wait_for_request_slot() -> None:
+    global _last_request_monotonic
+    now = time.monotonic()
+    remaining = MIN_REQUEST_INTERVAL_SECONDS - (now - _last_request_monotonic)
+    if remaining > 0:
+        time.sleep(remaining)
+    _last_request_monotonic = time.monotonic()
+
+
 def _request_json(parameters: dict[str, str | int]) -> dict[str, Any]:
-    query = urllib.parse.urlencode(parameters)
+    request_parameters = dict(parameters)
+    request_parameters.setdefault("maxlag", 5)
+    query = urllib.parse.urlencode(request_parameters)
     request = urllib.request.Request(
         f"{MEDIAWIKI_API}?{query}",
         headers={"User-Agent": USER_AGENT},
     )
-    try:
-        with urllib.request.urlopen(request, timeout=30) as response:
-            payload = json.loads(response.read().decode("utf-8"))
-    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
-        raise CourseSourceMaterializationError(
-            "Failed to retrieve a pinned Persian Wikibooks revision"
-        ) from exc
 
-    if "error" in payload:
-        raise CourseSourceMaterializationError(
-            "Persian Wikibooks API returned an error for a pinned revision"
-        )
-    return payload
+    for attempt in range(MAX_REQUEST_ATTEMPTS):
+        _wait_for_request_slot()
+        response_headers = None
+        try:
+            with urllib.request.urlopen(request, timeout=30) as response:
+                response_headers = response.headers
+                payload = json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            if exc.code in {429, 503} and attempt + 1 < MAX_REQUEST_ATTEMPTS:
+                time.sleep(_retry_after_seconds(exc.headers, attempt))
+                continue
+            raise CourseSourceMaterializationError(
+                "Failed to retrieve a pinned Persian Wikibooks revision"
+            ) from exc
+        except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
+            if attempt + 1 < MAX_REQUEST_ATTEMPTS:
+                time.sleep(_retry_after_seconds(None, attempt))
+                continue
+            raise CourseSourceMaterializationError(
+                "Failed to retrieve a pinned Persian Wikibooks revision"
+            ) from exc
+
+        error = payload.get("error")
+        if isinstance(error, dict):
+            if (
+                error.get("code") == "maxlag"
+                and attempt + 1 < MAX_REQUEST_ATTEMPTS
+            ):
+                time.sleep(_retry_after_seconds(response_headers, attempt))
+                continue
+            raise CourseSourceMaterializationError(
+                "Persian Wikibooks API returned an error for a pinned revision"
+            )
+        return payload
+
+    raise CourseSourceMaterializationError(
+        "Failed to retrieve a pinned Persian Wikibooks revision after retries"
+    )
 
 
-def _section_index(revision_id: int, section_title: str) -> str:
+@lru_cache(maxsize=32)
+def _sections_for_revision(
+    revision_id: int,
+) -> tuple[tuple[str, str], ...]:
     payload = _request_json(
         {
             "action": "parse",
@@ -129,13 +194,24 @@ def _section_index(revision_id: int, section_title: str) -> str:
     )
     parse = payload.get("parse") or {}
     if int(parse.get("revid", 0)) != revision_id:
-        raise CourseSourceMaterializationError("Retrieved revision id does not match manifest")
+        raise CourseSourceMaterializationError(
+            "Retrieved revision id does not match manifest"
+        )
+    return tuple(
+        (
+            normalize_heading(str(section.get("line", ""))),
+            str(section["index"]),
+        )
+        for section in parse.get("sections", [])
+    )
 
+
+def _section_index(revision_id: int, section_title: str) -> str:
     wanted = normalize_heading(section_title)
     matches = [
-        str(section["index"])
-        for section in parse.get("sections", [])
-        if normalize_heading(str(section.get("line", ""))) == wanted
+        index
+        for normalized_title, index in _sections_for_revision(revision_id)
+        if normalized_title == wanted
     ]
     if len(matches) != 1:
         raise CourseSourceMaterializationError(
