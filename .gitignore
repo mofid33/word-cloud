@@ -10,3 +10,7 @@ venv/
 .env
 .env.*
 !.env.example
+# Phase 10 Gold materialization output must remain local/outside version control.
+phase10_gold_materialized/
+*.course_gold_materialized.jsonl
+
