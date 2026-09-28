@@ -11,7 +11,7 @@
     "total_source_units": 30,
     "tuning_units": 20,
     "holdout_units": 10,
-    "tuning_case_groups": 8,
+    "tuning_case_groups": 7,
     "holdout_case_groups": 4,
     "domains": [
       "fluid_mechanics",
