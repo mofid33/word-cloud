@@ -327,6 +327,18 @@ Local materialization evidence:
 
 The materialized corpus remains outside the repository. The fingerprint above is the reproducibility reference for the input corpus that will be used to build the human annotation package.
 
+COURSE human-annotation preparation is now implemented:
+
+- verification metadata: `tests/evaluation/gold/course_source_materialization_v1.json`;
+- package builder: `tests/evaluation/prepare_course_gold_annotation.py`;
+- package-builder regression tests: `tests/evaluation/test_course_gold_annotation_package.py`;
+- working annotation package keeps split mapping out of annotator-facing case rows;
+- two independent working annotation files are generated;
+- working files cannot claim `adjudicated=true` and are not `phase10-gold-v1`;
+- builder rejects corpus fingerprint drift, per-document text-hash drift, invalid grouping, and repository-local output.
+
+COURSE sub-status: source selection/materialization and annotation tooling are ready; human annotations and adjudication are still pending.
+
 ## Remaining closure dependency
 
 Runtime/local verification is complete.
