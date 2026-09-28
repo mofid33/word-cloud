@@ -93,10 +93,13 @@ Evaluator از Profile Service واقعی و DI موجود استفاده می�
 - manifest: `tests/evaluation/gold/course_source_manifest_v1.json`;
 - source: Persian Wikibooks;
 - تعداد source unit: 30؛
-- `tuning`: 20 unit؛
-- `holdout`: 10 unit؛
-- domainها: `fluid_mechanics`، `python_programming`، `mathematics_economics` و `linux_cli`;
-- هر unit با `revision_id` و permanent URL ثابت شده است؛
+- `tuning`: 20 unit در 8 case group؛
+- `holdout`: 10 unit در 4 case group؛
+- domainها: `fluid_mechanics`، `python_programming`، `mathematics_economics` و `linux_cli`؛
+- توزیع domainها: 8 Fluid، 8 Python، 7 Math/Economics و 7 Linux؛
+- هر unit با `case_group_id`، `revision_id` و permanent URL ثابت شده است؛
+- هیچ `page_title + revision_id` یا `case_group_id` بین tuning و holdout مشترک نیست؛
+- هر چهار domain در هر دو split حضور دارند؛
 - تخصیص holdout قبل از annotation و weight tuning freeze شده و در runtime دوباره random نمی‌شود.
 
 این manifest هنوز Gold label نیست. عنوان section یا heading منبع به‌صورت خودکار relevance label محسوب نمی‌شود.
