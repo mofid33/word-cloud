@@ -122,6 +122,14 @@ class CourseGoldSourceManifestTests(unittest.TestCase):
             normalize_heading("مشاهدهٔ داکیومنت دستورات( --help و man)"),
             normalize_heading("مشاهدهٔ داکیومنت دستورات(--help و man)"),
         )
+        self.assertEqual(
+            normalize_heading(
+                "دستورات مهم لینوکس (ls, cd, mv, cp, rm, mkdir)"
+            ),
+            normalize_heading(
+                "دستورات مهم لینوکس(ls, cd, mv, cp, rm, mkdir)"
+            ),
+        )
 
 
     def test_mediawiki_client_identifies_repository(self) -> None:
