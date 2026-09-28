@@ -10,6 +10,10 @@ from unittest.mock import patch
 from tests.evaluation.materialize_course_gold_sources import (
     CourseSourceMaterializationError,
     PROJECT_ROOT,
+    USER_AGENT,
+    _retry_after_seconds,
+    _section_index,
+    _sections_for_revision,
     html_to_visible_text,
     load_manifest,
     materialize,
@@ -118,6 +122,43 @@ class CourseGoldSourceManifestTests(unittest.TestCase):
             normalize_heading("مشاهدهٔ داکیومنت دستورات( --help و man)"),
             normalize_heading("مشاهدهٔ داکیومنت دستورات(--help و man)"),
         )
+
+
+    def test_mediawiki_client_identifies_repository(self) -> None:
+        self.assertIn("WordCloudPhase10GoldMaterializer/1.1", USER_AGENT)
+        self.assertIn(
+            "https://github.com/Amirmahdimtz/Word_Cloud",
+            USER_AGENT,
+        )
+
+    def test_retry_after_header_takes_precedence_over_exponential_backoff(self) -> None:
+        class _Headers:
+            @staticmethod
+            def get(name):
+                return "17" if name == "Retry-After" else None
+
+        self.assertEqual(_retry_after_seconds(_Headers(), 4), 17.0)
+        self.assertEqual(_retry_after_seconds(None, 0), 5.0)
+
+    def test_section_map_is_cached_per_revision(self) -> None:
+        _sections_for_revision.cache_clear()
+        payload = {
+            "parse": {
+                "revid": 999,
+                "sections": [
+                    {"index": "1", "line": "بخش یک"},
+                    {"index": "2", "line": "بخش دو"},
+                ],
+            }
+        }
+        with patch(
+            "tests.evaluation.materialize_course_gold_sources._request_json",
+            return_value=payload,
+        ) as request_json:
+            self.assertEqual(_section_index(999, "بخش یک"), "1")
+            self.assertEqual(_section_index(999, "بخش دو"), "2")
+        self.assertEqual(request_json.call_count, 1)
+        _sections_for_revision.cache_clear()
 
     def test_html_extractor_keeps_visible_text_and_drops_script_style(self) -> None:
         text = html_to_visible_text(
