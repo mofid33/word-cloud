@@ -1,0 +1,14 @@
+{
+  "schema_version": "phase10-course-materialization-verification-v1",
+  "source_manifest_id": "course-wikibooks-fa-v1",
+  "source_manifest_version": "1.0.0",
+  "materialized_file_sha256": "ea6fc2af90570db504cce5e31f594410d4505917aa15289e699c8e59d7f98d78",
+  "source_unit_count": 30,
+  "tuning_unit_count": 20,
+  "holdout_unit_count": 10,
+  "case_count": 11,
+  "tuning_case_count": 7,
+  "holdout_case_count": 4,
+  "verified_on": "2026-09-28",
+  "note": "Metadata only. Raw materialized source text remains outside the repository."
+}
