@@ -174,6 +174,7 @@ def materialize_unit(unit: dict[str, Any]) -> dict[str, Any]:
 
     return {
         "source_unit_id": unit["source_unit_id"],
+        "case_group_id": unit["case_group_id"],
         "split": unit["split"],
         "domain": unit["domain"],
         "page_title": unit["page_title"],
