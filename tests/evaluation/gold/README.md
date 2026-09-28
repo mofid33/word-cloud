@@ -85,3 +85,44 @@ Evaluator از Profile Service واقعی و DI موجود استفاده می�
 - `NDCG@10`
 
 همراه metricها، dataset fingerprint، dataset/guideline version و model/scoring version نیز ثبت می‌شوند تا evaluation reproducible باشد.
+
+## COURSE source manifest v1
+
+برای `COURSE`، انتخاب منبع اولیه قبل از Human Annotation به‌صورت reproducible freeze شده است:
+
+- manifest: `tests/evaluation/gold/course_source_manifest_v1.json`;
+- source: Persian Wikibooks;
+- تعداد source unit: 30؛
+- `tuning`: 20 unit؛
+- `holdout`: 10 unit؛
+- domainها: `fluid_mechanics`، `python_programming`، `mathematics_economics` و `linux_cli`;
+- هر unit با `revision_id` و permanent URL ثابت شده است؛
+- تخصیص holdout قبل از annotation و weight tuning freeze شده و در runtime دوباره random نمی‌شود.
+
+این manifest هنوز Gold label نیست. عنوان section یا heading منبع به‌صورت خودکار relevance label محسوب نمی‌شود.
+
+### Materialization
+
+Materializer فقط revision و section ثبت‌شده در manifest را از MediaWiki API دریافت می‌کند:
+
+```powershell
+python -m tests.evaluation.materialize_course_gold_sources --output "E:\WordCloudGold\course_sources_v1.course_gold_materialized.jsonl"
+```
+
+Output باید خارج از repository باشد. Script اگر output داخل repository باشد fail-fast می‌کند. `.gitignore` نیز به‌عنوان defense-in-depth فایل‌های `*.course_gold_materialized.jsonl` را نادیده می‌گیرد.
+
+Materialized row شامل provenance، revision، permanent attribution URL، SHA-256 متن و متن همان section است. Materializer:
+
+- live page را به‌جای revision ثابت استفاده نمی‌کند؛
+- section heading را در همان revision resolve می‌کند؛
+- revision mismatch را رد می‌کند؛
+- section مبهم/گم‌شده را رد می‌کند؛
+- source unit کوتاه‌تر از minimum تعریف‌شده را رد می‌کند؛
+- raw materialized text را داخل repository ذخیره نمی‌کند.
+
+بعد از materialization باید source units توسط انسان annotation شوند و خروجی نهایی به contract `phase10-gold-v1` تبدیل شود. Model output یا عنوان صفحه/section نباید به‌صورت خودکار Gold label تولید کند.
+
+### Attribution and licensing provenance
+
+برای هر source unit، `permanent_url` و `attribution_url` در manifest ثبت شده است. قبل از انتشار یا توزیع corpus materialized باید attribution و شرایط بازنشر منبع رعایت شوند. Repository فقط provenance manifest و tooling را version-control می‌کند؛ corpus materialized به‌صورت پیش‌فرض داخل GitHub قرار نمی‌گیرد.
+
