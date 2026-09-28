@@ -67,7 +67,8 @@ Signals:
 
 Privacy:
 
-- profile results do not retain raw input;
+- profile results do not retain the original raw document payload as a raw-text field;
+- extracted keyphrases may legitimately contain text fragments from the source document because they are analytical output;
 - persistence remains `persist_raw_text=False`;
 - repository strips Soldier reference/options/metadata/role;
 - persisted Soldier document IDs are hashed;
