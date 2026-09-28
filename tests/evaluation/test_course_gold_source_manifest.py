@@ -140,6 +140,16 @@ class CourseGoldSourceManifestTests(unittest.TestCase):
         self.assertEqual(_retry_after_seconds(_Headers(), 4), 17.0)
         self.assertEqual(_retry_after_seconds(None, 0), 5.0)
 
+        class _LongRetryHeaders:
+            @staticmethod
+            def get(name):
+                return "75" if name == "Retry-After" else None
+
+        self.assertEqual(
+            _retry_after_seconds(_LongRetryHeaders(), 4),
+            75.0,
+        )
+
     def test_section_map_is_cached_per_revision(self) -> None:
         _sections_for_revision.cache_clear()
         payload = {
