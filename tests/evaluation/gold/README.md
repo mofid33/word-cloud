@@ -118,6 +118,10 @@ Materialized row شامل provenance، revision، permanent attribution URL، SH
 
 - live page را به‌جای revision ثابت استفاده نمی‌کند؛
 - section heading را در همان revision resolve می‌کند؛
+- section map هر revision را در همان اجرا cache می‌کند تا درخواست تکراری حذف شود؛
+- درخواست‌ها را serial/throttled ارسال می‌کند و `maxlag` را برای MediaWiki API فعال می‌کند؛
+- برای HTTP `429` و `503` مقدار `Retry-After` را رعایت می‌کند و در نبود آن exponential backoff دارد؛
+- User-Agent شامل نام client و URL repository است؛
 - revision mismatch را رد می‌کند؛
 - section مبهم/گم‌شده را رد می‌کند؛
 - source unit کوتاه‌تر از minimum تعریف‌شده را رد می‌کند؛
