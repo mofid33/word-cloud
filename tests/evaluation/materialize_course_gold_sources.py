@@ -1,0 +1,237 @@
+from __future__ import annotations
+
+import argparse
+import hashlib
+import html
+import json
+import re
+import unicodedata
+import urllib.error
+import urllib.parse
+import urllib.request
+from html.parser import HTMLParser
+from pathlib import Path
+from typing import Any
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_MANIFEST = (
+    PROJECT_ROOT
+    / "tests"
+    / "evaluation"
+    / "gold"
+    / "course_source_manifest_v1.json"
+)
+MEDIAWIKI_API = "https://fa.wikibooks.org/w/api.php"
+USER_AGENT = "WordCloudPhase10GoldMaterializer/1.0"
+
+
+class CourseSourceMaterializationError(RuntimeError):
+    pass
+
+
+def normalize_heading(value: str) -> str:
+    normalized = unicodedata.normalize("NFKC", value)
+    normalized = normalized.replace("ي", "ی").replace("ك", "ک")
+    normalized = normalized.replace("\u200c", " ")
+    normalized = re.sub(r"\s+", " ", normalized).strip()
+    return normalized.rstrip(":：").strip()
+
+
+class _VisibleTextExtractor(HTMLParser):
+    _SKIP_TAGS = {"script", "style", "noscript"}
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self._skip_depth = 0
+        self._parts: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag in self._SKIP_TAGS:
+            self._skip_depth += 1
+        elif self._skip_depth == 0 and tag in {
+            "p", "br", "div", "li", "tr", "td", "th", "pre", "code",
+            "h1", "h2", "h3", "h4", "h5", "h6",
+        }:
+            self._parts.append("\n")
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag in self._SKIP_TAGS and self._skip_depth > 0:
+            self._skip_depth -= 1
+        elif self._skip_depth == 0 and tag in {
+            "p", "div", "li", "tr", "pre", "h1", "h2", "h3", "h4", "h5", "h6",
+        }:
+            self._parts.append("\n")
+
+    def handle_data(self, data: str) -> None:
+        if self._skip_depth == 0:
+            self._parts.append(data)
+
+    def text(self) -> str:
+        value = html.unescape("".join(self._parts))
+        value = value.replace("[ویرایش]", " ")
+        value = re.sub(r"[ \t]+", " ", value)
+        value = re.sub(r"\n[ \t]+", "\n", value)
+        value = re.sub(r"\n{3,}", "\n\n", value)
+        return value.strip()
+
+
+def html_to_visible_text(value: str) -> str:
+    parser = _VisibleTextExtractor()
+    parser.feed(value)
+    parser.close()
+    return parser.text()
+
+
+def load_manifest(path: Path) -> dict[str, Any]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if payload.get("schema_version") != "phase10-course-source-manifest-v1":
+        raise CourseSourceMaterializationError("Unsupported COURSE source manifest schema")
+    units = payload.get("units")
+    if not isinstance(units, list) or len(units) != 30:
+        raise CourseSourceMaterializationError("COURSE source manifest must contain exactly 30 units")
+    return payload
+
+
+def _request_json(parameters: dict[str, str | int]) -> dict[str, Any]:
+    query = urllib.parse.urlencode(parameters)
+    request = urllib.request.Request(
+        f"{MEDIAWIKI_API}?{query}",
+        headers={"User-Agent": USER_AGENT},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
+        raise CourseSourceMaterializationError(
+            "Failed to retrieve a pinned Persian Wikibooks revision"
+        ) from exc
+
+    if "error" in payload:
+        raise CourseSourceMaterializationError(
+            "Persian Wikibooks API returned an error for a pinned revision"
+        )
+    return payload
+
+
+def _section_index(revision_id: int, section_title: str) -> str:
+    payload = _request_json(
+        {
+            "action": "parse",
+            "format": "json",
+            "formatversion": 2,
+            "oldid": revision_id,
+            "prop": "sections",
+        }
+    )
+    parse = payload.get("parse") or {}
+    if int(parse.get("revid", 0)) != revision_id:
+        raise CourseSourceMaterializationError("Retrieved revision id does not match manifest")
+
+    wanted = normalize_heading(section_title)
+    matches = [
+        str(section["index"])
+        for section in parse.get("sections", [])
+        if normalize_heading(str(section.get("line", ""))) == wanted
+    ]
+    if len(matches) != 1:
+        raise CourseSourceMaterializationError(
+            "Pinned revision does not contain exactly one requested section heading"
+        )
+    return matches[0]
+
+
+def materialize_unit(unit: dict[str, Any]) -> dict[str, Any]:
+    revision_id = int(unit["revision_id"])
+    section_title = str(unit["section_title"])
+    index = _section_index(revision_id, section_title)
+    payload = _request_json(
+        {
+            "action": "parse",
+            "format": "json",
+            "formatversion": 2,
+            "oldid": revision_id,
+            "section": index,
+            "prop": "text",
+        }
+    )
+    parse = payload.get("parse") or {}
+    if int(parse.get("revid", 0)) != revision_id:
+        raise CourseSourceMaterializationError("Retrieved section revision does not match manifest")
+
+    raw_html = parse.get("text")
+    if not isinstance(raw_html, str):
+        raise CourseSourceMaterializationError("Pinned revision section did not return HTML text")
+    text = html_to_visible_text(raw_html)
+    minimum_chars = int(unit.get("minimum_materialized_chars", 200))
+    if len(text) < minimum_chars:
+        raise CourseSourceMaterializationError(
+            "Materialized COURSE source section is below the minimum length"
+        )
+
+    return {
+        "source_unit_id": unit["source_unit_id"],
+        "split": unit["split"],
+        "domain": unit["domain"],
+        "page_title": unit["page_title"],
+        "revision_id": revision_id,
+        "section_title": section_title,
+        "permanent_url": unit["permanent_url"],
+        "attribution_url": unit["attribution_url"],
+        "license_label": (
+            "Creative Commons Attribution-ShareAlike; see source page footer "
+            "and Wikimedia Terms of Use"
+        ),
+        "text_sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
+        "character_count": len(text),
+        "text": text,
+    }
+
+
+def materialize(manifest_path: Path, output_path: Path) -> dict[str, Any]:
+    manifest = load_manifest(manifest_path)
+    output_path = output_path.expanduser().resolve()
+    if PROJECT_ROOT.resolve() in output_path.parents:
+        raise CourseSourceMaterializationError(
+            "Materialized COURSE source text must be written outside the repository"
+        )
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    rows = [materialize_unit(unit) for unit in manifest["units"]]
+    output_path.write_text(
+        "".join(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n" for row in rows),
+        encoding="utf-8",
+    )
+
+    fingerprint = hashlib.sha256(output_path.read_bytes()).hexdigest()
+    return {
+        "manifest_id": manifest["manifest_id"],
+        "manifest_version": manifest["manifest_version"],
+        "source_unit_count": len(rows),
+        "tuning_unit_count": sum(row["split"] == "tuning" for row in rows),
+        "holdout_unit_count": sum(row["split"] == "holdout" for row in rows),
+        "materialized_file_sha256": fingerprint,
+        "output_path": str(output_path),
+    }
+
+
+def _arguments() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Materialize pinned Persian Wikibooks COURSE source sections "
+            "outside the repository for human Gold annotation."
+        )
+    )
+    parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
+    parser.add_argument("--output", type=Path, required=True)
+    return parser.parse_args()
+
+
+def main() -> None:
+    args = _arguments()
+    report = materialize(args.manifest, args.output)
+    print(json.dumps(report, ensure_ascii=False, sort_keys=True))
+
+
+if __name__ == "__main__":
+    main()
