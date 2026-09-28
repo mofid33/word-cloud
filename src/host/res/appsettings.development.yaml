@@ -85,3 +85,30 @@ hybrid_ranking:
   mmr_lambda: 0.7
   diversity_candidate_pool_size: 50
   maximum_ranked_results: 25
+
+analysis_profiles:
+  course:
+    scoring_version: "phase10-course-baseline-v1"
+    maximum_results: 25
+    weights:
+      semantic_relevance: 0.35
+      frequency: 0.20
+      chunk_coverage: 0.15
+      section_coverage: 0.15
+      phrase_quality: 0.15
+  soldier_concern:
+    scoring_version: "phase10-soldier-baseline-v1"
+    maximum_results: 25
+    weights:
+      document_frequency: 0.30
+      document_coverage: 0.25
+      semantic_relevance: 0.35
+      concern_prevalence: 0.10
+  media:
+    scoring_version: "phase10-media-baseline-v1"
+    maximum_results: 25
+    weights:
+      mention_share: 0.35
+      semantic_relevance: 0.40
+      coverage: 0.25
+
