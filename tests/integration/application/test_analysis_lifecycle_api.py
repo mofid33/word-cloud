@@ -38,6 +38,11 @@ class _Vault:
     enabled = False
 
 
+class _NoopProcessor:
+    async def process_async(self, **kwargs):
+        return None
+
+
 def _test_database_url() -> str | None:
     url = os.getenv("TEST_DATABASE_URL")
     if not url:
@@ -69,7 +74,7 @@ class AnalysisLifecycleApiTests(unittest.IsolatedAsyncioTestCase):
 
         self.repository = WordCloudAnalysisRepository(self.db_context)
         policy = AnalysisExecutionPolicyService(config)
-        service = AnalysisService(policy, self.repository)
+        service = AnalysisService(policy, _NoopProcessor(), self.repository)
         controller = AnalysisController(service)
 
         async with self.db_context.engine.begin() as connection:
