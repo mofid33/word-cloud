@@ -295,6 +295,23 @@ Gold infrastructure local verification evidence:
 
 The expected skip remains the separately gated Phase 8 semantic benchmark requiring `RUN_PHASE8_BENCHMARK=1`.
 
+
+
+## COURSE Gold source selection
+
+The first COURSE source pool is now frozen before human annotation and scoring-weight tuning:
+
+- source manifest: `tests/evaluation/gold/course_source_manifest_v1.json`;
+- 30 revision-pinned Persian Wikibooks source units;
+- 20 tuning units and 10 pre-frozen holdout units;
+- four domains: fluid mechanics, Python programming, mathematics/economics, and Linux CLI;
+- each unit records page title, revision id, exact section title, permanent URL, attribution URL, and minimum materialized length;
+- materializer: `tests/evaluation/materialize_course_gold_sources.py`;
+- source text must be materialized outside the repository;
+- section headings are provenance/selection metadata and are not automatically treated as Gold keyphrases.
+
+The source pool is therefore reproducible, but Phase 10 is still waiting for human relevance annotations/adjudication. Source selection alone does not satisfy the Production Gold Dataset closure gate.
+
 ## Remaining closure dependency
 
 Runtime/local verification is complete.
