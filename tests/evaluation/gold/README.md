@@ -134,3 +134,31 @@ Materialized row شامل provenance، revision، permanent attribution URL، SH
 
 برای هر source unit، `permanent_url` و `attribution_url` در manifest ثبت شده است. قبل از انتشار یا توزیع corpus materialized باید attribution و شرایط بازنشر منبع رعایت شوند. Repository فقط provenance manifest و tooling را version-control می‌کند؛ corpus materialized به‌صورت پیش‌فرض داخل GitHub قرار نمی‌گیرد.
 
+## COURSE Human Annotation Package
+
+پس از materialization موفق، fingerprint تأییدشده در فایل زیر ثبت می‌شود:
+
+`tests/evaluation/gold/course_source_materialization_v1.json`
+
+برای ساخت working annotation package:
+
+```powershell
+python -m tests.evaluation.prepare_course_gold_annotation `
+  --input "E:\WordCloudGold\course_sources_v1.course_gold_materialized.jsonl" `
+  --output-dir "E:\WordCloudGold\course_annotation_package_v1"
+```
+
+Builder فقط corpusای را می‌پذیرد که SHA-256 آن با verification metadata یکسان باشد. علاوه بر fingerprint کل corpus، SHA-256 تک‌تک textها، تعداد 30 source unit، split واحدها و 11 case group نیز validate می‌شوند.
+
+Working package شامل:
+
+- `package_manifest.json`: provenance، fingerprint، case index و split mapping برای pipeline؛
+- `cases.jsonl`: متن‌های 11 case برای annotator، بدون نمایش tuning/holdout؛
+- `annotator_A.jsonl` و `annotator_B.jsonl`: annotation مستقل اولیه با `complete=false` و relevance خالی؛
+- `adjudication.jsonl`: working file برای مرحله adjudication؛
+- `ANNOTATION_GUIDE_FA.md`: guideline انسانی.
+
+این فایل‌ها عمداً contract `phase10-gold-v1` نیستند و field `adjudicated=true` تولید نمی‌کنند. Gold نهایی فقط پس از annotation انسانی مستقل و adjudication ساخته می‌شود.
+
+Package باید خارج از repository نوشته شود. Model output، synthetic fixture و annotation نفر دیگر در annotation مستقل نباید به annotator نمایش داده شود.
+
