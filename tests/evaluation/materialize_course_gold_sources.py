@@ -221,7 +221,7 @@ def _request_json(parameters: dict[str, str | int]) -> dict[str, Any]:
 @lru_cache(maxsize=32)
 def _sections_for_revision(
     revision_id: int,
-) -> tuple[tuple[str, str], ...]:
+) -> tuple[tuple[str, str, int], ...]:
     payload = _request_json(
         {
             "action": "parse",
@@ -236,21 +236,42 @@ def _sections_for_revision(
         raise CourseSourceMaterializationError(
             "Retrieved revision id does not match manifest"
         )
-    return tuple(
-        (
-            normalize_heading(str(section.get("line", ""))),
-            str(section["index"]),
+
+    sections: list[tuple[str, str, int]] = []
+    for section in parse.get("sections", []):
+        try:
+            level = int(section.get("level", 0))
+        except (TypeError, ValueError) as exc:
+            raise CourseSourceMaterializationError(
+                "Pinned revision returned an invalid section level"
+            ) from exc
+        sections.append(
+            (
+                str(section.get("line", "")),
+                str(section["index"]),
+                level,
+            )
         )
-        for section in parse.get("sections", [])
-    )
+    return tuple(sections)
 
 
-def _section_index(revision_id: int, section_title: str) -> str:
+def _section_index(
+    revision_id: int,
+    section_title: str,
+    *,
+    section_level: int | None = None,
+) -> str:
     wanted = heading_key(section_title)
+    candidates = _sections_for_revision(revision_id)
+    if section_level is not None:
+        candidates = tuple(
+            item for item in candidates if item[2] == section_level
+        )
+
     matches = [
         index
-        for normalized_title, index in _sections_for_revision(revision_id)
-        if heading_key(normalized_title) == wanted
+        for raw_title, index, _level in candidates
+        if heading_key(raw_title) == wanted
     ]
     if len(matches) != 1:
         raise CourseSourceMaterializationError(
@@ -262,7 +283,21 @@ def _section_index(revision_id: int, section_title: str) -> str:
 def materialize_unit(unit: dict[str, Any]) -> dict[str, Any]:
     revision_id = int(unit["revision_id"])
     section_title = str(unit["section_title"])
-    index = _section_index(revision_id, section_title)
+    section_level = unit.get("section_level")
+    if section_level is not None:
+        if (
+            isinstance(section_level, bool)
+            or not isinstance(section_level, int)
+            or not 1 <= section_level <= 6
+        ):
+            raise CourseSourceMaterializationError(
+                "COURSE source section_level must be an integer within [1, 6]"
+            )
+    index = _section_index(
+        revision_id,
+        section_title,
+        section_level=section_level,
+    )
     payload = _request_json(
         {
             "action": "parse",
@@ -295,6 +330,7 @@ def materialize_unit(unit: dict[str, Any]) -> dict[str, Any]:
         "page_title": unit["page_title"],
         "revision_id": revision_id,
         "section_title": section_title,
+        "section_level": section_level,
         "permanent_url": unit["permanent_url"],
         "attribution_url": unit["attribution_url"],
         "license_label": (
