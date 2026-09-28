@@ -59,12 +59,17 @@ class _Repository:
         return self.analysis
 
 
+class _NoopProcessor:
+    async def process_async(self, **kwargs):
+        return None
+
+
 class AnalysisControllerTests(unittest.TestCase):
     def setUp(self) -> None:
         policy = AnalysisExecutionPolicyService(_Config())
         self.repository = _Repository()
         self.controller = AnalysisController(
-            AnalysisService(policy, self.repository)
+            AnalysisService(policy, _NoopProcessor(), self.repository)
         )
         self.router = self.controller.api()
 
