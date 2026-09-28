@@ -183,7 +183,7 @@ class SoldierConcernAnalysisService:
                 "document_independence": True,
                 "privacy": {
                     "raw_text_persisted": False,
-                    "raw_text_in_result": False,
+                    "raw_document_payload_retained": False,
                     "request_override_supported": False,
                 },
                 "scoring": {
