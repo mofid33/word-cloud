@@ -23,6 +23,7 @@ class _Queue:
 
     async def receive_async(self, *, timeout_seconds):
         if not self.messages:
+            await asyncio.sleep(min(timeout_seconds, 0.001))
             return None
         return self.messages.pop(0)
 
@@ -183,6 +184,27 @@ class AnalysisWorkerServiceTests(unittest.TestCase):
             self.assertEqual(queue.failed, 1)
             self.assertEqual(queue.requeued, 0)
             self.assertEqual(repository.cleared, 1)
+
+        asyncio.run(run())
+
+    def test_worker_stops_gracefully_and_closes_queue(self) -> None:
+        async def run():
+            queue = _Queue()
+            repository = _Repository()
+            processor = _Processor(repository, failures=0)
+            worker = AnalysisWorkerService(
+                queue,
+                processor,
+                repository,
+                _Settings(),
+            )
+
+            task = asyncio.create_task(worker.run_async())
+            await asyncio.sleep(0.005)
+            await worker.stop_async()
+            await asyncio.wait_for(task, timeout=1.0)
+
+            self.assertTrue(queue.closed)
 
         asyncio.run(run())
 

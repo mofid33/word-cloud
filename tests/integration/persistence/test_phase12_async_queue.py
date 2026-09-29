@@ -3,10 +3,20 @@ from __future__ import annotations
 import asyncio
 import os
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
+from fastapi import FastAPI
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy.engine import make_url
 
+from src.application.analysis.analysis_controller import AnalysisController
+from src.core.services.analysis.analysis_execution_policy_service import (
+    AnalysisExecutionPolicyService,
+)
+from src.core.services.analysis.analysis_processor_service import AnalysisProcessorService
+from src.core.services.analysis.analysis_service import AnalysisService
+from src.core.services.analysis.analysis_worker_service import AnalysisWorkerService
 from src.core.services.analysis.providers.analysis_queue_provider import AnalysisQueueJob
 from src.infrastructure.context.sql_db.psql_dbcontext import Base, PsqlDbContext
 from src.infrastructure.models.analysis_queue_job import AnalysisQueueJobModel
@@ -35,6 +45,42 @@ class _Vault:
 class _Settings:
     poll_interval_seconds = 0.01
     visibility_timeout_seconds = 30.0
+
+
+class _WorkerSettings(_Settings):
+    concurrency = 1
+    maximum_attempts = 3
+    retry_initial_delay_seconds = 0.0
+    retry_max_delay_seconds = 0.0
+    receive_timeout_seconds = 0.05
+    heartbeat_interval_seconds = 5.0
+    processing_stale_seconds = 60.0
+
+
+class _PolicyConfig:
+    def __init__(self):
+        self.values = {
+            "analysis.limits.max_documents_per_analysis": 5000,
+            "analysis.limits.max_characters_per_document": 500000,
+            "analysis.limits.max_total_characters_per_analysis": 10000000,
+            "analysis.sync_threshold.max_documents": 20,
+            "analysis.sync_threshold.max_total_characters": 100000,
+        }
+
+    def require(self, key):
+        return self.values[key]
+
+
+class _ProfileService:
+    async def analyze_async(self, documents):
+        return SimpleNamespace(
+            keywords=(),
+            topics=(),
+            metrics={"document_count": len(documents)},
+            profile_result={"profile": "test"},
+            model_version="phase12-test-model",
+            scoring_version="phase12-test-score",
+        )
 
 
 def _test_database_url():
@@ -86,6 +132,71 @@ class Phase12AsyncQueueIntegrationTests(unittest.IsolatedAsyncioTestCase):
             ],
             persist_raw_text=True,
         )
+
+    async def test_async_api_create_queue_worker_completed_end_to_end(self):
+        profile = _ProfileService()
+        processor = AnalysisProcessorService(
+            profile,
+            profile,
+            profile,
+            self.repository,
+        )
+        policy = AnalysisExecutionPolicyService(_PolicyConfig())
+        service = AnalysisService(
+            policy,
+            processor,
+            self.repository,
+            self.queue,
+        )
+        worker = AnalysisWorkerService(
+            self.queue,
+            processor,
+            self.repository,
+            _WorkerSettings(),
+        )
+        controller = AnalysisController(service)
+        app = FastAPI()
+        app.include_router(
+            controller.api(),
+            prefix="/api/v1/analysis",
+        )
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app),
+            base_url="http://test",
+        ) as client:
+            created = await client.post(
+                "/api/v1/analysis",
+                json={
+                    "analysis_type": "COURSE",
+                    "execution_mode": "async",
+                    "documents": [
+                        {
+                            "document_id": "course-1",
+                            "text": "پردازش ناهمگام متن فارسی",
+                            "metadata": {"section": "1"},
+                        }
+                    ],
+                },
+            )
+            self.assertEqual(created.status_code, 201)
+            body = created.json()
+            self.assertEqual(body["status"], "pending")
+            analysis_id = body["analysis_id"]
+
+            self.assertTrue(await worker.run_once_async())
+
+            status_response = await client.get(
+                f"/api/v1/analysis/{analysis_id}"
+            )
+            self.assertEqual(status_response.status_code, 200)
+            self.assertEqual(status_response.json()["status"], "completed")
+
+        completed = await self.repository.get_aggregate_by_id_async(analysis_id)
+        self.assertEqual(completed.status, "completed")
+        self.assertEqual(completed.model_version, "phase12-test-model")
+        self.assertEqual(completed.scoring_version, "phase12-test-score")
+        self.assertIsNone(completed.documents[0].raw_text)
 
     async def test_enqueue_receive_ack_uses_identifier_only_payload(self):
         analysis = await self._create_analysis()
