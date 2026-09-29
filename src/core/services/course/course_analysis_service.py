@@ -42,8 +42,9 @@ class CourseAnalysisService:
         statistical_analysis_service: StatisticalAnalysisService,
         semantic_analysis_service: SemanticAnalysisService,
         hybrid_ranking_service: HybridRankingService,
-        topic_analysis_service: TopicAnalysisService,
         config_reader: ConfigReader,
+        *,
+        topic_analysis_service: TopicAnalysisService,
     ):
         self._processor = persian_text_processor
         self._extractor = candidate_extraction_service
@@ -331,7 +332,7 @@ class CourseAnalysisService:
                     "metadata": dict(metadata),
                 }
             )
-        return tuple(normalized)
+        return tuple(sorted(normalized, key=lambda item: item["document_id"]))
 
     @staticmethod
     def _scope_enabled(
