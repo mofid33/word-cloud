@@ -70,6 +70,9 @@ class MediaAnalysisService:
                 "mention_share",
                 "semantic_relevance",
                 "coverage",
+                "normalized_engagement",
+                "trend_growth",
+                "recency",
             ),
         )
         self._gap_threshold = self._unit_interval(
@@ -86,10 +89,9 @@ class MediaAnalysisService:
         documents: list[dict[str, Any]],
     ) -> StructuredProfileResult:
         ordered = self._validate_documents(documents)
-        role_payloads: dict[str, dict[str, Any]] = {}
-        role_topics: dict[str, tuple[ProfileTopicResult, ...]] = {}
+        role_documents_by_name: dict[str, tuple[dict[str, Any], ...]] = {}
+        role_results: dict[str, dict[str, Any]] = {}
         combined: list[tuple[str, ProfileKeywordResult]] = []
-        all_topics: list[ProfileTopicResult] = []
         model_versions: list[str] = []
         topic_versions: list[str] = []
         trend_versions: list[str] = []
@@ -102,7 +104,66 @@ class MediaAnalysisService:
                 for document in ordered
                 if document["metadata"]["role"] == role
             )
+            role_documents_by_name[role] = role_documents
             if not role_documents:
+                continue
+
+            role_result = await self._analyze_role_async(role, role_documents)
+            role_results[role] = role_result
+            total_occurrences += role_result["candidate_occurrence_count"]
+            total_candidates += role_result["candidate_count"]
+            model_versions.append(role_result["model_version"])
+            combined.extend(
+                (role, keyword)
+                for keyword in role_result["keywords"]
+            )
+            topic_versions.append(role_result["topic_result"].scoring_version)
+            trend_versions.append(role_result["trend_result"].scoring_version)
+            topic_model_identifier = role_result[
+                "topic_result"
+            ].provider_metadata.get("model_identifier")
+            if topic_model_identifier:
+                model_versions.append(f"topic:{topic_model_identifier}")
+
+        combined.sort(
+            key=lambda pair: (
+                -pair[1].final_score,
+                -pair[1].semantic_score,
+                pair[1].canonical_text,
+                pair[0],
+            )
+        )
+        unique_combined: list[tuple[str, ProfileKeywordResult]] = []
+        seen_canonical: set[str] = set()
+        for role, keyword in combined:
+            if keyword.canonical_text in seen_canonical:
+                continue
+            seen_canonical.add(keyword.canonical_text)
+            unique_combined.append((role, keyword))
+
+        selected = unique_combined[: self._config.maximum_results]
+        keywords = tuple(
+            ProfileKeywordResult(
+                text=keyword.text,
+                canonical_text=keyword.canonical_text,
+                rank=index,
+                final_score=keyword.final_score,
+                statistical_score=keyword.statistical_score,
+                semantic_score=keyword.semantic_score,
+                coverage=keyword.coverage,
+                frequency=keyword.frequency,
+                signals={**keyword.signals, "role": role},
+            )
+            for index, (role, keyword) in enumerate(selected, start=1)
+        )
+
+        role_payloads: dict[str, dict[str, Any]] = {}
+        role_topics: dict[str, tuple[ProfileTopicResult, ...]] = {}
+        all_topics: list[ProfileTopicResult] = []
+        for role in self._ROLES:
+            role_documents = role_documents_by_name[role]
+            role_result = role_results.get(role)
+            if role_result is None:
                 role_payloads[role] = {
                     "document_count": 0,
                     "keywords": [],
@@ -117,15 +178,13 @@ class MediaAnalysisService:
                 role_topics[role] = ()
                 continue
 
-            role_result = await self._analyze_role_async(role, role_documents)
-            total_occurrences += role_result["candidate_occurrence_count"]
-            total_candidates += role_result["candidate_count"]
-            model_versions.append(role_result["model_version"])
-            role_keywords = role_result["keywords"]
-            combined.extend((role, keyword) for keyword in role_keywords)
-
+            enriched_topic_result = self._topics.enrich_result(
+                result=role_result["topic_result"],
+                documents=role_result["topic_documents"],
+                keywords=keywords,
+            )
             prefixed_topics: list[ProfileTopicResult] = []
-            for topic in role_result["topic_result"].topics:
+            for topic in enriched_topic_result.topics:
                 prefixed = replace(
                     topic,
                     topic_id=f"{role}:{topic.topic_id}",
@@ -136,19 +195,7 @@ class MediaAnalysisService:
                 all_topics.append(prefixed)
             role_topics[role] = tuple(prefixed_topics)
 
-            timestamped = self._trend_documents(role_documents)
-            trend_result = self._trends.analyze(
-                documents=timestamped,
-                topics=tuple(prefixed_topics),
-            )
-            topic_versions.append(role_result["topic_result"].scoring_version)
-            trend_versions.append(trend_result.scoring_version)
-            topic_model_identifier = role_result[
-                "topic_result"
-            ].provider_metadata.get("model_identifier")
-            if topic_model_identifier:
-                model_versions.append(f"topic:{topic_model_identifier}")
-
+            trend_result = role_result["trend_result"]
             role_payloads[role] = {
                 "document_count": len(role_documents),
                 "keywords": [
@@ -158,7 +205,7 @@ class MediaAnalysisService:
                         "final_score": keyword.final_score,
                         "signals": keyword.signals,
                     }
-                    for keyword in role_keywords
+                    for keyword in role_result["keywords"]
                 ],
                 "topics": [
                     self._topic_payload(topic) for topic in prefixed_topics
@@ -175,7 +222,7 @@ class MediaAnalysisService:
                     "scoring_version": trend_result.scoring_version,
                     "trends": [
                         {
-                            "topic_id": item.topic_id,
+                            "topic_id": f"{role}:{item.topic_id}",
                             "previous_prevalence": item.previous_prevalence,
                             "current_prevalence": item.current_prevalence,
                             "growth": item.growth,
@@ -187,30 +234,6 @@ class MediaAnalysisService:
                 "deduplication": role_result["deduplication"],
                 "hybrid": role_result["hybrid"],
             }
-
-        combined.sort(
-            key=lambda pair: (
-                -pair[1].final_score,
-                -pair[1].semantic_score,
-                pair[1].canonical_text,
-                pair[0],
-            )
-        )
-        selected = combined[: self._config.maximum_results]
-        keywords = tuple(
-            ProfileKeywordResult(
-                text=keyword.text,
-                canonical_text=keyword.canonical_text,
-                rank=index,
-                final_score=keyword.final_score,
-                statistical_score=keyword.statistical_score,
-                semantic_score=keyword.semantic_score,
-                coverage=keyword.coverage,
-                frequency=keyword.frequency,
-                signals={**keyword.signals, "role": role},
-            )
-            for index, (role, keyword) in enumerate(selected, start=1)
-        )
 
         gaps = self._content_audience_gap(
             role_topics.get("published_content", ()),
@@ -260,13 +283,16 @@ class MediaAnalysisService:
                 },
                 "unsupported_signals": {
                     "normalized_engagement": (
-                        "no engagement metadata contract is frozen"
+                        "no engagement metadata contract is frozen; "
+                        "weight remains zero until a contract is defined"
                     ),
                 },
                 "trend_contract": {
                     "timestamp_field": "metadata.published_at",
                     "timezone_required": True,
                     "missing_timestamp_behavior": "trend_unavailable_no_synthetic_time",
+                    "trend_growth_strategy": "positive_topic_growth_weighted_by_candidate_documents",
+                    "recency_strategy": "linear_within_current_trend_window",
                 },
             },
             model_version="|".join(unique_model_versions) or "semantic-providers:no-role-data",
@@ -296,28 +322,75 @@ class MediaAnalysisService:
             occurrences,
             document_ids=tuple(document["document_id"] for document in documents),
         )
-        profile_statistics = tuple(
-            replace(
-                item,
-                statistical_score=weighted_signal_score(
-                    {
-                        "mention_share": item.relative_frequency,
-                        "coverage": item.document_coverage,
-                    },
-                    self._config.weights,
-                )[0],
+        topic_documents = tuple(
+            TopicDocument(
+                document_id=document["document_id"],
+                text=result.embedding_text,
+                order=index,
+                timestamp=self._optional_timestamp(
+                    (document.get("metadata") or {}).get("published_at")
+                ),
             )
-            for item in statistics
+            for index, (document, result) in enumerate(processed, start=1)
+        )
+        topic_result = await self._topics.analyze_async(
+            documents=topic_documents,
+            keywords=(),
+            build_timeline=False,
+        )
+        timestamped = self._trend_documents(documents)
+        trend_result = self._trends.analyze(
+            documents=timestamped,
+            topics=topic_result.topics,
         )
 
-        statistical_weight = (
-            self._config.weights["mention_share"]
-            + self._config.weights["coverage"]
+        signal_values: dict[str, dict[str, float | None]] = {}
+        profile_statistics_list = []
+        for item in statistics:
+            values = {
+                "mention_share": item.relative_frequency,
+                "coverage": item.document_coverage,
+                "normalized_engagement": None,
+                "trend_growth": self._candidate_trend_growth(
+                    item,
+                    topic_result.topics,
+                    trend_result,
+                ),
+                "recency": self._candidate_recency(
+                    item,
+                    timestamped,
+                    trend_result.window_days,
+                ),
+            }
+            signal_values[item.canonical_text] = values
+            profile_statistics_list.append(
+                replace(
+                    item,
+                    statistical_score=weighted_signal_score(
+                        values,
+                        self._config.weights,
+                    )[0],
+                )
+            )
+        profile_statistics = tuple(profile_statistics_list)
+
+        active_statistical_signals = {
+            "mention_share": True,
+            "coverage": True,
+            "normalized_engagement": False,
+            "trend_growth": trend_result.available,
+            "recency": bool(timestamped),
+        }
+        statistical_weight = sum(
+            self._config.weights[name]
+            for name, enabled in active_statistical_signals.items()
+            if enabled
         )
         semantic_weight = self._config.weights["semantic_relevance"]
+        fusion_total = statistical_weight + semantic_weight
         fusion_weights = FusionWeights(
-            statistical=statistical_weight,
-            semantic=semantic_weight,
+            statistical=statistical_weight / fusion_total,
+            semantic=semantic_weight / fusion_total,
         )
 
         context = " ".join(
@@ -342,6 +415,7 @@ class MediaAnalysisService:
         for ranked in hybrid.candidates:
             stat = stats_by_id[ranked.canonical_text]
             sem = semantic_by_id[ranked.canonical_text]
+            values = signal_values[ranked.canonical_text]
             keywords.append(
                 ProfileKeywordResult(
                     text=ranked.text,
@@ -356,6 +430,9 @@ class MediaAnalysisService:
                         "role": role,
                         "mention_share": stat.relative_frequency,
                         "coverage": stat.document_coverage,
+                        "normalized_engagement": values["normalized_engagement"],
+                        "trend_growth": values["trend_growth"],
+                        "recency": values["recency"],
                         "semantic_relevance": sem.semantic_score,
                         "frequency": stat.frequency,
                         "mmr_score": ranked.mmr_score,
@@ -363,28 +440,14 @@ class MediaAnalysisService:
                 )
             )
 
-        topic_result = await self._topics.analyze_async(
-            documents=tuple(
-                TopicDocument(
-                    document_id=document["document_id"],
-                    text=result.embedding_text,
-                    order=index,
-                    timestamp=self._optional_timestamp(
-                        (document.get("metadata") or {}).get("published_at")
-                    ),
-                )
-                for index, (document, result) in enumerate(processed, start=1)
-            ),
-            keywords=tuple(keywords),
-            build_timeline=False,
-        )
-
         return {
             "keywords": tuple(keywords),
             "candidate_occurrence_count": len(occurrences),
             "candidate_count": len(statistics),
             "model_version": self._model_version(semantic),
             "topic_result": topic_result,
+            "topic_documents": topic_documents,
+            "trend_result": trend_result,
             "deduplication": [
                 {
                     "removed_canonical_text": item.removed_canonical_text,
@@ -403,8 +466,76 @@ class MediaAnalysisService:
                 "diversity_candidate_pool_size": hybrid.diversity_candidate_pool_size,
                 "maximum_ranked_results": hybrid.maximum_ranked_results,
                 "deterministic_tie_breaking": hybrid.deterministic_tie_breaking,
+                "weights": {
+                    "statistical": fusion_weights.statistical,
+                    "semantic": fusion_weights.semantic,
+                },
             },
         }
+
+    @staticmethod
+    def _candidate_trend_growth(
+        candidate: Any,
+        topics: tuple[ProfileTopicResult, ...],
+        trend_result: Any,
+    ) -> float | None:
+        if not trend_result.available:
+            return None
+        candidate_documents = {
+            occurrence.document_id
+            for occurrence in candidate.occurrences
+        }
+        if not candidate_documents:
+            return 0.0
+
+        growth_by_topic = {
+            item.topic_id: max(0.0, float(item.growth))
+            for item in trend_result.trends
+        }
+        value = 0.0
+        for topic in topics:
+            hits = len(candidate_documents.intersection(topic.document_ids))
+            if hits:
+                value += (
+                    hits
+                    / len(candidate_documents)
+                    * growth_by_topic.get(topic.topic_id, 0.0)
+                )
+        return min(max(value, 0.0), 1.0)
+
+    @staticmethod
+    def _candidate_recency(
+        candidate: Any,
+        documents: tuple[TrendDocument, ...],
+        window_days: int,
+    ) -> float | None:
+        if not documents:
+            return None
+        timestamps = {
+            item.document_id: item.timestamp
+            for item in documents
+        }
+        comparison_end = max(timestamps.values())
+        window_seconds = float(window_days * 24 * 60 * 60)
+        candidate_documents = {
+            occurrence.document_id
+            for occurrence in candidate.occurrences
+        }
+        scores = []
+        for document_id in candidate_documents:
+            timestamp = timestamps.get(document_id)
+            if timestamp is None:
+                continue
+            age_seconds = max(
+                0.0,
+                (comparison_end - timestamp).total_seconds(),
+            )
+            scores.append(
+                max(0.0, 1.0 - (age_seconds / window_seconds))
+            )
+        if not scores:
+            return None
+        return sum(scores) / len(scores)
 
     def _content_audience_gap(
         self,
