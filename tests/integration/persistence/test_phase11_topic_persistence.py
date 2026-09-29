@@ -149,6 +149,10 @@ class Phase11TopicPersistenceIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(reloaded.status, "completed")
         self.assertEqual(len(reloaded.topics), 1)
         self.assertEqual(reloaded.topics[0].label, "هوش مصنوعی")
+        self.assertEqual(
+            reloaded.topics[0].metadata_json["logical_topic_id"],
+            "topic-1",
+        )
         self.assertEqual(reloaded.topics[0].metadata_json["document_ids"], ["d1"])
         self.assertEqual(len(reloaded.topics[0].keyword_links), 1)
         link = reloaded.topics[0].keyword_links[0]
