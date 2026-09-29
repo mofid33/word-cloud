@@ -239,7 +239,14 @@ class TopicAnalysisService:
             return ()
 
         ranked: list[tuple[float, ProfileKeywordResult]] = []
-        document_texts = tuple(self._normalized_text(item.text) for item in documents)
+        document_tokens = tuple(
+            tuple(
+                token
+                for token in self._normalized_text(item.text).split()
+                if token
+            )
+            for item in documents
+        )
         for keyword in keywords:
             phrase = self._normalized_text(
                 keyword.canonical_text or keyword.text
@@ -247,11 +254,11 @@ class TopicAnalysisService:
             if not phrase:
                 continue
             tokens = tuple(token for token in phrase.split() if token)
+            if not tokens:
+                continue
             hits = 0
-            for text in document_texts:
-                if phrase in text or (
-                    tokens and all(token in text for token in tokens)
-                ):
+            for text_tokens in document_tokens:
+                if self._contains_token_sequence(text_tokens, tokens):
                     hits += 1
             if hits == 0:
                 continue
@@ -321,6 +328,19 @@ class TopicAnalysisService:
                 raise ValueError("Topic document order values must be unique")
             ids.add(item.document_id)
             orders.add(item.order)
+
+    @staticmethod
+    def _contains_token_sequence(
+        text_tokens: tuple[str, ...],
+        phrase_tokens: tuple[str, ...],
+    ) -> bool:
+        if len(phrase_tokens) > len(text_tokens):
+            return False
+        size = len(phrase_tokens)
+        return any(
+            text_tokens[index:index + size] == phrase_tokens
+            for index in range(len(text_tokens) - size + 1)
+        )
 
     @staticmethod
     def _normalized_text(value: str) -> str:
