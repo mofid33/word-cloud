@@ -37,6 +37,7 @@ No Phase 10 Human Gold data or acceptance state is changed by Phase 11.
 - Semantic Topic Coherence uses embedding-cluster cohesion.
 - Topic Diversity uses representative-keyphrase diversity; synthetic cluster purity remains diagnostic only.
 - Algorithm performance baseline and opt-in real configured embedding benchmark.
+- Performance evidence reports P50, P95, throughput, Python allocations, sampled process RSS and CUDA peak VRAM when CUDA is available.
 - Real-model profile integration tests now assert Phase 11 Topic/Timeline/Trend behavior, not only keyword generation.
 
 ## Configuration baselines
