@@ -117,6 +117,12 @@ class AnalysisProfileTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(target.signals["section_coverage"], 1.0)
         self.assertEqual(target.signals["chunk_coverage"], 1.0)
         self.assertIn("topic_timeline", first.profile_result["deferred_to_phase_11"])
+        self.assertEqual(
+            first.profile_result["scoring"]["hybrid"][
+                "diversity_candidate_pool_size"
+            ],
+            200,
+        )
 
     async def test_course_rejects_partial_boundary_metadata(self):
         with self.assertRaisesRegex(ValueError, "section_id"):
@@ -153,6 +159,12 @@ class AnalysisProfileTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(target.signals["document_frequency"], 2)
         self.assertEqual(target.signals["document_coverage"], 1.0)
         self.assertTrue(result.profile_result["document_independence"])
+        self.assertEqual(
+            result.profile_result["scoring"]["hybrid"][
+                "diversity_candidate_pool_size"
+            ],
+            50,
+        )
 
     async def test_soldier_result_does_not_retain_raw_document_text(self):
         raw = "عبارت محرمانه بلند برای بررسی عدم نگهداری متن کامل"
@@ -182,6 +194,18 @@ class AnalysisProfileTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(roles["published_content"]["keywords"])
         self.assertTrue(roles["audience_feedback"]["keywords"])
         self.assertTrue(result.profile_result["role_separation"])
+        self.assertEqual(
+            roles["published_content"]["hybrid"][
+                "diversity_candidate_pool_size"
+            ],
+            50,
+        )
+        self.assertEqual(
+            roles["audience_feedback"]["hybrid"][
+                "diversity_candidate_pool_size"
+            ],
+            50,
+        )
         self.assertIn(
             "normalized_engagement",
             result.profile_result["unsupported_phase_10_signals"],
