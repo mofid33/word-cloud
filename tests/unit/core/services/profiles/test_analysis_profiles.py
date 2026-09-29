@@ -410,6 +410,12 @@ class AnalysisProfileTests(unittest.IsolatedAsyncioTestCase):
                 for trend_item in result.profile_result["roles"][role]["trend"]["trends"]
             )
         )
+        self.assertGreater(self.media.config.weights["trend_growth"], 0.0)
+        self.assertGreater(self.media.config.weights["recency"], 0.0)
+        self.assertEqual(
+            self.media.config.weights["normalized_engagement"],
+            0.0,
+        )
         self.assertTrue(
             any(item.signals["recency"] is not None for item in result.keywords)
         )
@@ -419,6 +425,13 @@ class AnalysisProfileTests(unittest.IsolatedAsyncioTestCase):
                 for item in result.keywords
             )
         )
+        for role in ("published_content", "audience_feedback"):
+            self.assertGreater(
+                result.profile_result["roles"][role]["hybrid"]["weights"][
+                    "statistical"
+                ],
+                0.0,
+            )
         for item in result.profile_result["content_audience_gap"]["items"]:
             self.assertIn(item["audience_topic_id"], topic_ids)
             if item["best_content_topic_id"] is not None:
