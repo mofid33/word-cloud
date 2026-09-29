@@ -334,6 +334,10 @@ class AnalysisRepositoryIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(completed.status, "completed")
         self.assertEqual(len(completed.keywords), 1)
         self.assertEqual(len(completed.topics), 1)
+        self.assertEqual(
+            completed.topics[0].metadata_json["logical_topic_id"],
+            "topic-1",
+        )
         self.assertEqual(len(completed.topics[0].keyword_links), 1)
         self.assertEqual(completed.metrics["document_count"], 1)
 
