@@ -42,9 +42,29 @@ class AnalysisProcessorService:
         analysis_type: str,
         documents: list[dict[str, Any]],
     ) -> StructuredProfileResult:
-        service = self._service_for(analysis_type)
         await self._repository.mark_processing_async(analysis_id)
+        try:
+            return await self.process_claimed_async(
+                analysis_id=analysis_id,
+                analysis_type=analysis_type,
+                documents=documents,
+            )
+        except AnalysisProcessingError:
+            await self._repository.mark_failed_async(
+                analysis_id,
+                error_code="analysis_processing_failed",
+                error_message="Analysis processing failed",
+            )
+            raise
 
+    async def process_claimed_async(
+        self,
+        *,
+        analysis_id: str,
+        analysis_type: str,
+        documents: list[dict[str, Any]],
+    ) -> StructuredProfileResult:
+        service = self._service_for(analysis_type)
         try:
             result = await service.analyze_async(documents)
             persisted_keyword_ids = {
@@ -97,12 +117,9 @@ class AnalysisProcessorService:
                 scoring_version=result.scoring_version,
             )
             return result
+        except AnalysisProcessingError:
+            raise
         except Exception as exc:
-            await self._repository.mark_failed_async(
-                analysis_id,
-                error_code="analysis_processing_failed",
-                error_message="Analysis processing failed",
-            )
             raise AnalysisProcessingError() from exc
 
     def _service_for(self, analysis_type: str):

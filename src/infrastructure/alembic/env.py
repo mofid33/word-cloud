@@ -11,6 +11,7 @@ from src.infrastructure.context.sql_db.psql_dbcontext import Base, PsqlDbContext
 from src.infrastructure.context.vault.vault_service import VaultService
 from src.infrastructure.models.analysis_document import AnalysisDocument
 from src.infrastructure.models.analysis_keyword import AnalysisKeyword
+from src.infrastructure.models.analysis_queue_job import AnalysisQueueJobModel
 from src.infrastructure.models.analysis_topic import AnalysisTopic
 from src.infrastructure.models.analysis_topic_keyword import AnalysisTopicKeyword
 from src.infrastructure.models.word_cloud_analysis import WordCloudAnalysis
@@ -28,6 +29,7 @@ _MODEL_IMPORTS = (
     WordCloudAnalysis,
     AnalysisDocument,
     AnalysisKeyword,
+    AnalysisQueueJobModel,
     AnalysisTopic,
     AnalysisTopicKeyword,
 )

@@ -66,6 +66,24 @@ class _Repository:
             return None
         return self.analysis
 
+    async def mark_failed_async(
+        self,
+        analysis_id,
+        *,
+        error_code,
+        error_message,
+    ):
+        if self.analysis is None or self.analysis.id != analysis_id:
+            return None
+        self.analysis.status = "failed"
+        self.analysis.error_code = error_code
+        self.analysis.error_message = error_message
+        self.analysis.completed_at = datetime.now(UTC)
+        return self.analysis
+
+    async def clear_raw_text_async(self, analysis_id):
+        return None
+
 
 class _Processor:
     def __init__(self, repository):
@@ -80,12 +98,29 @@ class _Processor:
         self._repository.analysis.completed_at = datetime.now(UTC)
 
 
+class _Queue:
+    def __init__(self):
+        self.messages = []
+        self.fail = False
+
+    async def enqueue_async(self, analysis_id, payload):
+        if self.fail:
+            raise RuntimeError("queue unavailable")
+        self.messages.append((analysis_id, payload))
+
+
 class AnalysisServiceTests(unittest.TestCase):
     def setUp(self) -> None:
         policy = AnalysisExecutionPolicyService(_Config())
         self.repository = _Repository()
         self.processor = _Processor(self.repository)
-        self.service = AnalysisService(policy, self.processor, self.repository)
+        self.queue = _Queue()
+        self.service = AnalysisService(
+            policy,
+            self.processor,
+            self.repository,
+            self.queue,
+        )
 
     def test_rejects_duplicate_document_ids(self) -> None:
         async def run() -> None:
@@ -302,6 +337,77 @@ class AnalysisServiceTests(unittest.TestCase):
         )
         self.assertFalse(
             self.repository.last_create["persist_raw_text"]
+        )
+
+    def test_async_create_persists_processing_input_and_enqueues_identifier_job(self) -> None:
+        result = asyncio.run(
+            self.service.create_async(
+                analysis_type="COURSE",
+                execution_mode="async",
+                documents=[
+                    {"document_id": "a", "text": "abc", "metadata": {}},
+                ],
+            )
+        )
+
+        self.assertEqual(result.status, "pending")
+        self.assertEqual(result.execution_mode, "async")
+        self.assertTrue(self.repository.last_create["persist_raw_text"])
+        self.assertEqual(len(self.processor.calls), 0)
+        self.assertEqual(len(self.queue.messages), 1)
+        analysis_id, payload = self.queue.messages[0]
+        self.assertEqual(analysis_id, "analysis-1")
+        self.assertEqual(
+            payload,
+            {
+                "version": 1,
+                "analysis_id": "analysis-1",
+                "analysis_type": "COURSE",
+            },
+        )
+        self.assertNotIn("text", repr(payload))
+
+    def test_queue_failure_returns_failed_resource_without_processing(self) -> None:
+        self.queue.fail = True
+
+        result = asyncio.run(
+            self.service.create_async(
+                analysis_type="COURSE",
+                execution_mode="async",
+                documents=[
+                    {"document_id": "a", "text": "abc", "metadata": {}},
+                ],
+            )
+        )
+
+        self.assertEqual(result.status, "failed")
+        self.assertEqual(result.error.code, "analysis_queue_unavailable")
+        self.assertEqual(len(self.processor.calls), 0)
+
+    def test_soldier_async_is_fail_closed_without_privacy_safe_transport(self) -> None:
+        with self.assertRaises(AnalysisRequestValidationError) as context:
+            asyncio.run(
+                self.service.create_async(
+                    analysis_type="SOLDIER_CONCERN",
+                    execution_mode="async",
+                    documents=[
+                        {
+                            "document_id": "private-1",
+                            "text": "SENSITIVE-SOLDIER-TEXT",
+                            "metadata": {},
+                        }
+                    ],
+                )
+            )
+        self.assertEqual(
+            context.exception.code,
+            "soldier_async_transport_unavailable",
+        )
+        self.assertIsNone(self.repository.last_create)
+        self.assertEqual(self.queue.messages, [])
+        self.assertNotIn(
+            "SENSITIVE-SOLDIER-TEXT",
+            str(context.exception),
         )
 
     def test_completed_result_maps_structured_json_groups(self) -> None:

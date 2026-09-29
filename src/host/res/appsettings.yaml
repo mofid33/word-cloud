@@ -32,6 +32,18 @@ analysis:
     max_documents: 20
     max_total_characters: 100000
 
+analysis_queue:
+  backend: "postgres"
+  maximum_attempts: 3
+  retry_initial_delay_seconds: 2.0
+  retry_max_delay_seconds: 30.0
+  receive_timeout_seconds: 2.0
+  poll_interval_seconds: 0.25
+  visibility_timeout_seconds: 120.0
+  heartbeat_interval_seconds: 30.0
+  processing_stale_seconds: 300.0
+  concurrency: 2
+
 persian_nlp:
   resources:
     path: "src/infrastructure/resources/persian_nlp/persian_nlp_resources.json"

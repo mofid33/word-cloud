@@ -5,7 +5,7 @@ from hashlib import sha256
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 from sqlalchemy.orm import selectinload
 
 from src.infrastructure.context.sql_db.psql_dbcontext import PsqlDbContext
@@ -110,6 +110,144 @@ class WordCloudAnalysisRepository(BaseRepository[WordCloudAnalysis]):
             status="processing",
             started_at=started_at or datetime.now(UTC),
         )
+    async def try_claim_processing_async(
+        self,
+        analysis_id: str,
+    ) -> WordCloudAnalysis | None:
+        now = datetime.now(UTC)
+        async with self._db_context.session() as session:
+            result = await session.execute(
+                update(WordCloudAnalysis)
+                .where(
+                    WordCloudAnalysis.id == analysis_id,
+                    WordCloudAnalysis.status == "pending",
+                )
+                .values(
+                    status="processing",
+                    started_at=now,
+                    completed_at=None,
+                    error_code=None,
+                    error_message=None,
+                )
+                .returning(WordCloudAnalysis.id)
+            )
+            claimed_id = result.scalar_one_or_none()
+            await session.commit()
+        if claimed_id is None:
+            return None
+        return await self.get_aggregate_by_id_async(claimed_id)
+
+    async def release_processing_for_retry_async(
+        self,
+        analysis_id: str,
+    ) -> bool:
+        async with self._db_context.session() as session:
+            result = await session.execute(
+                update(WordCloudAnalysis)
+                .where(
+                    WordCloudAnalysis.id == analysis_id,
+                    WordCloudAnalysis.status == "processing",
+                )
+                .values(
+                    status="pending",
+                    started_at=None,
+                    completed_at=None,
+                    error_code=None,
+                    error_message=None,
+                )
+            )
+            await session.commit()
+            return bool(result.rowcount)
+
+    async def recover_stale_processing_async(
+        self,
+        analysis_id: str,
+        *,
+        stale_before: datetime,
+    ) -> bool:
+        async with self._db_context.session() as session:
+            result = await session.execute(
+                update(WordCloudAnalysis)
+                .where(
+                    WordCloudAnalysis.id == analysis_id,
+                    WordCloudAnalysis.status == "processing",
+                    WordCloudAnalysis.started_at.is_not(None),
+                    WordCloudAnalysis.started_at <= stale_before,
+                )
+                .values(
+                    status="pending",
+                    started_at=None,
+                    completed_at=None,
+                    error_code=None,
+                    error_message=None,
+                )
+            )
+            await session.commit()
+            return bool(result.rowcount)
+
+    async def get_documents_for_processing_async(
+        self,
+        analysis_id: str,
+    ) -> list[dict[str, Any]]:
+        analysis = await self.get_aggregate_by_id_async(analysis_id)
+        if analysis is None:
+            raise LookupError("Analysis does not exist")
+        if analysis.analysis_type == "SOLDIER_CONCERN":
+            raise ValueError("SOLDIER_CONCERN raw processing input is unavailable")
+
+        documents: list[dict[str, Any]] = []
+        for document in analysis.documents:
+            if document.raw_text is None:
+                raise ValueError("Analysis processing input is unavailable")
+            metadata = dict(document.metadata_json or {})
+            if document.role is not None and "role" not in metadata:
+                metadata["role"] = document.role
+            documents.append(
+                {
+                    "document_id": document.document_id,
+                    "text": document.raw_text,
+                    "metadata": metadata,
+                }
+            )
+        return documents
+
+    async def clear_raw_text_async(self, analysis_id: str) -> None:
+        async with self._db_context.session() as session:
+            await session.execute(
+                update(AnalysisDocument)
+                .where(AnalysisDocument.analysis_id == analysis_id)
+                .values(raw_text=None)
+            )
+            await session.commit()
+
+    async def mark_failed_if_active_async(
+        self,
+        analysis_id: str,
+        *,
+        error_code: str,
+        error_message: str,
+    ) -> bool:
+        now = datetime.now(UTC)
+        async with self._db_context.session() as session:
+            analysis = await session.get(WordCloudAnalysis, analysis_id)
+            if analysis is None or analysis.status not in {"pending", "processing"}:
+                await session.rollback()
+                return False
+            if analysis.analysis_type == "SOLDIER_CONCERN":
+                error_code = "analysis_processing_failed"
+                error_message = "Analysis processing failed"
+            analysis.status = "failed"
+            analysis.completed_at = now
+            analysis.error_code = error_code
+            analysis.error_message = error_message
+            await session.execute(
+                update(AnalysisDocument)
+                .where(AnalysisDocument.analysis_id == analysis_id)
+                .values(raw_text=None)
+            )
+            await session.commit()
+            return True
+
 
     async def mark_failed_async(
         self,
@@ -248,6 +386,11 @@ class WordCloudAnalysisRepository(BaseRepository[WordCloudAnalysis]):
                 analysis.completed_at = datetime.now(UTC)
                 analysis.error_code = None
                 analysis.error_message = None
+                await session.execute(
+                    update(AnalysisDocument)
+                    .where(AnalysisDocument.analysis_id == analysis_id)
+                    .values(raw_text=None)
+                )
 
                 await session.commit()
             except Exception:

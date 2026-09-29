@@ -53,6 +53,18 @@ class ConfigReaderTests(unittest.TestCase):
                     config.get("analysis.sync_threshold.max_documents"),
                     20,
                 )
+                self.assertEqual(
+                    config.get("analysis_queue.backend"),
+                    "postgres",
+                )
+                self.assertGreaterEqual(
+                    config.get("analysis_queue.maximum_attempts"),
+                    1,
+                )
+                self.assertGreater(
+                    config.get("analysis_queue.visibility_timeout_seconds"),
+                    config.get("analysis_queue.heartbeat_interval_seconds"),
+                )
 
     def test_non_development_environment_uses_production_file(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

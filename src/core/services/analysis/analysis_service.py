@@ -8,6 +8,10 @@ from src.core.services.analysis.analysis_execution_policy_service import (
     AnalysisExecutionPolicyService,
 )
 from src.core.services.analysis.analysis_processor_service import AnalysisProcessorService
+from src.core.services.analysis.providers.analysis_queue_provider import (
+    AnalysisQueueJob,
+    AnalysisQueueProvider,
+)
 from src.infrastructure.di.inject import inject
 from src.infrastructure.repositories.analysis.word_cloud_analysis_repository import (
     WordCloudAnalysisRepository,
@@ -111,10 +115,12 @@ class AnalysisService:
         execution_policy_service: AnalysisExecutionPolicyService,
         analysis_processor_service: AnalysisProcessorService,
         analysis_repository: WordCloudAnalysisRepository,
+        queue_provider: AnalysisQueueProvider,
     ):
         self._execution_policy_service = execution_policy_service
         self._analysis_processor_service = analysis_processor_service
         self._analysis_repository = analysis_repository
+        self._queue_provider = queue_provider
 
     async def validate_async(
         self,
@@ -178,6 +184,15 @@ class AnalysisService:
             documents=documents,
         )
 
+        if (
+            analysis_type == "SOLDIER_CONCERN"
+            and decision.resolved_execution_mode == "async"
+        ):
+            raise AnalysisRequestValidationError(
+                "soldier_async_transport_unavailable",
+                "SOLDIER_CONCERN async execution is unavailable until a privacy-safe transient transport is configured",
+            )
+
         return AnalysisValidationResult(
             analysis_type=analysis_type,
             execution_mode=decision.requested_execution_mode,
@@ -206,7 +221,10 @@ class AnalysisService:
             documents=documents,
             reference=reference,
             options=options,
-            persist_raw_text=False,
+            persist_raw_text=(
+                validation.resolved_execution_mode == "async"
+                and analysis_type != "SOLDIER_CONCERN"
+            ),
         )
         if validation.resolved_execution_mode == "sync":
             await self._analysis_processor_service.process_async(
@@ -220,7 +238,36 @@ class AnalysisService:
             if completed is None:
                 raise RuntimeError("Completed analysis could not be reloaded")
             return self._status_result(completed)
-        return self._status_result(analysis)
+
+        job = AnalysisQueueJob.create(
+            analysis_id=analysis.id,
+            analysis_type=analysis_type,
+        )
+        try:
+            await self._queue_provider.enqueue_async(
+                analysis.id,
+                job.to_payload(),
+            )
+        except Exception:
+            await self._analysis_repository.mark_failed_async(
+                analysis.id,
+                error_code="analysis_queue_unavailable",
+                error_message="Analysis queue is unavailable",
+            )
+            await self._analysis_repository.clear_raw_text_async(analysis.id)
+            failed = await self._analysis_repository.get_aggregate_by_id_async(
+                analysis.id
+            )
+            if failed is None:
+                raise RuntimeError("Failed analysis could not be reloaded")
+            return self._status_result(failed)
+
+        queued = await self._analysis_repository.get_aggregate_by_id_async(
+            analysis.id
+        )
+        if queued is None:
+            raise RuntimeError("Queued analysis could not be reloaded")
+        return self._status_result(queued)
 
     async def get_status_async(
         self,
