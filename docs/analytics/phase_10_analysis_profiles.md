@@ -390,7 +390,51 @@ Search policy:
 
 This path is engineering evidence only. Its selected weights must not be called production-final and it does not satisfy the Human Gold closure gate.
 
-Local verification of this new tuning path is still required after pulling the implementation. Phase 10 status therefore remains unchanged.
+Local verification of the tuning path on 2026-09-29:
+
+- `python -m unittest tests.evaluation.test_course_candidate_evaluation -v`: 6/6 PASS;
+- `python -m unittest tests.evaluation.test_course_gold_annotation_package -v`: 6/6 PASS;
+- `python -m compileall -q src tests`: PASS;
+- real semantic providers loaded successfully;
+- frozen source fingerprint matched;
+- frozen model-review fingerprint matched;
+- 7 tuning cases evaluated;
+- 4 holdout cases remained unevaluated during tuning;
+- 37 deterministic weight configurations were evaluated.
+
+Observed tuning evidence:
+
+- candidate-label coverage: 0.9126984126984128;
+- baseline Precision@5: 0.14285714285714285;
+- baseline Precision@10: 0.1;
+- baseline Recall@10: 0.08487940630797773;
+- baseline NDCG@10: 0.1675519885998389;
+- selected Precision@5: 0.14285714285714285;
+- selected Precision@10: 0.1285714285714286;
+- selected Recall@10: 0.11373943516800658;
+- selected NDCG@10: 0.1972883199073863.
+
+Frozen engineering-selected COURSE weights:
+
+- semantic relevance: 0.375;
+- frequency: 0.15;
+- chunk coverage: 0.15;
+- section coverage: 0.175;
+- phrase quality: 0.15.
+
+The tuning candidate improved NDCG@10, Precision@10 and Recall@10 while Precision@5 remained unchanged. Absolute ranking quality is still weak, including zero top-10 relevance for `course-math-linear` in the tuning evidence. Therefore these weights are frozen only as an engineering candidate and are not written to Development or Production configuration.
+
+The pre-holdout evidence is frozen in:
+
+`tests/evaluation/gold/course_ai_review_tuning_v1.json`
+
+A separate holdout runner now evaluates only the four frozen holdout cases using the already-frozen baseline and selected weight sets:
+
+`tests/evaluation/run_course_candidate_holdout.py`
+
+The holdout runner performs no weight search and cannot change the selected weights. Its output remains engineering evidence because the underlying labels are model-simulated review labels rather than Human Gold.
+
+Phase 10 status therefore remains unchanged.
 
 ## Remaining closure dependency
 
