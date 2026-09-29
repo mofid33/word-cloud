@@ -442,6 +442,71 @@ class HybridRankingServiceTests(unittest.IsolatedAsyncioTestCase):
             ranked.deduplication_strategy.startswith("bounded_top_fused_pool:")
         )
 
+    async def test_profile_pool_override_is_bounded_and_reported(self):
+        class TrackingEmbedding(_Embedding):
+            def __init__(self):
+                self.batch_sizes = []
+
+            async def embed_async(self, texts):
+                self.batch_sizes.append(len(texts))
+                size = len(texts)
+                return tuple(
+                    tuple(
+                        1.0 if axis == index else 0.0
+                        for axis in range(size)
+                    )
+                    for index, _ in enumerate(texts)
+                )
+
+        embedding = TrackingEmbedding()
+        service = HybridRankingService(embedding, _Config())
+        count = 15
+        statistics = tuple(
+            _stat(
+                f"term-{index:03d}",
+                1.0 - index / count,
+            )
+            for index in range(count)
+        )
+        semantic = _result(
+            tuple(
+                _semantic(
+                    f"term-{index:03d}",
+                    1.0 - index / count,
+                    index + 1,
+                )
+                for index in range(count)
+            )
+        )
+
+        ranked = await service.rank_async(
+            statistics,
+            semantic,
+            maximum_results=5,
+            diversity_candidate_pool_size=20,
+        )
+
+        self.assertEqual(
+            ranked.diversity_candidate_pool_size,
+            20,
+        )
+        self.assertEqual(
+            embedding.batch_sizes,
+            [15],
+        )
+
+    async def test_profile_pool_override_must_cover_maximum_results(self):
+        with self.assertRaisesRegex(
+            ValueError,
+            "maximum_results must be <= diversity_candidate_pool_size",
+        ):
+            await self.service().rank_async(
+                (_stat("alpha", 0.5),),
+                _result((_semantic("alpha", 0.5, 1),)),
+                maximum_results=2,
+                diversity_candidate_pool_size=1,
+            )
+
     def test_invalid_configuration_is_rejected(self):
         invalid = [
             {"hybrid_ranking.baseline_weights.statistical": True},
