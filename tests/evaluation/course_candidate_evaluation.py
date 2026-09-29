@@ -19,6 +19,7 @@ from src.core.services.candidate.candidate_extraction_service import (
 from src.core.services.persian_text.persian_text_processor import PersianTextProcessor
 from src.core.services.ranking.hybrid_ranking_service import (
     FusionWeights,
+    HybridRankingResult,
     HybridRankingService,
 )
 from src.core.services.semantic.semantic_analysis_service import (
@@ -524,6 +525,23 @@ class CourseCandidateTuningEngine:
         prepared: PreparedCourseCandidateCase,
         weights: dict[str, float],
     ) -> tuple[str, ...]:
+        _, hybrid = await self.rank_prepared_result_async(
+            prepared,
+            weights,
+        )
+        return tuple(
+            item.canonical_text
+            for item in hybrid.candidates
+        )
+
+    async def rank_prepared_result_async(
+        self,
+        prepared: PreparedCourseCandidateCase,
+        weights: dict[str, float],
+    ) -> tuple[
+        tuple[StatisticalCandidateResult, ...],
+        HybridRankingResult,
+    ]:
         _validate_weights(weights)
         profile_statistics = tuple(
             replace(
@@ -562,10 +580,7 @@ class CourseCandidateTuningEngine:
             ),
             maximum_results=self._baseline.maximum_results,
         )
-        return tuple(
-            item.canonical_text
-            for item in hybrid.candidates
-        )
+        return profile_statistics, hybrid
 
     def model_version(
         self,
