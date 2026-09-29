@@ -371,6 +371,9 @@ class AnalysisProfileTests(unittest.IsolatedAsyncioTestCase):
                     "mention_share",
                     "semantic_relevance",
                     "coverage",
+                    "normalized_engagement",
+                    "trend_growth",
+                    "recency",
                 ),
             )
 
