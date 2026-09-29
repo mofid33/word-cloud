@@ -10,6 +10,7 @@ from src.infrastructure.utils.config_reader import ConfigReader
 class ProfileScoringConfig:
     scoring_version: str
     maximum_results: int
+    diversity_candidate_pool_size: int
     weights: dict[str, float]
 
 
@@ -34,6 +35,24 @@ def load_profile_scoring_config(
             f"Configuration '{prefix}.maximum_results' must be an integer > 0"
         )
 
+    diversity_candidate_pool_size = config_reader.require(
+        f"{prefix}.diversity_candidate_pool_size"
+    )
+    if (
+        isinstance(diversity_candidate_pool_size, bool)
+        or not isinstance(diversity_candidate_pool_size, int)
+        or diversity_candidate_pool_size <= 0
+    ):
+        raise ValueError(
+            f"Configuration '{prefix}.diversity_candidate_pool_size' "
+            "must be an integer > 0"
+        )
+    if diversity_candidate_pool_size < maximum_results:
+        raise ValueError(
+            f"Configuration '{prefix}.diversity_candidate_pool_size' "
+            "must be >= maximum_results"
+        )
+
     weights: dict[str, float] = {}
     for signal in required_signals:
         key = f"{prefix}.weights.{signal}"
@@ -56,6 +75,7 @@ def load_profile_scoring_config(
     return ProfileScoringConfig(
         scoring_version=scoring_version.strip(),
         maximum_results=maximum_results,
+        diversity_candidate_pool_size=diversity_candidate_pool_size,
         weights=weights,
     )
 
