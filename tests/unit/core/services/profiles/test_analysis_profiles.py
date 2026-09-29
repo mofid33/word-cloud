@@ -235,6 +235,86 @@ class AnalysisProfileTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(result.topics)
         self.assertIn("content_audience_gap", result.profile_result)
 
+    async def test_media_trend_uses_real_timestamps_and_classifies_topics(self):
+        result = await self.media.analyze_async([
+            {
+                "document_id": "p-old-1",
+                "text": "اقتصاد دیجیتال رسانه",
+                "metadata": {
+                    "role": "published_content",
+                    "published_at": "2026-09-16T10:00:00+00:00",
+                },
+            },
+            {
+                "document_id": "p-old-2",
+                "text": "اقتصاد دیجیتال رسانه",
+                "metadata": {
+                    "role": "published_content",
+                    "published_at": "2026-09-18T10:00:00+00:00",
+                },
+            },
+            {
+                "document_id": "p-new-1",
+                "text": "هوش مصنوعی رسانه",
+                "metadata": {
+                    "role": "published_content",
+                    "published_at": "2026-09-24T10:00:00+00:00",
+                },
+            },
+            {
+                "document_id": "p-new-2",
+                "text": "هوش مصنوعی رسانه",
+                "metadata": {
+                    "role": "published_content",
+                    "published_at": "2026-09-28T10:00:00+00:00",
+                },
+            },
+            {
+                "document_id": "a-old-1",
+                "text": "کیفیت اینترنت مخاطب",
+                "metadata": {
+                    "role": "audience_feedback",
+                    "published_at": "2026-09-16T12:00:00+00:00",
+                },
+            },
+            {
+                "document_id": "a-old-2",
+                "text": "کیفیت اینترنت مخاطب",
+                "metadata": {
+                    "role": "audience_feedback",
+                    "published_at": "2026-09-18T12:00:00+00:00",
+                },
+            },
+            {
+                "document_id": "a-new-1",
+                "text": "سرعت اینترنت مخاطب",
+                "metadata": {
+                    "role": "audience_feedback",
+                    "published_at": "2026-09-24T12:00:00+00:00",
+                },
+            },
+            {
+                "document_id": "a-new-2",
+                "text": "سرعت اینترنت مخاطب",
+                "metadata": {
+                    "role": "audience_feedback",
+                    "published_at": "2026-09-28T12:00:00+00:00",
+                },
+            },
+        ])
+        for role in ("published_content", "audience_feedback"):
+            trend = result.profile_result["roles"][role]["trend"]
+            self.assertTrue(trend["available"])
+            self.assertTrue(trend["trends"])
+            self.assertTrue(
+                all(
+                    item["classification"]
+                    in {"emerging", "stable", "declining"}
+                    for item in trend["trends"]
+                )
+            )
+            self.assertIsNotNone(trend["comparison_end"])
+
     async def test_media_rejects_unknown_role(self):
         with self.assertRaisesRegex(ValueError, "metadata.role"):
             await self.media.analyze_async([
