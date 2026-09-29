@@ -75,12 +75,31 @@ def build_profile_services():
     trends = TrendAnalysisService(config)
     return {
         "COURSE": CourseAnalysisService(
-            processor, extractor, statistical, semantic, ranking, topics, config
+            processor,
+            extractor,
+            statistical,
+            semantic,
+            ranking,
+            config,
+            topic_analysis_service=topics,
         ),
         "SOLDIER_CONCERN": SoldierConcernAnalysisService(
-            processor, extractor, statistical, semantic, ranking, topics, config
+            processor,
+            extractor,
+            statistical,
+            semantic,
+            ranking,
+            config,
+            topic_analysis_service=topics,
         ),
         "MEDIA": MediaAnalysisService(
-            processor, extractor, statistical, semantic, ranking, topics, trends, config
+            processor,
+            extractor,
+            statistical,
+            semantic,
+            ranking,
+            config,
+            topic_analysis_service=topics,
+            trend_analysis_service=trends,
         ),
     }
