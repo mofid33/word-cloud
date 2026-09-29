@@ -92,13 +92,32 @@ class AnalysisProfileTests(unittest.IsolatedAsyncioTestCase):
         trends = TrendAnalysisService(self.config)
 
         self.course = CourseAnalysisService(
-            processor, extractor, statistical, semantic, ranking, topics, self.config
+            processor,
+            extractor,
+            statistical,
+            semantic,
+            ranking,
+            self.config,
+            topic_analysis_service=topics,
         )
         self.soldier = SoldierConcernAnalysisService(
-            processor, extractor, statistical, semantic, ranking, topics, self.config
+            processor,
+            extractor,
+            statistical,
+            semantic,
+            ranking,
+            self.config,
+            topic_analysis_service=topics,
         )
         self.media = MediaAnalysisService(
-            processor, extractor, statistical, semantic, ranking, topics, trends, self.config
+            processor,
+            extractor,
+            statistical,
+            semantic,
+            ranking,
+            self.config,
+            topic_analysis_service=topics,
+            trend_analysis_service=trends,
         )
 
     async def test_course_preserves_section_and_chunk_coverage_and_is_deterministic(self):
@@ -115,7 +134,7 @@ class AnalysisProfileTests(unittest.IsolatedAsyncioTestCase):
             },
         ]
         first = await self.course.analyze_async(documents)
-        second = await self.course.analyze_async(documents)
+        second = await self.course.analyze_async(list(reversed(documents)))
 
         self.assertEqual(first, second)
         self.assertTrue(first.profile_result["boundaries"]["section_aware"])
@@ -129,7 +148,7 @@ class AnalysisProfileTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(first.topics)
         self.assertEqual(
             [item["document_id"] for item in first.profile_result["topic_timeline"]],
-            ["course-2", "course-1"],
+            ["course-1", "course-2"],
         )
         self.assertEqual(
             first.profile_result["scoring"]["hybrid"][
