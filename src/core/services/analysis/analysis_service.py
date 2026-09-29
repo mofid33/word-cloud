@@ -147,6 +147,10 @@ class AnalysisService:
 
         if analysis_type == "MEDIA":
             allowed_roles = {"published_content", "audience_feedback"}
+            timestamp_presence: dict[str, list[bool]] = {
+                "published_content": [],
+                "audience_feedback": [],
+            }
             for document in documents:
                 metadata = document.get("metadata") or {}
                 role = metadata.get("role")
@@ -155,6 +159,18 @@ class AnalysisService:
                         "media_document_role_required",
                         "MEDIA documents require metadata.role equal to "
                         "'published_content' or 'audience_feedback'",
+                    )
+                has_timestamp = "published_at" in metadata
+                timestamp_presence[role].append(has_timestamp)
+                if has_timestamp:
+                    self._validate_media_timestamp(metadata["published_at"])
+
+            for role, presence in timestamp_presence.items():
+                if presence and any(presence) and not all(presence):
+                    raise AnalysisRequestValidationError(
+                        "media_partial_timestamp_metadata",
+                        "MEDIA metadata.published_at must be supplied consistently "
+                        f"within the '{role}' corpus",
                     )
 
         decision = await self._execution_policy_service.evaluate_async(
@@ -313,6 +329,27 @@ class AnalysisService:
             completed_at=analysis.completed_at,
             error=error,
         )
+
+    @staticmethod
+    def _validate_media_timestamp(value: Any) -> None:
+        if not isinstance(value, str) or not value.strip():
+            raise AnalysisRequestValidationError(
+                "media_invalid_published_at",
+                "MEDIA metadata.published_at must be a non-empty ISO-8601 timestamp",
+            )
+        normalized = value.strip().replace("Z", "+00:00")
+        try:
+            parsed = datetime.fromisoformat(normalized)
+        except ValueError as exc:
+            raise AnalysisRequestValidationError(
+                "media_invalid_published_at",
+                "MEDIA metadata.published_at must be a valid ISO-8601 timestamp",
+            ) from exc
+        if parsed.tzinfo is None or parsed.utcoffset() is None:
+            raise AnalysisRequestValidationError(
+                "media_invalid_published_at",
+                "MEDIA metadata.published_at must include a timezone offset",
+            )
 
     @classmethod
     def _contains_raw_text(cls, value: Any, raw_text: str) -> bool:
