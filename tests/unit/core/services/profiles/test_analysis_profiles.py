@@ -321,6 +321,34 @@ class AnalysisProfileTests(unittest.IsolatedAsyncioTestCase):
             )
         )
 
+    async def test_media_global_keywords_deduplicate_cross_role_canonical_terms(self):
+        result = await self.media.analyze_async([
+            {
+                "document_id": "p-shared",
+                "text": "هوش مصنوعی کاربردی",
+                "metadata": {"role": "published_content"},
+            },
+            {
+                "document_id": "a-shared",
+                "text": "هوش مصنوعی کاربردی",
+                "metadata": {"role": "audience_feedback"},
+            },
+        ])
+
+        canonical = [
+            item.canonical_text
+            for item in result.keywords
+        ]
+        self.assertEqual(len(canonical), len(set(canonical)))
+        persisted = set(canonical)
+        self.assertTrue(
+            all(
+                representative.canonical_text in persisted
+                for topic in result.topics
+                for representative in topic.representative_keyphrases
+            )
+        )
+
     async def test_media_trend_uses_real_timestamps_and_classifies_topics(self):
         result = await self.media.analyze_async([
             {
