@@ -25,6 +25,10 @@ from src.core.services.semantic.semantic_analysis_service import SemanticAnalysi
 from src.core.services.statistical.statistical_analysis_service import (
     StatisticalAnalysisService,
 )
+from src.core.services.topic.topic_analysis_service import (
+    TopicAnalysisService,
+    TopicDocument,
+)
 from src.infrastructure.di.inject import inject
 from src.infrastructure.utils.config_reader import ConfigReader
 
@@ -38,6 +42,7 @@ class CourseAnalysisService:
         statistical_analysis_service: StatisticalAnalysisService,
         semantic_analysis_service: SemanticAnalysisService,
         hybrid_ranking_service: HybridRankingService,
+        topic_analysis_service: TopicAnalysisService,
         config_reader: ConfigReader,
     ):
         self._processor = persian_text_processor
@@ -45,6 +50,7 @@ class CourseAnalysisService:
         self._statistical = statistical_analysis_service
         self._semantic = semantic_analysis_service
         self._ranking = hybrid_ranking_service
+        self._topics = topic_analysis_service
         self._config = load_profile_scoring_config(
             config_reader,
             profile_key="course",
@@ -203,7 +209,25 @@ class CourseAnalysisService:
                 }
             )
 
-        model_version = self._model_version(semantic)
+        topic_result = await self._topics.analyze_async(
+            documents=tuple(
+                TopicDocument(
+                    document_id=document["document_id"],
+                    text=result.embedding_text,
+                    order=index,
+                    section_id=(document.get("metadata") or {}).get("section_id"),
+                    chunk_id=(document.get("metadata") or {}).get("chunk_id"),
+                )
+                for index, (document, result) in enumerate(processed, start=1)
+            ),
+            keywords=tuple(keywords),
+            build_timeline=True,
+        )
+        model_version = (
+            self._model_version(semantic)
+            + ";topic:"
+            + str(topic_result.provider_metadata.get("model_identifier") or "unknown")
+        )
         return StructuredProfileResult(
             profile="COURSE",
             keywords=tuple(keywords),
@@ -251,16 +275,29 @@ class CourseAnalysisService:
                     "section_aware": section_enabled,
                     "chunk_aware": chunk_enabled,
                 },
-                "deferred_to_phase_11": [
-                    "topic_clustering",
-                    "topic_representation",
-                    "topic_coherence",
-                    "topic_diversity",
-                    "topic_timeline",
+                "topic_analysis": {
+                    "provider": dict(topic_result.provider_metadata),
+                    "scoring_version": topic_result.scoring_version,
+                    "topic_count": len(topic_result.topics),
+                    "evaluation_status": "baseline_requires_human_gold_validation",
+                },
+                "topic_timeline": [
+                    {
+                        "position": item.position,
+                        "document_id": item.document_id,
+                        "section_id": item.section_id,
+                        "chunk_id": item.chunk_id,
+                        "topic_ids": list(item.topic_ids),
+                    }
+                    for item in topic_result.timeline
                 ],
             },
             model_version=model_version,
-            scoring_version=f"{self._config.scoring_version}+{hybrid.scoring_version}",
+            scoring_version=(
+                f"{self._config.scoring_version}+{hybrid.scoring_version}+"
+                f"{topic_result.scoring_version}"
+            ),
+            topics=topic_result.topics,
         )
 
     @staticmethod
@@ -294,7 +331,7 @@ class CourseAnalysisService:
                     "metadata": dict(metadata),
                 }
             )
-        return tuple(sorted(normalized, key=lambda item: item["document_id"]))
+        return tuple(normalized)
 
     @staticmethod
     def _scope_enabled(
