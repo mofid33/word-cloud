@@ -97,22 +97,25 @@ analysis_profiles:
       section_coverage: 0.15
       phrase_quality: 0.15
   soldier_concern:
-    scoring_version: "phase10-soldier-baseline-v1"
+    scoring_version: "phase11-soldier-topic-v1"
     maximum_results: 25
     diversity_candidate_pool_size: 50
     weights:
       document_frequency: 0.30
       document_coverage: 0.25
       semantic_relevance: 0.35
-      concern_prevalence: 0.10
+      topic_prevalence: 0.10
   media:
-    scoring_version: "phase10-media-baseline-v1"
+    scoring_version: "phase11-media-trend-v1"
     maximum_results: 25
     diversity_candidate_pool_size: 50
     weights:
-      mention_share: 0.35
-      semantic_relevance: 0.40
-      coverage: 0.25
+      mention_share: 0.30
+      semantic_relevance: 0.35
+      coverage: 0.20
+      normalized_engagement: 0.00
+      trend_growth: 0.10
+      recency: 0.05
 
 topic_model:
   similarity_threshold: 0.58
