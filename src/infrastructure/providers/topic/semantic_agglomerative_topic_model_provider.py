@@ -22,6 +22,8 @@ from src.infrastructure.utils.config_reader import ConfigReader
 class _WorkingCluster:
     document_ids: list[str]
     vectors: list[tuple[float, ...]]
+    vector_sum: tuple[float, ...]
+    centroid: tuple[float, ...]
 
 
 @inject
@@ -76,7 +78,12 @@ class SemanticAgglomerativeTopicModelProvider(TopicModelProvider):
             vectors.append(self._normalize(vector))
 
         clusters = [
-            _WorkingCluster(document_ids=[item.document_id], vectors=[vector])
+            _WorkingCluster(
+                document_ids=[item.document_id],
+                vectors=[vector],
+                vector_sum=vector,
+                centroid=vector,
+            )
             for item, vector in zip(ordered, vectors, strict=True)
         ]
         threshold = self._config["similarity_threshold"]
@@ -112,11 +119,21 @@ class SemanticAgglomerativeTopicModelProvider(TopicModelProvider):
                 break
 
             left, right = best_pair
+            merged_sum = tuple(
+                left_value + right_value
+                for left_value, right_value in zip(
+                    clusters[left].vector_sum,
+                    clusters[right].vector_sum,
+                    strict=True,
+                )
+            )
             merged = _WorkingCluster(
                 document_ids=sorted(
                     clusters[left].document_ids + clusters[right].document_ids
                 ),
                 vectors=clusters[left].vectors + clusters[right].vectors,
+                vector_sum=merged_sum,
+                centroid=self._normalize(merged_sum),
             )
             clusters = [
                 cluster
@@ -166,24 +183,17 @@ class SemanticAgglomerativeTopicModelProvider(TopicModelProvider):
         left: _WorkingCluster,
         right: _WorkingCluster,
     ) -> float:
-        return cls._cosine(cls._centroid(left), cls._centroid(right))
+        return cls._cosine(left.centroid, right.centroid)
 
     @classmethod
     def _cohesion(cls, cluster: _WorkingCluster) -> float:
         if len(cluster.vectors) <= 1:
             return 1.0
-        centroid = cls._centroid(cluster)
-        values = [cls._cosine(vector, centroid) for vector in cluster.vectors]
+        values = [
+            cls._cosine(vector, cluster.centroid)
+            for vector in cluster.vectors
+        ]
         return max(0.0, min(1.0, sum(values) / len(values)))
-
-    @classmethod
-    def _centroid(cls, cluster: _WorkingCluster) -> tuple[float, ...]:
-        dimension = len(cluster.vectors[0])
-        values = tuple(
-            sum(vector[index] for vector in cluster.vectors) / len(cluster.vectors)
-            for index in range(dimension)
-        )
-        return cls._normalize(values)
 
     @staticmethod
     def _cosine(left: tuple[float, ...], right: tuple[float, ...]) -> float:
