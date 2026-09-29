@@ -47,10 +47,14 @@ class AnalysisProcessorService:
 
         try:
             result = await service.analyze_async(documents)
+            persisted_keyword_ids = {
+                item.canonical_text for item in result.keywords
+            }
             await self._repository.save_result_atomically_async(
                 analysis_id=analysis_id,
                 keywords=[
                     {
+                        "keyword_id": item.canonical_text,
                         "text": item.text,
                         "canonical_text": item.canonical_text,
                         "rank": item.rank,
@@ -62,8 +66,31 @@ class AnalysisProcessorService:
                     }
                     for item in result.keywords
                 ],
-                topics=[],
-                topic_keywords=[],
+                topics=[
+                    {
+                        "topic_id": item.topic_id,
+                        "label": item.label,
+                        "rank": item.rank,
+                        "prevalence": item.prevalence,
+                        "coverage": item.coverage,
+                        "metadata": {
+                            **dict(item.metadata),
+                            "document_ids": list(item.document_ids),
+                        },
+                    }
+                    for item in result.topics
+                ],
+                topic_keywords=[
+                    {
+                        "topic_id": topic.topic_id,
+                        "keyword_id": keyword.canonical_text,
+                        "rank": keyword.rank,
+                        "relevance_score": keyword.relevance_score,
+                    }
+                    for topic in result.topics
+                    for keyword in topic.representative_keyphrases
+                    if keyword.canonical_text in persisted_keyword_ids
+                ],
                 metrics=dict(result.metrics),
                 profile_result=dict(result.profile_result),
                 model_version=result.model_version,
