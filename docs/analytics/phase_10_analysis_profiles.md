@@ -498,6 +498,34 @@ Post-holdout local verification on 2026-09-29:
 
 This confirms the engineering decision that the tuning-selected COURSE weights must remain rejected and the current baseline configuration must remain active until stronger evidence exists.
 
+## COURSE tuning-only ranking diagnostic
+
+Because the first frozen holdout rejected the tuning-selected weights, further engineering work must diagnose the active baseline ranking path using tuning data only. The consumed four-case holdout must not be used to guide changes.
+
+Implemented diagnostic files:
+
+- `tests/evaluation/course_ranking_diagnostic.py`;
+- `tests/evaluation/run_course_ranking_diagnostic.py`;
+- `tests/evaluation/test_course_ranking_diagnostic.py`.
+
+The diagnostic uses the existing COURSE Phase 6→9 path and the active baseline configuration. It does not create a new production Service or change runtime architecture.
+
+For every reviewed keyphrase in the seven tuning cases it records:
+
+- whether Phase 7 Candidate Extraction generated the exact canonical phrase;
+- profile statistical rank and profile statistical score;
+- frequency, normalized frequency, section coverage and phrase quality;
+- semantic rank, Bi-Encoder score, Cross-Encoder/Reranker score, final semantic score and whether reranking occurred;
+- exact pre-MMR fused rank using the same min-max normalization and active fusion weights as Hybrid Ranking;
+- whether lexical/canonical/semantic deduplication removed the phrase, including kept phrase and similarity;
+- final Hybrid/MMR rank and MMR score when selected;
+- rank delta between pre-MMR fused rank and final MMR rank;
+- a deterministic stage status: candidate miss, deduplicated, outside diversity pool, MMR/top-k cutoff, selected outside top 10, or selected top 10.
+
+The runner evaluates only `dataset.cases_for_split("tuning")`. Holdout cases are counted only to verify that the frozen boundary still exists; they are never prepared, embedded, reranked or scored.
+
+Diagnostic output is engineering evidence only and remains outside version control. It cannot be used as Human Gold evidence and it does not reopen the consumed holdout for tuning.
+
 ## Remaining closure dependency
 
 Runtime/local verification is complete.
