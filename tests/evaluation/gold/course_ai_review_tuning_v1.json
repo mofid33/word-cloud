@@ -1,0 +1,66 @@
+{
+  "schema_version": "phase10-course-ai-review-tuning-evidence-v1",
+  "status": "COURSE_AI_REVIEW_TUNING_ENGINEERING_EVIDENCE_NOT_HUMAN_GOLD",
+  "source_materialized_sha256": "ea6fc2af90570db504cce5e31f594410d4505917aa15289e699c8e59d7f98d78",
+  "review_sha256": "9db3195b527c246c5d0c236433eb7761d0a7da218fe4732cdfe94c307c6e8e2b",
+  "review_status": "MODEL_SIMULATED_HUMAN_REVIEW_NOT_ACTUAL_HUMAN_GOLD",
+  "tuning_case_count": 7,
+  "frozen_holdout_case_count": 4,
+  "holdout_evaluated": false,
+  "evaluated_weight_set_count": 37,
+  "candidate_label_coverage": 0.9126984126984128,
+  "baseline": {
+    "weights": {
+      "semantic_relevance": 0.35,
+      "frequency": 0.2,
+      "chunk_coverage": 0.15,
+      "section_coverage": 0.15,
+      "phrase_quality": 0.15
+    },
+    "metrics": {
+      "precision_at_5": 0.14285714285714285,
+      "precision_at_10": 0.1,
+      "recall_at_10": 0.08487940630797773,
+      "ndcg_at_10": 0.1675519885998389
+    }
+  },
+  "selected": {
+    "weights": {
+      "semantic_relevance": 0.375,
+      "frequency": 0.15,
+      "chunk_coverage": 0.15,
+      "section_coverage": 0.175,
+      "phrase_quality": 0.15
+    },
+    "metrics": {
+      "precision_at_5": 0.14285714285714285,
+      "precision_at_10": 0.1285714285714286,
+      "recall_at_10": 0.11373943516800658,
+      "ndcg_at_10": 0.1972883199073863
+    }
+  },
+  "improvement": {
+    "precision_at_5": 0.0,
+    "precision_at_10": 0.02857142857142858,
+    "recall_at_10": 0.02886002886002885,
+    "ndcg_at_10": 0.02973633130754738
+  },
+  "model_versions": [
+    "embedding:sentence-transformers/paraphrase-multilingual-mpnet-base-v2@4328cf26390c98c5e3c738b4460a05b95f4911f5;reranker:BAAI/bge-reranker-v2-m3@953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e"
+  ],
+  "scoring_version": "phase10-course-ai-review-tuning-v1",
+  "selection_policy": {
+    "objective_order": [
+      "ndcg_at_10",
+      "recall_at_10",
+      "precision_at_5",
+      "precision_at_10",
+      "minimum_l1_distance_from_baseline",
+      "deterministic_weight_signature"
+    ],
+    "holdout_policy": "Holdout is frozen and was not evaluated during tuning. The selected weights are frozen before the first holdout evaluation.",
+    "production_config_updated": false
+  },
+  "verified_on": "2026-09-29",
+  "note": "Engineering evidence from the model-simulated review only. Not Human Gold and not production-final."
+}
