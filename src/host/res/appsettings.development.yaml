@@ -121,6 +121,7 @@ topic_model:
 
 topic_analysis:
   representative_keyphrases: 5
+  media_gap_similarity_threshold: 0.30
   scoring_version: "phase11-topic-baseline-v1"
 
 trend_analysis:
