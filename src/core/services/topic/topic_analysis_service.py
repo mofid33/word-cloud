@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Any, Sequence
 
@@ -108,7 +108,6 @@ class TopicAnalysisService:
             covered_ids.update(member_set)
 
             members = tuple(by_id[document_id] for document_id in member_ids)
-            representative = self._representative_keyphrases(members, keywords)
             topic_id = cluster.cluster_id
             prevalence = len(member_ids) / len(materialized)
             coverage = self._coverage(
@@ -117,7 +116,6 @@ class TopicAnalysisService:
                 total_sections=total_sections,
                 total_chunks=total_chunks,
             )
-            label = representative[0].text if representative else f"Topic {rank}"
             metadata: dict[str, Any] = {
                 "cohesion": cluster.cohesion,
                 "provider": model_result.metadata.provider,
@@ -132,11 +130,11 @@ class TopicAnalysisService:
             topics.append(
                 ProfileTopicResult(
                     topic_id=topic_id,
-                    label=label,
+                    label=f"Topic {rank}",
                     rank=rank,
                     prevalence=prevalence,
                     coverage=coverage,
-                    representative_keyphrases=representative,
+                    representative_keyphrases=(),
                     document_ids=member_ids,
                     metadata=metadata,
                 )
@@ -166,7 +164,7 @@ class TopicAnalysisService:
                 )
             )
 
-        return TopicAnalysisResult(
+        result = TopicAnalysisResult(
             topics=tuple(topics),
             timeline=timeline,
             provider_metadata={
@@ -180,6 +178,57 @@ class TopicAnalysisService:
             },
             scoring_version=self._scoring_version,
         )
+        if not keywords:
+            return result
+        return self.enrich_result(
+            result=result,
+            documents=materialized,
+            keywords=keywords,
+        )
+
+    def enrich_result(
+        self,
+        *,
+        result: TopicAnalysisResult,
+        documents: Sequence[TopicDocument],
+        keywords: Sequence[ProfileKeywordResult],
+    ) -> TopicAnalysisResult:
+        materialized = tuple(documents)
+        self._validate_documents(materialized)
+        by_id = {item.document_id: item for item in materialized}
+        expected_ids = set(by_id)
+        covered_ids = {
+            document_id
+            for topic in result.topics
+            for document_id in topic.document_ids
+        }
+        if covered_ids != expected_ids:
+            raise ValueError(
+                "Topic result document membership does not match enrichment documents"
+            )
+
+        enriched: list[ProfileTopicResult] = []
+        for topic in result.topics:
+            members = tuple(
+                by_id[document_id]
+                for document_id in topic.document_ids
+            )
+            representative = self._representative_keyphrases(
+                members,
+                keywords,
+            )
+            enriched.append(
+                replace(
+                    topic,
+                    label=(
+                        representative[0].text
+                        if representative
+                        else topic.label
+                    ),
+                    representative_keyphrases=representative,
+                )
+            )
+        return replace(result, topics=tuple(enriched))
 
     def _representative_keyphrases(
         self,
