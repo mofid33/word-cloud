@@ -1,0 +1,62 @@
+{
+  "schema_version": "phase10-course-ai-review-holdout-evidence-v1",
+  "status": "COURSE_AI_REVIEW_HOLDOUT_ENGINEERING_EVIDENCE_NOT_HUMAN_GOLD",
+  "source_materialized_sha256": "ea6fc2af90570db504cce5e31f594410d4505917aa15289e699c8e59d7f98d78",
+  "review_sha256": "9db3195b527c246c5d0c236433eb7761d0a7da218fe4732cdfe94c307c6e8e2b",
+  "tuning_evidence_sha256": "30f7ef6b0e5770a01bc0426a34703690890827ab55297758ccda06af3cf69b11",
+  "weights_frozen_before_holdout": true,
+  "weight_search_performed": false,
+  "tuning_case_count": 7,
+  "holdout_case_count": 4,
+  "candidate_label_coverage": 0.8106060606060606,
+  "baseline": {
+    "weights": {
+      "semantic_relevance": 0.35,
+      "frequency": 0.2,
+      "chunk_coverage": 0.15,
+      "section_coverage": 0.15,
+      "phrase_quality": 0.15
+    },
+    "metrics": {
+      "precision_at_5": 0.05,
+      "precision_at_10": 0.1,
+      "recall_at_10": 0.09911616161616162,
+      "ndcg_at_10": 0.09535312761583294
+    }
+  },
+  "selected": {
+    "weights": {
+      "semantic_relevance": 0.375,
+      "frequency": 0.15,
+      "chunk_coverage": 0.15,
+      "section_coverage": 0.175,
+      "phrase_quality": 0.15
+    },
+    "metrics": {
+      "precision_at_5": 0.05,
+      "precision_at_10": 0.07500000000000001,
+      "recall_at_10": 0.07133838383838384,
+      "ndcg_at_10": 0.07066355704214121
+    }
+  },
+  "generalization_delta": {
+    "precision_at_5": 0.0,
+    "precision_at_10": -0.024999999999999994,
+    "recall_at_10": -0.027777777777777776,
+    "ndcg_at_10": -0.024689570573691727
+  },
+  "decision": {
+    "selected_tuning_weights_accepted": false,
+    "production_config_updated": false,
+    "reason": "The tuning-selected weights regressed on the previously untouched holdout across NDCG@10, Precision@10, and Recall@10, with no Precision@5 gain.",
+    "baseline_config_remains_active": true,
+    "holdout_is_spent_for_future_model_selection": true,
+    "future_changes_require_new_unseen_holdout_for_final_generalization_claim": true
+  },
+  "model_versions": [
+    "embedding:sentence-transformers/paraphrase-multilingual-mpnet-base-v2@4328cf26390c98c5e3c738b4460a05b95f4911f5;reranker:BAAI/bge-reranker-v2-m3@953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e"
+  ],
+  "scoring_version": "phase10-course-ai-review-holdout-v1",
+  "verified_on": "2026-09-29",
+  "note": "Engineering evidence only. The labels are model-simulated review labels, not Human Gold."
+}
