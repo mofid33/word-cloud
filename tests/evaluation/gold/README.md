@@ -246,3 +246,26 @@ python -m tests.evaluation.run_course_candidate_holdout `
 
 پس از اولین holdout evaluation نباید وزن‌ها با feedback همان holdout دوباره tune شوند. این holdout نیز به دلیل model-simulated بودن labelها فقط engineering evidence است، نه Human Gold.
 
+### Tuning-only ranking diagnostic
+
+بعد از مشخص شدن regression روی holdout، diagnosis بعدی فقط روی 7 tuning case انجام می‌شود. چهار holdout case قبلی مصرف‌شده‌اند و نباید برای هدایت تغییرات ranking دوباره استفاده شوند.
+
+ابتدا diagnostic tests:
+
+```powershell
+python -m unittest tests.evaluation.test_course_ranking_diagnostic -v
+```
+
+سپس diagnostic واقعی:
+
+```powershell
+python -m tests.evaluation.run_course_ranking_diagnostic `
+  --materialized "E:\WordCloudGold\course_sources_v1.course_gold_materialized.jsonl" `
+  --review "E:\WordCloudGold\course_model_simulated_human_review_v1.json" `
+  --output "E:\WordCloudGold\course_ranking_diagnostic_v1.json"
+```
+
+Output برای هر reviewed keyphrase مسیر کامل ranking را نشان می‌دهد: candidate generation، statistical signals/rank، Bi-Encoder، Cross-Encoder/Reranker، pre-MMR fused rank، deduplication، MMR و final rank. `holdout_evaluated` باید `false` باشد.
+
+این diagnostic برای تصمیم مهندسی ranking است و Production Gold یا Human Evaluation محسوب نمی‌شود.
+
