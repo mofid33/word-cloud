@@ -60,7 +60,7 @@ class SoldierConcernAnalysisService:
                 "document_frequency",
                 "document_coverage",
                 "semantic_relevance",
-                "concern_prevalence",
+                "topic_prevalence",
             ),
         )
 
@@ -95,6 +95,20 @@ class SoldierConcernAnalysisService:
             document_ids=document_ids,
         )
 
+        topic_documents = tuple(
+            TopicDocument(
+                document_id=self._private_document_id(document["document_id"]),
+                text=result.embedding_text,
+                order=index,
+            )
+            for index, (document, result) in enumerate(processed, start=1)
+        )
+        topic_result = await self._topics.analyze_async(
+            documents=topic_documents,
+            keywords=(),
+            build_timeline=False,
+        )
+
         maximum_df = max(
             (item.document_frequency for item in statistics),
             default=1,
@@ -106,7 +120,10 @@ class SoldierConcernAnalysisService:
                     {
                         "document_frequency": item.document_frequency / maximum_df,
                         "document_coverage": item.document_coverage,
-                        "concern_prevalence": item.document_coverage,
+                        "topic_prevalence": self._candidate_topic_prevalence(
+                            item,
+                            topic_result.topics,
+                        ),
                     },
                     self._config.weights,
                 )[0],
@@ -117,7 +134,7 @@ class SoldierConcernAnalysisService:
         statistical_weight = (
             self._config.weights["document_frequency"]
             + self._config.weights["document_coverage"]
-            + self._config.weights["concern_prevalence"]
+            + self._config.weights["topic_prevalence"]
         )
         semantic_weight = self._config.weights["semantic_relevance"]
         fusion_weights = FusionWeights(
@@ -155,6 +172,10 @@ class SoldierConcernAnalysisService:
                 ),
                 "document_coverage": stat.document_coverage,
                 "concern_prevalence": stat.document_coverage,
+                "topic_prevalence": self._candidate_topic_prevalence(
+                    stat,
+                    topic_result.topics,
+                ),
                 "semantic_relevance": sem.semantic_score,
                 "frequency": stat.frequency,
                 "mmr_score": ranked.mmr_score,
@@ -180,18 +201,10 @@ class SoldierConcernAnalysisService:
                 }
             )
 
-        topic_result = await self._topics.analyze_async(
-            documents=tuple(
-                TopicDocument(
-                    document_id="sha256:"
-                    + sha256(document["document_id"].encode("utf-8")).hexdigest(),
-                    text=result.embedding_text,
-                    order=index,
-                )
-                for index, (document, result) in enumerate(processed, start=1)
-            ),
+        topic_result = self._topics.enrich_result(
+            result=topic_result,
+            documents=topic_documents,
             keywords=tuple(keywords),
-            build_timeline=False,
         )
 
         return StructuredProfileResult(
@@ -256,6 +269,34 @@ class SoldierConcernAnalysisService:
             ),
             topics=topic_result.topics,
         )
+
+    @classmethod
+    def _candidate_topic_prevalence(
+        cls,
+        candidate: Any,
+        topics: tuple[Any, ...],
+    ) -> float:
+        candidate_documents = {
+            cls._private_document_id(occurrence.document_id)
+            for occurrence in candidate.occurrences
+        }
+        if not candidate_documents:
+            return 0.0
+
+        value = 0.0
+        for topic in topics:
+            hits = len(candidate_documents.intersection(topic.document_ids))
+            if hits:
+                value += (
+                    hits
+                    / len(candidate_documents)
+                    * float(topic.prevalence)
+                )
+        return min(max(value, 0.0), 1.0)
+
+    @staticmethod
+    def _private_document_id(document_id: str) -> str:
+        return "sha256:" + sha256(document_id.encode("utf-8")).hexdigest()
 
     @staticmethod
     def _validate_documents(
