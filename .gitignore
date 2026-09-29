@@ -22,3 +22,4 @@ course_model_simulated_human_review_v1.*
 course_tuning_result_v1.json
 course_holdout_result_v1.json
 course_ranking_diagnostic_v1.json
+course_pool_sensitivity_v1.json
