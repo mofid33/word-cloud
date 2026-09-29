@@ -390,6 +390,38 @@ class AnalysisRepositoryIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(reloaded.keywords, [])
         self.assertEqual(reloaded.topics, [])
 
+        with self.assertRaisesRegex(ValueError, "Duplicate logical topic_id"):
+            await self.repository.save_result_atomically_async(
+                analysis_id=pending.id,
+                keywords=[],
+                topics=[
+                    {
+                        "topic_id": "duplicate-topic",
+                        "label": "الف",
+                        "rank": 1,
+                        "prevalence": 0.5,
+                        "coverage": 0.5,
+                    },
+                    {
+                        "topic_id": "duplicate-topic",
+                        "label": "ب",
+                        "rank": 2,
+                        "prevalence": 0.5,
+                        "coverage": 0.5,
+                    },
+                ],
+                topic_keywords=[],
+                metrics={},
+                profile_result={},
+                model_version="test-model",
+                scoring_version="test-scoring",
+            )
+
+        reloaded = await self.repository.get_aggregate_by_id_async(pending.id)
+        assert reloaded is not None
+        self.assertEqual(reloaded.keywords, [])
+        self.assertEqual(reloaded.topics, [])
+
     async def test_failed_result_write_rolls_back_entire_graph(self) -> None:
         pending = await self.repository.create_pending_async(
             analysis_type="COURSE",
