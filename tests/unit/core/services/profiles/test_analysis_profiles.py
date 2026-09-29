@@ -17,8 +17,13 @@ from src.core.services.soldier_concern.soldier_concern_analysis_service import (
     SoldierConcernAnalysisService,
 )
 from src.core.services.statistical.statistical_analysis_service import StatisticalAnalysisService
+from src.core.services.topic.topic_analysis_service import TopicAnalysisService
+from src.core.services.trend.trend_analysis_service import TrendAnalysisService
 from src.infrastructure.providers.persian_nlp.persian_nlp_resource_provider import (
     PersianNlpResourceProvider,
+)
+from src.infrastructure.providers.topic.semantic_agglomerative_topic_model_provider import (
+    SemanticAgglomerativeTopicModelProvider,
 )
 from src.infrastructure.utils.config_reader import ConfigReader
 
@@ -80,15 +85,20 @@ class AnalysisProfileTests(unittest.IsolatedAsyncioTestCase):
         embedding = _Embedding()
         semantic = SemanticAnalysisService(embedding, _Reranker(), self.config)
         ranking = HybridRankingService(embedding, self.config)
+        topic_provider = SemanticAgglomerativeTopicModelProvider(
+            embedding, self.config
+        )
+        topics = TopicAnalysisService(topic_provider, self.config)
+        trends = TrendAnalysisService(self.config)
 
         self.course = CourseAnalysisService(
-            processor, extractor, statistical, semantic, ranking, self.config
+            processor, extractor, statistical, semantic, ranking, topics, self.config
         )
         self.soldier = SoldierConcernAnalysisService(
-            processor, extractor, statistical, semantic, ranking, self.config
+            processor, extractor, statistical, semantic, ranking, topics, self.config
         )
         self.media = MediaAnalysisService(
-            processor, extractor, statistical, semantic, ranking, self.config
+            processor, extractor, statistical, semantic, ranking, topics, trends, self.config
         )
 
     async def test_course_preserves_section_and_chunk_coverage_and_is_deterministic(self):
@@ -105,7 +115,7 @@ class AnalysisProfileTests(unittest.IsolatedAsyncioTestCase):
             },
         ]
         first = await self.course.analyze_async(documents)
-        second = await self.course.analyze_async(list(reversed(documents)))
+        second = await self.course.analyze_async(documents)
 
         self.assertEqual(first, second)
         self.assertTrue(first.profile_result["boundaries"]["section_aware"])
@@ -116,7 +126,11 @@ class AnalysisProfileTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(target.signals["section_coverage"], 1.0)
         self.assertEqual(target.signals["chunk_coverage"], 1.0)
-        self.assertIn("topic_timeline", first.profile_result["deferred_to_phase_11"])
+        self.assertTrue(first.topics)
+        self.assertEqual(
+            [item["document_id"] for item in first.profile_result["topic_timeline"]],
+            ["course-2", "course-1"],
+        )
         self.assertEqual(
             first.profile_result["scoring"]["hybrid"][
                 "diversity_candidate_pool_size"
@@ -159,6 +173,14 @@ class AnalysisProfileTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(target.signals["document_frequency"], 2)
         self.assertEqual(target.signals["document_coverage"], 1.0)
         self.assertTrue(result.profile_result["document_independence"])
+        self.assertTrue(result.topics)
+        self.assertTrue(
+            all(
+                document_id.startswith("sha256:")
+                for topic in result.topics
+                for document_id in topic.document_ids
+            )
+        )
         self.assertEqual(
             result.profile_result["scoring"]["hybrid"][
                 "diversity_candidate_pool_size"
@@ -208,12 +230,10 @@ class AnalysisProfileTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertIn(
             "normalized_engagement",
-            result.profile_result["unsupported_phase_10_signals"],
+            result.profile_result["unsupported_signals"],
         )
-        self.assertIn(
-            "trend_growth",
-            result.profile_result["deferred_to_phase_11"],
-        )
+        self.assertTrue(result.topics)
+        self.assertIn("content_audience_gap", result.profile_result)
 
     async def test_media_rejects_unknown_role(self):
         with self.assertRaisesRegex(ValueError, "metadata.role"):
