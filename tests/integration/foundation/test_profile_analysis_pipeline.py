@@ -52,6 +52,11 @@ class RealModelProfileIntegrationTests(unittest.IsolatedAsyncioTestCase):
         ])
         self.assertEqual(result.profile, "COURSE")
         self.assertTrue(result.keywords)
+        self.assertTrue(result.topics)
+        self.assertEqual(
+            [item["document_id"] for item in result.profile_result["topic_timeline"]],
+            ["c1"],
+        )
 
     async def test_phase6_to_phase10_soldier_real_model_pipeline(self) -> None:
         service = resolve(SoldierConcernAnalysisService)
@@ -61,23 +66,99 @@ class RealModelProfileIntegrationTests(unittest.IsolatedAsyncioTestCase):
         ])
         self.assertEqual(result.profile, "SOLDIER_CONCERN")
         self.assertTrue(result.keywords)
+        self.assertTrue(result.topics)
+        self.assertTrue(
+            all(
+                document_id.startswith("sha256:")
+                for topic in result.topics
+                for document_id in topic.document_ids
+            )
+        )
 
     async def test_phase6_to_phase10_media_real_model_pipeline(self) -> None:
         service = resolve(MediaAnalysisService)
         result = await service.analyze_async([
             {
-                "document_id": "p1",
-                "text": "هوش مصنوعی در اقتصاد دیجیتال",
-                "metadata": {"role": "published_content"},
+                "document_id": "p-old-1",
+                "text": "اقتصاد دیجیتال و رسانه",
+                "metadata": {
+                    "role": "published_content",
+                    "published_at": "2026-09-16T10:00:00+00:00",
+                },
             },
             {
-                "document_id": "a1",
+                "document_id": "p-old-2",
+                "text": "اقتصاد دیجیتال و محتوای رسانه",
+                "metadata": {
+                    "role": "published_content",
+                    "published_at": "2026-09-18T10:00:00+00:00",
+                },
+            },
+            {
+                "document_id": "p-new-1",
+                "text": "هوش مصنوعی در اقتصاد دیجیتال",
+                "metadata": {
+                    "role": "published_content",
+                    "published_at": "2026-09-24T10:00:00+00:00",
+                },
+            },
+            {
+                "document_id": "p-new-2",
+                "text": "هوش مصنوعی در رسانه دیجیتال",
+                "metadata": {
+                    "role": "published_content",
+                    "published_at": "2026-09-28T10:00:00+00:00",
+                },
+            },
+            {
+                "document_id": "a-old-1",
+                "text": "مخاطبان درباره هزینه خدمات گفتگو می‌کنند",
+                "metadata": {
+                    "role": "audience_feedback",
+                    "published_at": "2026-09-16T12:00:00+00:00",
+                },
+            },
+            {
+                "document_id": "a-old-2",
+                "text": "مخاطبان درباره هزینه خدمات نظر می‌دهند",
+                "metadata": {
+                    "role": "audience_feedback",
+                    "published_at": "2026-09-18T12:00:00+00:00",
+                },
+            },
+            {
+                "document_id": "a-new-1",
                 "text": "مخاطبان درباره کیفیت اینترنت گفتگو می‌کنند",
-                "metadata": {"role": "audience_feedback"},
+                "metadata": {
+                    "role": "audience_feedback",
+                    "published_at": "2026-09-24T12:00:00+00:00",
+                },
+            },
+            {
+                "document_id": "a-new-2",
+                "text": "کیفیت اینترنت برای مخاطبان مهم است",
+                "metadata": {
+                    "role": "audience_feedback",
+                    "published_at": "2026-09-28T12:00:00+00:00",
+                },
             },
         ])
         self.assertEqual(result.profile, "MEDIA")
         self.assertTrue(result.profile_result["role_separation"])
+        self.assertTrue(result.topics)
+        topic_ids = {topic.topic_id for topic in result.topics}
+        for role in ("published_content", "audience_feedback"):
+            role_payload = result.profile_result["roles"][role]
+            self.assertTrue(role_payload["topics"])
+            self.assertTrue(role_payload["trend"]["available"])
+            self.assertTrue(role_payload["trend"]["trends"])
+            self.assertTrue(
+                all(
+                    item["topic_id"] in topic_ids
+                    for item in role_payload["trend"]["trends"]
+                )
+            )
+
 
 
 if __name__ == "__main__":
