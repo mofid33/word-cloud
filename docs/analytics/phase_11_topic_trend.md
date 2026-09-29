@@ -1,6 +1,6 @@
 # Phase 11 — Topic & Trend
 
-Status: IMPLEMENTED_AWAITING_POST_FIX_VERIFICATION
+Status: PHASE_11_COMPLETE_READY_FOR_PHASE_12
 Date: 2026-09-29
 
 ## Baseline
@@ -142,29 +142,60 @@ Full regression:
 python -m unittest discover -s tests -p "test_*.py" -v
 ```
 
-## Previous verification evidence
+## Post-audit verification evidence
 
-The pre-audit implementation at `b3b1bc6f45db8d10032445160d19bd3e689c9e8f` had:
+Verified locally on 2026-09-29 against main commit
+`ffdee6fb68ed5f5f2b0f4ca2c4ef76dbad722686`.
 
-- compile PASS;
-- focused Topic/Trend tests PASS;
-- PostgreSQL integration PASS;
-- full regression: 331 tests PASS, 7 environment-gated skips;
-- a real configured embedding benchmark PASS.
+- `python -m compileall -q src tests`: PASS.
+- Phase 11 Topic/Trend unit suite: 8 tests PASS.
+- Profile suite: 10 tests PASS.
+- Profile configuration suite: 6 tests PASS.
+- Analysis service suite: 12 tests PASS.
+- AnalysisProcessorService suite: 3 tests PASS.
+- Phase 10 profile evaluation regression: 3 tests PASS.
+- Phase 11 Topic evaluation: PASS.
+  - semantic Topic coherence = 1.0.
+  - keyphrase Topic diversity = 1.0.
+  - cluster purity diagnostic = 1.0.
+  - fixture remains explicitly `NOT_PRODUCTION_GOLD`.
+- Phase 11 algorithm performance baseline: PASS.
+- PostgreSQL Phase 11 Topic persistence: 1 test PASS.
+- PostgreSQL repository integration: 9 tests PASS.
+- PostgreSQL lifecycle API integration: 5 tests PASS.
+- Full regression: 335 tests PASS, 6 environment-gated tests skipped, no failures/errors.
+- Real configured embedding benchmark: PASS with
+  `sentence-transformers/paraphrase-multilingual-mpnet-base-v2`.
+  - 20 documents, 2 iterations.
+  - throughput = 0.3246 documents/second.
+  - P50 = 61.6095 seconds.
+  - P95 = 119.8615 seconds.
+  - peak Python-tracked memory = 166,699,248 bytes.
+  - peak sampled process RSS = 1,039,470,592 bytes.
+  - RSS delta = 1,010,081,792 bytes.
+  - peak VRAM = unavailable because the verified environment is CPU-only.
+- Real-model Profile integration: 3 tests PASS.
+  - COURSE Topic + Timeline behavior verified.
+  - SOLDIER_CONCERN privacy-safe Topic behavior verified.
+  - MEDIA role Topics + timestamp-aware Trend behavior verified.
 
-That evidence is historical and does not close the post-audit code because scoring, Timeline semantics, Topic identity persistence and evaluation behavior have changed.
+The six full-suite skips are environment-gated tests. The three Phase 11
+RealModelProfile tests among those skips were then executed explicitly with
+`RUN_PHASE8_MODEL_INTEGRATION=1` and all passed. The Phase 11 configured-model
+benchmark was also executed explicitly and passed.
 
-## Closure gate
+## Closure decision
 
-Do not mark Phase 11 CLOSED again until the post-audit HEAD passes:
+Phase 11 engineering scope is complete and satisfies the Phase 11 Definition
+of Done. The post-audit defects in Topic identity, COURSE timeline ordering,
+SOLDIER topic-prevalence scoring, MEDIA trend/recency scoring, Topic
+representation persistence and Topic evaluation semantics are implemented and
+covered by regression/integration evidence.
 
-- compile;
-- focused Topic/Trend/Profile/config tests;
-- PostgreSQL persistence and lifecycle API tests;
-- semantic Topic evaluation;
-- algorithm performance baseline;
-- real configured embedding benchmark;
-- real-model COURSE/SOLDIER_CONCERN/MEDIA profile integration;
-- full regression with no failures/errors.
+Phase 11 is ready for Phase 12 — Async Jobs & Workers.
 
-Human Gold remains a production accuracy dependency and is not replaced by the synthetic regression fixture.
+Human Gold/Human Evaluation is still required before production accuracy,
+final threshold, final model-selection or final scoring-weight claims. The
+real-model CPU performance evidence is a production-readiness baseline, not a
+production latency SLO. These remaining production-validation items do not
+reopen the completed Phase 11 engineering scope.
