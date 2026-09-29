@@ -276,6 +276,19 @@ Gradeهای 1 تا 3 در Precision/Recall relevant هستند و NDCG@10 از g
 """
 
 
+def load_verified_course_cases(
+    materialized_path: Path,
+    *,
+    verification_path: Path = DEFAULT_VERIFICATION,
+) -> tuple[str, list[dict[str, Any]]]:
+    verification = load_verification(verification_path)
+    source_sha, rows = _read_materialized(
+        materialized_path.expanduser().resolve(),
+        verification,
+    )
+    return source_sha, _group_cases(rows, verification, source_sha)
+
+
 def prepare_annotation_package(
     materialized_path: Path,
     output_dir: Path,
