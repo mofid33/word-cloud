@@ -366,7 +366,8 @@ def _diagnose_case(
             )
             continue
 
-        candidate_hits += 1
+        if grade > 0:
+            candidate_hits += 1
         if sem is None or pre_mmr is None:
             raise CourseCandidateEvaluationError(
                 "COURSE diagnostic candidate is missing semantic/fused state"
