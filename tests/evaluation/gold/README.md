@@ -269,3 +269,19 @@ Output برای هر reviewed keyphrase مسیر کامل ranking را نشان 
 
 این diagnostic برای تصمیم مهندسی ranking است و Production Gold یا Human Evaluation محسوب نمی‌شود.
 
+
+
+### COURSE fused-pool sensitivity
+
+بعد از اجرای diagnostic v2، قبل از تغییر `diversity_candidate_pool_size` باید sensitivity فقط روی tuning اندازه‌گیری شود:
+
+```powershell
+python -m unittest tests.evaluation.test_course_pool_sensitivity -v
+
+python -m tests.evaluation.run_course_pool_sensitivity `
+  --materialized "E:\WordCloudGold\course_sources_v1.course_gold_materialized.jsonl" `
+  --review "E:\WordCloudGold\course_model_simulated_human_review_v1.json" `
+  --output "E:\WordCloudGold\course_pool_sensitivity_v1.json"
+```
+
+این ابزار poolهای 25، 50، 100، 200 و 400 را روی pre-MMR fused ranking مقایسه می‌کند و فقط tuning caseها را آماده می‌کند. Holdout مصرف‌شده نباید دوباره برای انتخاب pool استفاده شود.
