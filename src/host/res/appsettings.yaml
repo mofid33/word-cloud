@@ -114,3 +114,17 @@ analysis_profiles:
       semantic_relevance: 0.40
       coverage: 0.25
 
+topic_model:
+  similarity_threshold: 0.58
+  maximum_topics: 12
+
+topic_analysis:
+  representative_keyphrases: 5
+  scoring_version: "phase11-topic-baseline-v1"
+
+trend_analysis:
+  window_days: 7
+  minimum_documents_per_window: 2
+  growth_threshold: 0.10
+  minimum_prevalence: 0.05
+  scoring_version: "phase11-trend-baseline-v1"
