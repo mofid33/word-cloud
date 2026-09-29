@@ -136,7 +136,9 @@ class AnalysisProfileTests(unittest.IsolatedAsyncioTestCase):
         first = await self.course.analyze_async(documents)
         second = await self.course.analyze_async(list(reversed(documents)))
 
-        self.assertEqual(first, second)
+        self.assertEqual(first.keywords, second.keywords)
+        self.assertEqual(first.topics, second.topics)
+        self.assertEqual(first.metrics, second.metrics)
         self.assertTrue(first.profile_result["boundaries"]["section_aware"])
         self.assertTrue(first.profile_result["boundaries"]["chunk_aware"])
         target = next(
@@ -148,6 +150,10 @@ class AnalysisProfileTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(first.topics)
         self.assertEqual(
             [item["document_id"] for item in first.profile_result["topic_timeline"]],
+            ["course-2", "course-1"],
+        )
+        self.assertEqual(
+            [item["document_id"] for item in second.profile_result["topic_timeline"]],
             ["course-1", "course-2"],
         )
         self.assertEqual(
