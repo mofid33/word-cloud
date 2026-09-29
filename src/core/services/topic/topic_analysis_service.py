@@ -274,7 +274,7 @@ class TopicAnalysisService:
                     hits += 1
             if hits == 0:
                 continue
-            member_coverage = hits / len(document_texts)
+            member_coverage = hits / len(document_tokens)
             final_score = self._unit_float(keyword.final_score)
             relevance = 0.65 * member_coverage + 0.35 * final_score
             ranked.append((relevance, keyword))
