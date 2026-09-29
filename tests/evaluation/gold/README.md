@@ -209,3 +209,40 @@ Selection order deterministic است: NDCG@10، سپس Recall@10، Precision@5،
 
 خروجی این runner فقط engineering evidence است و نباید به‌عنوان Production-final weight یا Human Gold closure evidence معرفی شود.
 
+### Frozen holdout runner
+
+پس از پایان tuning، نتیجه‌ی انتخاب وزن قبل از اولین مشاهده holdout در فایل زیر freeze شده است:
+
+`tests/evaluation/gold/course_ai_review_tuning_v1.json`
+
+وزن engineering-selected frozen:
+
+- semantic relevance = 0.375
+- frequency = 0.15
+- chunk coverage = 0.15
+- section coverage = 0.175
+- phrase quality = 0.15
+
+Production/Development config هنوز تغییر نکرده است.
+
+برای اولین ارزیابی holdout:
+
+```powershell
+python -m tests.evaluation.run_course_candidate_holdout `
+  --materialized "E:\WordCloudGold\course_sources_v1.course_gold_materialized.jsonl" `
+  --review "E:\WordCloudGold\course_model_simulated_human_review_v1.json" `
+  --output "E:\WordCloudGold\course_holdout_result_v1.json"
+```
+
+این runner:
+
+- فقط 4 case مربوط به holdout را preprocess/semantic/rank می‌کند؛
+- tuning caseها را prepare یا rank نمی‌کند؛
+- هیچ weight search اجرا نمی‌کند؛
+- baseline و selected frozen weights را روی همان holdout مقایسه می‌کند؛
+- fingerprint source/review را با tuning evidence frozen تطبیق می‌دهد؛
+- تغییر count یا split بعد از freeze را رد می‌کند؛
+- `weights_frozen_before_holdout=true` و `weight_search_performed=false` را در خروجی ثبت می‌کند.
+
+پس از اولین holdout evaluation نباید وزن‌ها با feedback همان holdout دوباره tune شوند. این holdout نیز به دلیل model-simulated بودن labelها فقط engineering evidence است، نه Human Gold.
+
