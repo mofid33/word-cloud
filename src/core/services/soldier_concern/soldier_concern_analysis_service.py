@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from hashlib import sha256
 from typing import Any
 
 from src.core.services.analysis.profile_config import (
@@ -25,6 +26,10 @@ from src.core.services.semantic.semantic_analysis_service import SemanticAnalysi
 from src.core.services.statistical.statistical_analysis_service import (
     StatisticalAnalysisService,
 )
+from src.core.services.topic.topic_analysis_service import (
+    TopicAnalysisService,
+    TopicDocument,
+)
 from src.infrastructure.di.inject import inject
 from src.infrastructure.utils.config_reader import ConfigReader
 
@@ -38,6 +43,7 @@ class SoldierConcernAnalysisService:
         statistical_analysis_service: StatisticalAnalysisService,
         semantic_analysis_service: SemanticAnalysisService,
         hybrid_ranking_service: HybridRankingService,
+        topic_analysis_service: TopicAnalysisService,
         config_reader: ConfigReader,
     ):
         self._processor = persian_text_processor
@@ -45,6 +51,7 @@ class SoldierConcernAnalysisService:
         self._statistical = statistical_analysis_service
         self._semantic = semantic_analysis_service
         self._ranking = hybrid_ranking_service
+        self._topics = topic_analysis_service
         self._config = load_profile_scoring_config(
             config_reader,
             profile_key="soldier_concern",
@@ -172,6 +179,20 @@ class SoldierConcernAnalysisService:
                 }
             )
 
+        topic_result = await self._topics.analyze_async(
+            documents=tuple(
+                TopicDocument(
+                    document_id="sha256:"
+                    + sha256(document["document_id"].encode("utf-8")).hexdigest(),
+                    text=result.embedding_text,
+                    order=index,
+                )
+                for index, (document, result) in enumerate(processed, start=1)
+            ),
+            keywords=tuple(keywords),
+            build_timeline=False,
+        )
+
         return StructuredProfileResult(
             profile="SOLDIER_CONCERN",
             keywords=tuple(keywords),
@@ -215,16 +236,24 @@ class SoldierConcernAnalysisService:
                     }
                     for item in hybrid.deduplicated
                 ],
-                "deferred_to_phase_11": [
-                    "semantic_clustering",
-                    "topic_extraction",
-                    "topic_model_prevalence",
-                    "representative_topic_keyphrases",
-                    "topic_level_wordcloud",
-                ],
+                "topic_analysis": {
+                    "provider": dict(topic_result.provider_metadata),
+                    "scoring_version": topic_result.scoring_version,
+                    "topic_count": len(topic_result.topics),
+                    "document_association": "sha256_document_id_only",
+                    "evaluation_status": "baseline_requires_human_gold_validation",
+                },
             },
-            model_version=self._model_version(semantic),
-            scoring_version=f"{self._config.scoring_version}+{hybrid.scoring_version}",
+            model_version=(
+                self._model_version(semantic)
+                + ";topic:"
+                + str(topic_result.provider_metadata.get("model_identifier") or "unknown")
+            ),
+            scoring_version=(
+                f"{self._config.scoring_version}+{hybrid.scoring_version}+"
+                f"{topic_result.scoring_version}"
+            ),
+            topics=topic_result.topics,
         )
 
     @staticmethod
