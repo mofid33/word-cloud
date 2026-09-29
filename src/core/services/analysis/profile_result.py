@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 
@@ -18,6 +18,26 @@ class ProfileKeywordResult:
 
 
 @dataclass(frozen=True)
+class ProfileTopicKeywordResult:
+    canonical_text: str
+    text: str
+    rank: int
+    relevance_score: float
+
+
+@dataclass(frozen=True)
+class ProfileTopicResult:
+    topic_id: str
+    label: str
+    rank: int
+    prevalence: float
+    coverage: float
+    representative_keyphrases: tuple[ProfileTopicKeywordResult, ...]
+    document_ids: tuple[str, ...]
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
 class StructuredProfileResult:
     profile: str
     keywords: tuple[ProfileKeywordResult, ...]
@@ -25,3 +45,4 @@ class StructuredProfileResult:
     profile_result: dict[str, Any]
     model_version: str
     scoring_version: str
+    topics: tuple[ProfileTopicResult, ...] = ()
