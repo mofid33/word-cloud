@@ -101,7 +101,7 @@ Queue schema فقط orchestration metadata را نگهداری می‌کند.
 
 ```powershell
 python -m compileall -q src tests
-python src/infrastructure/scripts/run_migrations.py --upgrade
+python -m src.infrastructure.scripts.run_migrations --upgrade
 $env:TEST_DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost:5432/word_cloud_test"
 python -m unittest tests.unit.core.services.analysis.test_analysis_queue_job -v
 python -m unittest tests.unit.infrastructure.providers.test_analysis_queue_settings -v
