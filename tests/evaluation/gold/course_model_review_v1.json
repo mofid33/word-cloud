@@ -1,0 +1,11 @@
+{
+  "schema_version": "phase10-course-model-review-verification-v1",
+  "review_status": "MODEL_SIMULATED_HUMAN_REVIEW_NOT_ACTUAL_HUMAN_GOLD",
+  "source_materialized_sha256": "ea6fc2af90570db504cce5e31f594410d4505917aa15289e699c8e59d7f98d78",
+  "review_file_sha256": "9db3195b527c246c5d0c236433eb7761d0a7da218fe4732cdfe94c307c6e8e2b",
+  "case_count": 11,
+  "final_annotation_count": 117,
+  "tuning_case_count": 7,
+  "holdout_case_count": 4,
+  "note": "Metadata only. The AI-reviewed candidate and raw COURSE corpus stay outside the repository and are not Human Gold."
+}
