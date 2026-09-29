@@ -434,6 +434,56 @@ A separate holdout runner now evaluates only the four frozen holdout cases using
 
 The holdout runner performs no weight search and cannot change the selected weights. Its output remains engineering evidence because the underlying labels are model-simulated review labels rather than Human Gold.
 
+First frozen holdout evaluation on 2026-09-29:
+
+- holdout tests: 4/4 PASS;
+- COURSE candidate-evaluation tests: 6/6 PASS;
+- `python -m compileall -q src tests`: PASS;
+- frozen tuning evidence fingerprint matched;
+- source/review fingerprints matched;
+- `weights_frozen_before_holdout=true`;
+- `weight_search_performed=false`;
+- 4/4 frozen holdout cases evaluated.
+
+Holdout baseline:
+
+- candidate-label coverage: 0.8106060606060606;
+- Precision@5: 0.05;
+- Precision@10: 0.10;
+- Recall@10: 0.09911616161616162;
+- NDCG@10: 0.09535312761583294.
+
+Holdout result for the tuning-selected weights:
+
+- Precision@5: 0.05;
+- Precision@10: 0.07500000000000001;
+- Recall@10: 0.07133838383838384;
+- NDCG@10: 0.07066355704214121.
+
+Generalization deltas:
+
+- Precision@5: 0.0;
+- Precision@10: -0.024999999999999994;
+- Recall@10: -0.027777777777777776;
+- NDCG@10: -0.024689570573691727.
+
+Decision:
+
+- the tuning-selected weights are rejected;
+- Development and Production COURSE configuration remain on the pre-tuning baseline;
+- the four holdout cases are now considered consumed for model-selection purposes;
+- the current holdout must not be reused as an unbiased final generalization check after future ranking changes informed by this result;
+- any later generalization claim requires a newly frozen, previously unseen holdout;
+- no Production-final scoring claim is made.
+
+Frozen holdout evidence:
+
+`tests/evaluation/gold/course_ai_review_holdout_v1.json`
+
+A regression guard in `tests/evaluation/test_course_holdout_evidence.py` asserts that the rejected tuning-selected weights are not promoted into either runtime configuration file.
+
+The observed candidate-label coverage remains materially higher than Top-10 recall, so the dominant engineering issue is ranking quality rather than complete candidate-generation failure. However this conclusion is engineering evidence from model-simulated labels only and is not a substitute for Human Gold evaluation.
+
 Phase 10 status therefore remains unchanged.
 
 ## Remaining closure dependency
