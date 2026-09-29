@@ -33,6 +33,7 @@ class ProfileConfigurationTests(unittest.TestCase):
         keys = (
             "analysis_profiles.course.scoring_version",
             "analysis_profiles.course.maximum_results",
+            "analysis_profiles.course.diversity_candidate_pool_size",
             "analysis_profiles.course.weights.semantic_relevance",
             "analysis_profiles.course.weights.frequency",
             "analysis_profiles.course.weights.chunk_coverage",
@@ -40,12 +41,14 @@ class ProfileConfigurationTests(unittest.TestCase):
             "analysis_profiles.course.weights.phrase_quality",
             "analysis_profiles.soldier_concern.scoring_version",
             "analysis_profiles.soldier_concern.maximum_results",
+            "analysis_profiles.soldier_concern.diversity_candidate_pool_size",
             "analysis_profiles.soldier_concern.weights.document_frequency",
             "analysis_profiles.soldier_concern.weights.document_coverage",
             "analysis_profiles.soldier_concern.weights.semantic_relevance",
             "analysis_profiles.soldier_concern.weights.concern_prevalence",
             "analysis_profiles.media.scoring_version",
             "analysis_profiles.media.maximum_results",
+            "analysis_profiles.media.diversity_candidate_pool_size",
             "analysis_profiles.media.weights.mention_share",
             "analysis_profiles.media.weights.semantic_relevance",
             "analysis_profiles.media.weights.coverage",
@@ -55,6 +58,61 @@ class ProfileConfigurationTests(unittest.TestCase):
                 self.development.require(key),
                 self.production.require(key),
                 key,
+            )
+
+    def test_profile_specific_diversity_pools_are_explicit(self) -> None:
+        course = load_profile_scoring_config(
+            self.development,
+            profile_key="course",
+            required_signals=(
+                "semantic_relevance",
+                "frequency",
+                "chunk_coverage",
+                "section_coverage",
+                "phrase_quality",
+            ),
+        )
+        soldier = load_profile_scoring_config(
+            self.development,
+            profile_key="soldier_concern",
+            required_signals=(
+                "document_frequency",
+                "document_coverage",
+                "semantic_relevance",
+                "concern_prevalence",
+            ),
+        )
+        media = load_profile_scoring_config(
+            self.development,
+            profile_key="media",
+            required_signals=(
+                "mention_share",
+                "semantic_relevance",
+                "coverage",
+            ),
+        )
+
+        self.assertEqual(course.diversity_candidate_pool_size, 200)
+        self.assertEqual(soldier.diversity_candidate_pool_size, 50)
+        self.assertEqual(media.diversity_candidate_pool_size, 50)
+
+    def test_profile_pool_cannot_be_smaller_than_maximum_results(self) -> None:
+        with self.assertRaisesRegex(ValueError, "must be >= maximum_results"):
+            load_profile_scoring_config(
+                _OverrideConfig(
+                    self.development,
+                    {
+                        "analysis_profiles.course.diversity_candidate_pool_size": 24,
+                    },
+                ),
+                profile_key="course",
+                required_signals=(
+                    "semantic_relevance",
+                    "frequency",
+                    "chunk_coverage",
+                    "section_coverage",
+                    "phrase_quality",
+                ),
             )
 
     def test_non_finite_profile_weight_is_rejected(self) -> None:
