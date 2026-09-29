@@ -149,6 +149,15 @@ class AnalysisProfileTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(target.signals["chunk_coverage"], 1.0)
         self.assertTrue(first.topics)
         self.assertEqual(
+            first.profile_result["topic_timeline_contract"]["ordering"],
+            "request_document_sequence",
+        )
+        self.assertTrue(
+            first.profile_result["topic_timeline_contract"][
+                "ranking_order_independent"
+            ]
+        )
+        self.assertEqual(
             [item["document_id"] for item in first.profile_result["topic_timeline"]],
             ["course-2", "course-1"],
         )
