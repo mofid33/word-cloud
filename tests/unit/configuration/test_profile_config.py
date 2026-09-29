@@ -52,6 +52,9 @@ class ProfileConfigurationTests(unittest.TestCase):
             "analysis_profiles.media.weights.mention_share",
             "analysis_profiles.media.weights.semantic_relevance",
             "analysis_profiles.media.weights.coverage",
+            "analysis_profiles.media.weights.normalized_engagement",
+            "analysis_profiles.media.weights.trend_growth",
+            "analysis_profiles.media.weights.recency",
         )
         for key in keys:
             self.assertEqual(
