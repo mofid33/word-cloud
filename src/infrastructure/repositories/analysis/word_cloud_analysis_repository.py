@@ -178,7 +178,7 @@ class WordCloudAnalysisRepository(BaseRepository[WordCloudAnalysis]):
                     logical_id = str(item.get("keyword_id") or uuid4())
                     if logical_id in keyword_ids:
                         raise ValueError(
-                            f"Duplicate logical keyword_id: {logical_id}"
+                            "Duplicate logical keyword_id in result graph"
                         )
                     keyword_id = str(uuid4())
                     keyword_ids[logical_id] = keyword_id
@@ -202,7 +202,7 @@ class WordCloudAnalysisRepository(BaseRepository[WordCloudAnalysis]):
                     logical_id = str(item.get("topic_id") or uuid4())
                     if logical_id in topic_ids:
                         raise ValueError(
-                            f"Duplicate logical topic_id: {logical_id}"
+                            "Duplicate logical topic_id in result graph"
                         )
                     topic_id = str(uuid4())
                     topic_ids[logical_id] = topic_id
@@ -225,11 +225,11 @@ class WordCloudAnalysisRepository(BaseRepository[WordCloudAnalysis]):
                     keyword_key = str(item["keyword_id"])
                     if topic_key not in topic_ids:
                         raise ValueError(
-                            f"Unknown topic_id in topic_keywords: {topic_key}"
+                            "Unknown topic_id in topic_keywords"
                         )
                     if keyword_key not in keyword_ids:
                         raise ValueError(
-                            f"Unknown keyword_id in topic_keywords: {keyword_key}"
+                            "Unknown keyword_id in topic_keywords"
                         )
                     session.add(
                         AnalysisTopicKeyword(
