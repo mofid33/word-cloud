@@ -13,7 +13,10 @@ from src.core.services.semantic.providers.reranker_provider import RerankerProvi
 from src.core.services.semantic.semantic_analysis_service import SemanticAnalysisService
 from src.core.services.soldier_concern.soldier_concern_analysis_service import SoldierConcernAnalysisService
 from src.core.services.statistical.statistical_analysis_service import StatisticalAnalysisService
+from src.core.services.topic.topic_analysis_service import TopicAnalysisService
+from src.core.services.trend.trend_analysis_service import TrendAnalysisService
 from src.infrastructure.providers.persian_nlp.persian_nlp_resource_provider import PersianNlpResourceProvider
+from src.infrastructure.providers.topic.semantic_agglomerative_topic_model_provider import SemanticAgglomerativeTopicModelProvider
 from src.infrastructure.utils.config_reader import ConfigReader
 
 
@@ -67,14 +70,17 @@ def build_profile_services():
         config,
     )
     ranking = HybridRankingService(embedding, config)
+    topic_provider = SemanticAgglomerativeTopicModelProvider(embedding, config)
+    topics = TopicAnalysisService(topic_provider, config)
+    trends = TrendAnalysisService(config)
     return {
         "COURSE": CourseAnalysisService(
-            processor, extractor, statistical, semantic, ranking, config
+            processor, extractor, statistical, semantic, ranking, topics, config
         ),
         "SOLDIER_CONCERN": SoldierConcernAnalysisService(
-            processor, extractor, statistical, semantic, ranking, config
+            processor, extractor, statistical, semantic, ranking, topics, config
         ),
         "MEDIA": MediaAnalysisService(
-            processor, extractor, statistical, semantic, ranking, config
+            processor, extractor, statistical, semantic, ranking, topics, trends, config
         ),
     }
