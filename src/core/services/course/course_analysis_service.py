@@ -72,7 +72,10 @@ class CourseAnalysisService:
         self,
         documents: list[dict[str, Any]],
     ) -> StructuredProfileResult:
-        ordered = self._validate_documents(documents)
+        timeline_documents = self._validate_documents(documents)
+        ordered = tuple(
+            sorted(timeline_documents, key=lambda item: item["document_id"])
+        )
         section_enabled = self._scope_enabled(ordered, "section_id")
         chunk_enabled = self._scope_enabled(ordered, "chunk_id")
 
@@ -210,16 +213,23 @@ class CourseAnalysisService:
                 }
             )
 
+        processed_by_id = {
+            document["document_id"]: result
+            for document, result in processed
+        }
         topic_result = await self._topics.analyze_async(
             documents=tuple(
                 TopicDocument(
                     document_id=document["document_id"],
-                    text=result.embedding_text,
+                    text=processed_by_id[document["document_id"]].embedding_text,
                     order=index,
                     section_id=(document.get("metadata") or {}).get("section_id"),
                     chunk_id=(document.get("metadata") or {}).get("chunk_id"),
                 )
-                for index, (document, result) in enumerate(processed, start=1)
+                for index, document in enumerate(
+                    timeline_documents,
+                    start=1,
+                )
             ),
             keywords=tuple(keywords),
             build_timeline=True,
@@ -332,7 +342,7 @@ class CourseAnalysisService:
                     "metadata": dict(metadata),
                 }
             )
-        return tuple(sorted(normalized, key=lambda item: item["document_id"]))
+        return tuple(normalized)
 
     @staticmethod
     def _scope_enabled(
