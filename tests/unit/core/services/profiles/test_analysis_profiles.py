@@ -197,6 +197,9 @@ class AnalysisProfileTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(target.signals["document_frequency"], 2)
         self.assertEqual(target.signals["document_coverage"], 1.0)
+        self.assertIn("topic_prevalence", target.signals)
+        self.assertGreaterEqual(target.signals["topic_prevalence"], 0.0)
+        self.assertLessEqual(target.signals["topic_prevalence"], 1.0)
         self.assertTrue(result.profile_result["document_independence"])
         self.assertTrue(result.topics)
         self.assertTrue(
@@ -259,6 +262,25 @@ class AnalysisProfileTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertTrue(result.topics)
         self.assertIn("content_audience_gap", result.profile_result)
+        canonical_keywords = {
+            item.canonical_text
+            for item in result.keywords
+        }
+        self.assertEqual(len(canonical_keywords), len(result.keywords))
+        self.assertTrue(
+            all(
+                representative.canonical_text in canonical_keywords
+                for topic in result.topics
+                for representative in topic.representative_keyphrases
+            )
+        )
+        self.assertTrue(
+            all(
+                item.signals["trend_growth"] is None
+                and item.signals["recency"] is None
+                for item in result.keywords
+            )
+        )
 
     async def test_media_trend_uses_real_timestamps_and_classifies_topics(self):
         result = await self.media.analyze_async([
@@ -339,6 +361,29 @@ class AnalysisProfileTests(unittest.IsolatedAsyncioTestCase):
                 )
             )
             self.assertIsNotNone(trend["comparison_end"])
+
+        topic_ids = {topic.topic_id for topic in result.topics}
+        self.assertTrue(topic_ids)
+        self.assertTrue(
+            all(
+                trend_item["topic_id"] in topic_ids
+                for role in ("published_content", "audience_feedback")
+                for trend_item in result.profile_result["roles"][role]["trend"]["trends"]
+            )
+        )
+        self.assertTrue(
+            any(item.signals["recency"] is not None for item in result.keywords)
+        )
+        self.assertTrue(
+            all(
+                item.signals["trend_growth"] is not None
+                for item in result.keywords
+            )
+        )
+        for item in result.profile_result["content_audience_gap"]["items"]:
+            self.assertIn(item["audience_topic_id"], topic_ids)
+            if item["best_content_topic_id"] is not None:
+                self.assertIn(item["best_content_topic_id"], topic_ids)
 
     async def test_media_rejects_unknown_role(self):
         with self.assertRaisesRegex(ValueError, "metadata.role"):
