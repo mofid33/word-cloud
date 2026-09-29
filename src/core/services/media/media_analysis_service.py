@@ -240,6 +240,9 @@ class MediaAnalysisService:
             semantic,
             weights=fusion_weights,
             maximum_results=self._config.maximum_results,
+            diversity_candidate_pool_size=(
+                self._config.diversity_candidate_pool_size
+            ),
         )
         stats_by_id = {item.canonical_text: item for item in profile_statistics}
         semantic_by_id = {item.canonical_text: item for item in semantic.candidates}
