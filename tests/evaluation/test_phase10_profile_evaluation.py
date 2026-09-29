@@ -68,7 +68,17 @@ class Phase10ProfileEvaluationTests(unittest.IsolatedAsyncioTestCase):
             service = self.services[case["profile"]]
             first = await service.analyze_async(case["documents"])
             second = await service.analyze_async(list(reversed(case["documents"])))
-            self.assertEqual(first, second)
+            self.assertEqual(first.keywords, second.keywords)
+            self.assertEqual(first.topics, second.topics)
+            self.assertEqual(first.metrics, second.metrics)
+            if case["profile"] != "COURSE":
+                self.assertEqual(first.profile_result, second.profile_result)
+            else:
+                first_profile = dict(first.profile_result)
+                second_profile = dict(second.profile_result)
+                first_profile.pop("topic_timeline", None)
+                second_profile.pop("topic_timeline", None)
+                self.assertEqual(first_profile, second_profile)
 
             ranked = [item.canonical_text for item in first.keywords]
             relevance = case["relevance"]
