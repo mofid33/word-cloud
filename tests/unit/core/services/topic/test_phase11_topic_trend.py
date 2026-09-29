@@ -213,7 +213,7 @@ class Phase11TopicTrendTests(unittest.IsolatedAsyncioTestCase):
                 ),
                 ProfileKeywordResult(
                     text="کیفیت اینترنت",
-                    canonical_text="کیفیت اینترنت",
+                    canonical_text="کیفیت_اینترنت",
                     rank=2,
                     final_score=0.9,
                     statistical_score=0.9,
@@ -232,7 +232,7 @@ class Phase11TopicTrendTests(unittest.IsolatedAsyncioTestCase):
             for item in topic.representative_keyphrases
         }
         self.assertNotIn("نت", representatives)
-        self.assertIn("کیفیت اینترنت", representatives)
+        self.assertIn("کیفیت_اینترنت", representatives)
 
     async def test_soldier_style_ids_do_not_require_raw_text_in_results(self):
         provider = SemanticAgglomerativeTopicModelProvider(
