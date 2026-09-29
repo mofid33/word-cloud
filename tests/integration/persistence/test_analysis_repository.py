@@ -341,6 +341,55 @@ class AnalysisRepositoryIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(completed.topics[0].keyword_links), 1)
         self.assertEqual(completed.metrics["document_count"], 1)
 
+    async def test_duplicate_logical_result_identifiers_are_rejected(self) -> None:
+        pending = await self.repository.create_pending_async(
+            analysis_type="COURSE",
+            execution_mode="sync",
+            documents=[
+                {"document_id": "doc-duplicate-id", "text": "content", "metadata": {}}
+            ],
+        )
+
+        with self.assertRaisesRegex(ValueError, "Duplicate logical keyword_id"):
+            await self.repository.save_result_atomically_async(
+                analysis_id=pending.id,
+                keywords=[
+                    {
+                        "keyword_id": "duplicate-keyword",
+                        "text": "الف",
+                        "canonical_text": "الف",
+                        "rank": 1,
+                        "final_score": 0.9,
+                        "statistical_score": 0.9,
+                        "semantic_score": 0.9,
+                        "coverage": 1.0,
+                        "frequency": 1,
+                    },
+                    {
+                        "keyword_id": "duplicate-keyword",
+                        "text": "ب",
+                        "canonical_text": "ب",
+                        "rank": 2,
+                        "final_score": 0.8,
+                        "statistical_score": 0.8,
+                        "semantic_score": 0.8,
+                        "coverage": 1.0,
+                        "frequency": 1,
+                    },
+                ],
+                topics=[],
+                topic_keywords=[],
+                metrics={},
+                profile_result={},
+                model_version="test-model",
+                scoring_version="test-scoring",
+            )
+
+        reloaded = await self.repository.get_aggregate_by_id_async(pending.id)
+        assert reloaded is not None
+        self.assertEqual(reloaded.keywords, [])
+        self.assertEqual(reloaded.topics, [])
+
     async def test_failed_result_write_rolls_back_entire_graph(self) -> None:
         pending = await self.repository.create_pending_async(
             analysis_type="COURSE",
