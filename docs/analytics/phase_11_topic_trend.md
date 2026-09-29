@@ -15,7 +15,7 @@ No Phase 10 Human Gold data or acceptance state is changed by Phase 11.
 - Real semantic agglomerative clustering backed by the existing EmbeddingProvider.
 - Singleton/load-once lifecycle through DI discovery; no per-request model construction.
 - Topic representation, prevalence, coverage and representative keyphrases.
-- COURSE topic timeline based on actual request ordering and section/chunk metadata.
+- COURSE topic timeline based on the same deterministic canonical document ordering preserved from Phase 10, with section/chunk metadata retained.
 - SOLDIER_CONCERN semantic topic clustering while preserving independent-document semantics.
 - SOLDIER topic document association persists only SHA-256 document identifiers.
 - MEDIA published_content and audience_feedback topic analysis remain separate.
