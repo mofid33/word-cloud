@@ -87,7 +87,7 @@ hybrid_ranking:
 
 analysis_profiles:
   course:
-    scoring_version: "phase10-course-baseline-v1"
+    scoring_version: "phase10-course-baseline-v2"
     maximum_results: 25
     diversity_candidate_pool_size: 200
     weights:
