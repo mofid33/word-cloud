@@ -94,6 +94,58 @@ class SemanticAnalysisServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(result.candidates[-1].reranked)
         self.assertEqual(result.candidates[-1].bi_encoder_score, 0.0)
 
+    async def test_reranker_reorders_top_n_without_cross_scale_demotion(self):
+        class CalibrationEmbedding(EmbeddingProvider):
+            @property
+            def metadata(self):
+                return _METADATA
+
+            async def embed_async(self, texts):
+                mapping = {
+                    "زمینه": (1.0, 0.0),
+                    "الف": (1.0, 0.0),
+                    "ب": (0.9, 0.1),
+                    "پ": (0.7, 0.3),
+                }
+                return tuple(mapping[text] for text in texts)
+
+        class CalibrationReranker(RerankerProvider):
+            @property
+            def metadata(self):
+                return _METADATA
+
+            async def rerank_async(self, query, candidates):
+                values = {"الف": 0.01, "ب": 0.99}
+                return tuple(values[candidate] for candidate in candidates)
+
+        service = SemanticAnalysisService(
+            CalibrationEmbedding(),
+            CalibrationReranker(),
+            _Config(top_n=2),
+        )
+        result = await service.analyze_async(
+            "زمینه",
+            tuple(_candidate(text) for text in ("الف", "ب", "پ")),
+        )
+
+        self.assertEqual(
+            [item.canonical_text for item in result.candidates],
+            ["ب", "الف", "پ"],
+        )
+        by_id = {
+            item.canonical_text: item
+            for item in result.candidates
+        }
+        self.assertEqual(by_id["الف"].reranker_score, 0.01)
+        self.assertGreater(
+            by_id["الف"].semantic_score,
+            by_id["پ"].semantic_score,
+        )
+        self.assertEqual(
+            result.semantic_score_strategy,
+            "reranker_order_with_bi_encoder_top_n_score_calibration",
+        )
+
     async def test_empty_candidates_is_valid(self):
         service = SemanticAnalysisService(_Embedding(), _Reranker(), _Config())
         result = await service.analyze_async("", ())
