@@ -31,6 +31,7 @@ class _FakeEngine:
         self._baseline = ProfileScoringConfig(
             scoring_version="test",
             maximum_results=25,
+            diversity_candidate_pool_size=200,
             weights=dict(_BASELINE),
         )
 
