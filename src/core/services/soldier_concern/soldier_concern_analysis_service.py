@@ -255,6 +255,9 @@ class SoldierConcernAnalysisService:
                     "scoring_version": topic_result.scoring_version,
                     "topic_count": len(topic_result.topics),
                     "document_association": "sha256_document_id_only",
+                    "candidate_topic_prevalence_strategy": (
+                        "candidate_document_membership_weighted_topic_prevalence"
+                    ),
                     "evaluation_status": "baseline_requires_human_gold_validation",
                 },
             },
