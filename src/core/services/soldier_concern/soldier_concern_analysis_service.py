@@ -43,8 +43,9 @@ class SoldierConcernAnalysisService:
         statistical_analysis_service: StatisticalAnalysisService,
         semantic_analysis_service: SemanticAnalysisService,
         hybrid_ranking_service: HybridRankingService,
-        topic_analysis_service: TopicAnalysisService,
         config_reader: ConfigReader,
+        *,
+        topic_analysis_service: TopicAnalysisService,
     ):
         self._processor = persian_text_processor
         self._extractor = candidate_extraction_service
