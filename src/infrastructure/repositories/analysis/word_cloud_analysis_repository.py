@@ -176,6 +176,10 @@ class WordCloudAnalysisRepository(BaseRepository[WordCloudAnalysis]):
                 keyword_ids: dict[str, str] = {}
                 for item in keywords:
                     logical_id = str(item.get("keyword_id") or uuid4())
+                    if logical_id in keyword_ids:
+                        raise ValueError(
+                            f"Duplicate logical keyword_id: {logical_id}"
+                        )
                     keyword_id = str(uuid4())
                     keyword_ids[logical_id] = keyword_id
                     session.add(
@@ -196,6 +200,10 @@ class WordCloudAnalysisRepository(BaseRepository[WordCloudAnalysis]):
                 topic_ids: dict[str, str] = {}
                 for item in topics:
                     logical_id = str(item.get("topic_id") or uuid4())
+                    if logical_id in topic_ids:
+                        raise ValueError(
+                            f"Duplicate logical topic_id: {logical_id}"
+                        )
                     topic_id = str(uuid4())
                     topic_ids[logical_id] = topic_id
                     metadata = dict(item.get("metadata") or {})
