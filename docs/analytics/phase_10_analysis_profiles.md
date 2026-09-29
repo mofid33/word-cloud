@@ -486,6 +486,18 @@ The observed candidate-label coverage remains materially higher than Top-10 reca
 
 Phase 10 status therefore remains unchanged.
 
+Post-holdout local verification on 2026-09-29:
+
+- `python -m unittest tests.evaluation.test_course_holdout_evidence -v`: 2/2 PASS;
+- `python -m unittest tests.evaluation.test_course_candidate_holdout -v`: 4/4 PASS;
+- `python -m unittest tests.evaluation.test_course_candidate_evaluation -v`: 6/6 PASS;
+- `python -m compileall -q src tests`: PASS;
+- rejected tuning weights remain absent from both runtime config files;
+- frozen holdout boundary checks remain active;
+- no FAIL and no ERROR were observed in these focused verification commands.
+
+This confirms the engineering decision that the tuning-selected COURSE weights must remain rejected and the current baseline configuration must remain active until stronger evidence exists.
+
 ## Remaining closure dependency
 
 Runtime/local verification is complete.
