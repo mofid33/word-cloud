@@ -103,6 +103,7 @@ class Phase11TopicEvaluationTests(unittest.IsolatedAsyncioTestCase):
             keywords=keywords,
             build_timeline=False,
         )
+        self.assertTrue(result.topics)
 
         semantic_coherence = (
             sum(float(topic.metadata["cohesion"]) for topic in result.topics)
