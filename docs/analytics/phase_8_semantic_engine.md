@@ -457,3 +457,27 @@ Phase 8 is therefore CLOSED.
 Current readiness marker:
 
 `PHASE_8_COMPLETE_READY_FOR_PHASE_9`
+
+
+## Semantic score calibration correction — Phase 10 diagnostic follow-up
+
+Phase 10 tuning-only diagnostics exposed a comparability defect in the original Phase 8 semantic score strategy.
+
+Previously, Top-N candidates used raw sigmoid-normalized Cross-Encoder scores as `semantic_score`, while candidates outside Top-N used normalized cosine Bi-Encoder scores. Both were bounded to `[0,1]`, but they were not calibrated to the same distribution. A relevant Top-N candidate could therefore receive a low reranker probability and be ranked below hundreds of non-reranked candidates whose normalized cosine scores were numerically larger.
+
+The corrected strategy is:
+
+`reranker_order_with_bi_encoder_top_n_score_calibration`
+
+Behavior:
+
+- Bi-Encoder still selects Top-N.
+- Cross-Encoder still reorders those Top-N candidates.
+- Raw `reranker_score` remains exposed for reproducibility/diagnostics.
+- The reordered Top-N are assigned the original Top-N Bi-Encoder score slots in reranker order.
+- Candidates outside Top-N keep their Bi-Encoder score.
+- Therefore Cross-Encoder changes ordering inside the selected Top-N window without introducing an uncalibrated numeric scale against fallback candidates.
+
+This correction does not introduce a learned blend or a new model. It fixes score comparability while preserving the documented Candidates → Bi-Encoder → Top-N → Cross-Encoder architecture.
+
+Local regression and real-model re-evaluation are required after pulling this correction.
