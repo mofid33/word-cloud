@@ -198,6 +198,8 @@ class WordCloudAnalysisRepository(BaseRepository[WordCloudAnalysis]):
                     logical_id = str(item.get("topic_id") or uuid4())
                     topic_id = str(uuid4())
                     topic_ids[logical_id] = topic_id
+                    metadata = dict(item.get("metadata") or {})
+                    metadata["logical_topic_id"] = logical_id
                     session.add(
                         AnalysisTopic(
                             id=topic_id,
@@ -206,7 +208,7 @@ class WordCloudAnalysisRepository(BaseRepository[WordCloudAnalysis]):
                             rank=int(item["rank"]),
                             prevalence=float(item["prevalence"]),
                             coverage=float(item["coverage"]),
-                            metadata_json=dict(item.get("metadata") or {}),
+                            metadata_json=metadata,
                         )
                     )
 
