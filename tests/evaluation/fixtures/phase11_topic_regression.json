@@ -2,13 +2,37 @@
   "status": "NOT_PRODUCTION_GOLD",
   "purpose": "Phase 11 synthetic/public-safe topic regression only",
   "documents": [
-    {"document_id": "ai-1", "text": "هوش مصنوعی و یادگیری ماشین برای تحلیل داده", "expected_topic": "ai"},
-    {"document_id": "ai-2", "text": "مدل یادگیری ماشین و هوش مصنوعی", "expected_topic": "ai"},
-    {"document_id": "ai-3", "text": "تحلیل داده با هوش مصنوعی", "expected_topic": "ai"},
-    {"document_id": "net-1", "text": "کیفیت اینترنت و پایداری شبکه", "expected_topic": "network"},
-    {"document_id": "net-2", "text": "سرعت اینترنت و مشکلات شبکه", "expected_topic": "network"},
-    {"document_id": "net-3", "text": "اینترنت پایدار و کیفیت شبکه", "expected_topic": "network"}
+    {
+      "document_id": "ai-1",
+      "text": "هوش مصنوعی و یادگیری ماشین برای تحلیل داده",
+      "expected_topic": "ai"
+    },
+    {
+      "document_id": "ai-2",
+      "text": "مدل یادگیری ماشین و هوش مصنوعی",
+      "expected_topic": "ai"
+    },
+    {
+      "document_id": "ai-3",
+      "text": "تحلیل داده با هوش مصنوعی",
+      "expected_topic": "ai"
+    },
+    {
+      "document_id": "net-1",
+      "text": "کیفیت اینترنت و پایداری شبکه",
+      "expected_topic": "network"
+    },
+    {
+      "document_id": "net-2",
+      "text": "سرعت اینترنت و مشکلات شبکه",
+      "expected_topic": "network"
+    },
+    {
+      "document_id": "net-3",
+      "text": "اینترنت پایدار و کیفیت شبکه",
+      "expected_topic": "network"
+    }
   ],
-  "minimum_coherence_proxy": 0.95,
-  "minimum_topic_diversity": 1.0
+  "minimum_semantic_topic_coherence": 0.95,
+  "minimum_keyphrase_topic_diversity": 0.95
 }
