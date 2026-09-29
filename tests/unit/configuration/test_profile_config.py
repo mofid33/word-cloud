@@ -45,7 +45,7 @@ class ProfileConfigurationTests(unittest.TestCase):
             "analysis_profiles.soldier_concern.weights.document_frequency",
             "analysis_profiles.soldier_concern.weights.document_coverage",
             "analysis_profiles.soldier_concern.weights.semantic_relevance",
-            "analysis_profiles.soldier_concern.weights.concern_prevalence",
+            "analysis_profiles.soldier_concern.weights.topic_prevalence",
             "analysis_profiles.media.scoring_version",
             "analysis_profiles.media.maximum_results",
             "analysis_profiles.media.diversity_candidate_pool_size",
@@ -79,7 +79,7 @@ class ProfileConfigurationTests(unittest.TestCase):
                 "document_frequency",
                 "document_coverage",
                 "semantic_relevance",
-                "concern_prevalence",
+                "topic_prevalence",
             ),
         )
         media = load_profile_scoring_config(
@@ -89,6 +89,9 @@ class ProfileConfigurationTests(unittest.TestCase):
                 "mention_share",
                 "semantic_relevance",
                 "coverage",
+                "normalized_engagement",
+                "trend_growth",
+                "recency",
             ),
         )
 
@@ -131,6 +134,9 @@ class ProfileConfigurationTests(unittest.TestCase):
                             "mention_share",
                             "semantic_relevance",
                             "coverage",
+                            "normalized_engagement",
+                            "trend_growth",
+                            "recency",
                         ),
                     )
 
@@ -148,7 +154,7 @@ class ProfileConfigurationTests(unittest.TestCase):
                     "document_frequency",
                     "document_coverage",
                     "semantic_relevance",
-                    "concern_prevalence",
+                    "topic_prevalence",
                 ),
             )
 
