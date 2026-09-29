@@ -50,6 +50,15 @@ class _Embedding(EmbeddingProvider):
         return tuple(result)
 
 
+class _CountingEmbedding(_Embedding):
+    def __init__(self):
+        self.calls = 0
+
+    async def embed_async(self, texts):
+        self.calls += 1
+        return await super().embed_async(texts)
+
+
 class _InvalidEmbedding(EmbeddingProvider):
     @property
     def metadata(self):
@@ -169,6 +178,61 @@ class Phase11TopicTrendTests(unittest.IsolatedAsyncioTestCase):
             ai_topic.representative_keyphrases[0].canonical_text,
             "هوش مصنوعی",
         )
+
+    async def test_topic_representation_enrichment_does_not_reembed_and_uses_token_boundaries(self):
+        embedding = _CountingEmbedding()
+        provider = SemanticAgglomerativeTopicModelProvider(
+            embedding,
+            self.config,
+        )
+        service = TopicAnalysisService(provider, self.config)
+        documents = (
+            TopicDocument("d1", "کیفیت اینترنت", 1),
+            TopicDocument("d2", "اینترنت پایدار", 2),
+        )
+        clustered = await service.analyze_async(
+            documents=documents,
+            keywords=(),
+        )
+        self.assertEqual(embedding.calls, 1)
+
+        enriched = service.enrich_result(
+            result=clustered,
+            documents=documents,
+            keywords=(
+                ProfileKeywordResult(
+                    text="نت",
+                    canonical_text="نت",
+                    rank=1,
+                    final_score=1.0,
+                    statistical_score=1.0,
+                    semantic_score=1.0,
+                    coverage=1.0,
+                    frequency=2,
+                    signals={},
+                ),
+                ProfileKeywordResult(
+                    text="کیفیت اینترنت",
+                    canonical_text="کیفیت اینترنت",
+                    rank=2,
+                    final_score=0.9,
+                    statistical_score=0.9,
+                    semantic_score=0.9,
+                    coverage=0.5,
+                    frequency=1,
+                    signals={},
+                ),
+            ),
+        )
+
+        self.assertEqual(embedding.calls, 1)
+        representatives = {
+            item.canonical_text
+            for topic in enriched.topics
+            for item in topic.representative_keyphrases
+        }
+        self.assertNotIn("نت", representatives)
+        self.assertIn("کیفیت اینترنت", representatives)
 
     async def test_soldier_style_ids_do_not_require_raw_text_in_results(self):
         provider = SemanticAgglomerativeTopicModelProvider(
