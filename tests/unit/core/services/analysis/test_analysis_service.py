@@ -123,6 +123,57 @@ class AnalysisServiceTests(unittest.TestCase):
 
         asyncio.run(run())
 
+    def test_media_rejects_partial_or_naive_timestamps(self) -> None:
+        partial = [
+            {
+                "document_id": "a",
+                "text": "متن",
+                "metadata": {
+                    "role": "published_content",
+                    "published_at": "2026-09-28T10:00:00+00:00",
+                },
+            },
+            {
+                "document_id": "b",
+                "text": "متن",
+                "metadata": {"role": "published_content"},
+            },
+        ]
+        with self.assertRaises(AnalysisRequestValidationError) as partial_error:
+            asyncio.run(
+                self.service.validate_async(
+                    analysis_type="MEDIA",
+                    execution_mode="auto",
+                    documents=partial,
+                )
+            )
+        self.assertEqual(
+            partial_error.exception.code,
+            "media_partial_timestamp_metadata",
+        )
+
+        with self.assertRaises(AnalysisRequestValidationError) as naive_error:
+            asyncio.run(
+                self.service.validate_async(
+                    analysis_type="MEDIA",
+                    execution_mode="auto",
+                    documents=[
+                        {
+                            "document_id": "a",
+                            "text": "متن",
+                            "metadata": {
+                                "role": "published_content",
+                                "published_at": "2026-09-28T10:00:00",
+                            },
+                        }
+                    ],
+                )
+            )
+        self.assertEqual(
+            naive_error.exception.code,
+            "media_invalid_published_at",
+        )
+
     def test_returns_request_metrics_without_retaining_raw_text(self) -> None:
         async def run() -> None:
             result = await self.service.validate_async(
@@ -271,11 +322,12 @@ class AnalysisServiceTests(unittest.TestCase):
             relevance_score=0.95,
         )
         topic = SimpleNamespace(
-            id="topic-1",
+            id="database-topic-uuid",
             label="فناوری",
             rank=1,
             prevalence=0.8,
             coverage=1.0,
+            metadata_json={"logical_topic_id": "topic-1"},
             keyword_links=[link],
         )
         self.repository.analysis = SimpleNamespace(
@@ -305,6 +357,7 @@ class AnalysisServiceTests(unittest.TestCase):
         self.assertIsNone(result.analysis.error)
         self.assertEqual(result.keywords[0].rank, 1)
         self.assertEqual(result.topics[0].keywords[0].text, "هوش مصنوعی")
+        self.assertEqual(result.topics[0].topic_id, "topic-1")
         self.assertEqual(result.metrics["document_count"], 1)
         self.assertEqual(result.profile_result["kind"], "course")
 
