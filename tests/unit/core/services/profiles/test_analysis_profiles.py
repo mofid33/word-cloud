@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+from types import SimpleNamespace
 import unittest
 
 from src.core.services.analysis.profile_config import load_profile_scoring_config
@@ -224,6 +225,35 @@ class AnalysisProfileTests(unittest.IsolatedAsyncioTestCase):
             ],
             50,
         )
+
+    def test_soldier_topic_prevalence_signal_uses_cluster_membership(self):
+        candidate = SimpleNamespace(
+            occurrences=(
+                SimpleNamespace(document_id="a"),
+                SimpleNamespace(document_id="b"),
+            )
+        )
+        topics = (
+            SimpleNamespace(
+                document_ids=(
+                    self.soldier._private_document_id("a"),
+                    self.soldier._private_document_id("c"),
+                    self.soldier._private_document_id("d"),
+                ),
+                prevalence=0.75,
+            ),
+            SimpleNamespace(
+                document_ids=(self.soldier._private_document_id("b"),),
+                prevalence=0.25,
+            ),
+        )
+
+        value = self.soldier._candidate_topic_prevalence(
+            candidate,
+            topics,
+        )
+
+        self.assertAlmostEqual(value, 0.5)
 
     async def test_soldier_result_does_not_retain_raw_document_text(self):
         raw = "عبارت محرمانه بلند برای بررسی عدم نگهداری متن کامل"
