@@ -285,3 +285,18 @@ python -m tests.evaluation.run_course_pool_sensitivity `
 ```
 
 این ابزار poolهای 25، 50، 100، 200 و 400 را روی pre-MMR fused ranking مقایسه می‌کند و فقط tuning caseها را آماده می‌کند. Holdout مصرف‌شده نباید دوباره برای انتخاب pool استفاده شود.
+
+
+### COURSE pool decision after sensitivity
+
+نتیجه sensitivity روی 7 tuning case:
+
+- pool 25: 12/70 generated relevant label داخل pre-MMR pool؛
+- pool 50: 14/70؛
+- pool 100: 15/70؛
+- pool 200: 30/70؛
+- pool 400: 36/70.
+
+بر این اساس COURSE به‌صورت profile-specific از `diversity_candidate_pool_size=200` استفاده می‌کند. SOLDIER_CONCERN و MEDIA روی 50 باقی می‌مانند و global Hybrid Ranking default نیز 50 است.
+
+این تصمیم از holdout مصرف‌شده استفاده نکرده است. پس از این تغییر، باید focused tests، real COURSE model smoke و full regression اجرا شوند. Holdout قبلی نباید دوباره برای tuning یا انتخاب pool استفاده شود.
