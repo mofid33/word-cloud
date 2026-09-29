@@ -162,3 +162,50 @@ Working package شامل:
 
 Package باید خارج از repository نوشته شود. Model output، synthetic fixture و annotation نفر دیگر در annotation مستقل نباید به annotator نمایش داده شود.
 
+## COURSE AI-reviewed engineering candidate
+
+برای ارزیابی مهندسی قبل از Human Gold نهایی، یک candidate جداگانه با وضعیت زیر پشتیبانی می‌شود:
+
+`MODEL_SIMULATED_HUMAN_REVIEW_NOT_ACTUAL_HUMAN_GOLD`
+
+این candidate جای Human Annotation یا adjudication را نمی‌گیرد و توسط `run_phase10_gold_evaluation.py` نیز به‌عنوان Gold پذیرفته نمی‌شود. مسیر Gold رسمی عمداً سخت‌گیرانه باقی مانده است.
+
+Verification metadata:
+
+`tests/evaluation/gold/course_model_review_v1.json`
+
+Fingerprintهای frozen:
+
+- source materialized SHA-256: `ea6fc2af90570db504cce5e31f594410d4505917aa15289e699c8e59d7f98d78`;
+- model-review JSON SHA-256: `9db3195b527c246c5d0c236433eb7761d0a7da218fe4732cdfe94c307c6e8e2b`;
+- 11 case؛
+- 117 relevance label مثبت؛
+- 7 tuning case؛
+- 4 frozen holdout case.
+
+Raw corpus و فایل model-review باید خارج از repository بمانند.
+
+### Tuning runner
+
+Runner زیر فقط split `tuning` را prepare/rank می‌کند و holdout را صرفاً برای integrity/count verification می‌خواند. هیچ holdout case وارد semantic analysis، ranking یا weight selection نمی‌شود:
+
+```powershell
+python -m tests.evaluation.run_course_candidate_tuning `
+  --materialized "E:\WordCloudGold\course_sources_v1.course_gold_materialized.jsonl" `
+  --review "E:\WordCloudGold\course_model_simulated_human_review_v1.json" `
+  --output "E:\WordCloudGold\course_tuning_result_v1.json"
+```
+
+Metricها همان implementation موجود Phase 10 هستند:
+
+- Precision@5
+- Precision@10
+- Recall@10
+- NDCG@10
+
+Tuner ابتدا semantic analysis هر tuning case را یک‌بار آماده می‌کند و سپس weight candidateها را با Hybrid Ranking واقعی مقایسه می‌کند. `chunk_coverage` در این source pool ثابت می‌ماند، چون materialized corpus دارای section boundary واقعی است ولی chunk boundary مستقل ندارد. وزن‌های قابل تنظیم در این runner عبارت‌اند از semantic relevance، frequency، section coverage و phrase quality.
+
+Selection order deterministic است: NDCG@10، سپس Recall@10، Precision@5، Precision@10، کمترین L1 distance از baseline و در نهایت signature قطعی وزن‌ها.
+
+خروجی این runner فقط engineering evidence است و نباید به‌عنوان Production-final weight یا Human Gold closure evidence معرفی شود.
+
