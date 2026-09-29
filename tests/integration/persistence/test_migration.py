@@ -35,7 +35,7 @@ def _test_database_url() -> str | None:
     "TEST_DATABASE_URL is required for migration integration tests",
 )
 class MigrationIntegrationTests(unittest.IsolatedAsyncioTestCase):
-    async def test_upgrade_creates_and_downgrade_removes_phase_four_schema(self) -> None:
+    async def test_upgrade_creates_and_downgrade_removes_current_schema(self) -> None:
         url = _test_database_url()
         assert url is not None
 
@@ -61,6 +61,7 @@ class MigrationIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     "analysis_keyword",
                     "analysis_topic",
                     "analysis_topic_keyword",
+                    "analysis_queue_job",
                     "alembic_version",
                 }.issubset(table_names)
             )
@@ -78,6 +79,7 @@ class MigrationIntegrationTests(unittest.IsolatedAsyncioTestCase):
                     )
                 )
             self.assertNotIn("word_cloud_analysis", table_names)
+            self.assertNotIn("analysis_queue_job", table_names)
         finally:
             await engine.dispose()
 

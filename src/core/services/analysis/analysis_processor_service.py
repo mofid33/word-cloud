@@ -42,6 +42,7 @@ class AnalysisProcessorService:
         analysis_type: str,
         documents: list[dict[str, Any]],
     ) -> StructuredProfileResult:
+        self._service_for(analysis_type)
         await self._repository.mark_processing_async(analysis_id)
         try:
             return await self.process_claimed_async(

@@ -393,7 +393,7 @@ class AnalysisServiceTests(unittest.TestCase):
                     documents=[
                         {
                             "document_id": "private-1",
-                            "text": "SENSITIVE-SOLDIER-TEXT",
+                            "text": "SECRET",
                             "metadata": {},
                         }
                     ],
@@ -406,7 +406,7 @@ class AnalysisServiceTests(unittest.TestCase):
         self.assertIsNone(self.repository.last_create)
         self.assertEqual(self.queue.messages, [])
         self.assertNotIn(
-            "SENSITIVE-SOLDIER-TEXT",
+            "SECRET",
             str(context.exception),
         )
 
