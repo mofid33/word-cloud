@@ -14,3 +14,9 @@ venv/
 phase10_gold_materialized/
 *.course_gold_materialized.jsonl
 
+# Phase 10 COURSE annotation/review/evaluation artifacts stay outside version control.
+course_annotation_package_v1/
+course_ai_annotation_draft_v1.*
+course_ai_reviewed_candidate_v1.*
+course_model_simulated_human_review_v1.*
+course_tuning_result_v1.json
