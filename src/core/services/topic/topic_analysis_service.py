@@ -98,7 +98,6 @@ class TopicAnalysisService:
         }
 
         topics: list[ProfileTopicResult] = []
-        cluster_to_topic: dict[str, str] = {}
         for rank, cluster in enumerate(model_result.clusters, start=1):
             member_ids = tuple(cluster.document_ids)
             member_set = set(member_ids)
@@ -111,7 +110,6 @@ class TopicAnalysisService:
             members = tuple(by_id[document_id] for document_id in member_ids)
             representative = self._representative_keyphrases(members, keywords)
             topic_id = cluster.cluster_id
-            cluster_to_topic[cluster.cluster_id] = topic_id
             prevalence = len(member_ids) / len(materialized)
             coverage = self._coverage(
                 members,
