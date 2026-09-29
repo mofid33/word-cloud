@@ -352,6 +352,46 @@ COURSE human-annotation preparation is now implemented:
 
 COURSE sub-status: source selection/materialization and annotation tooling are ready; human annotations and adjudication are still pending.
 
+## COURSE AI-reviewed engineering tuning path
+
+A separate non-Gold evaluation/tuning path is implemented to support engineering analysis of the model-simulated review without weakening the Human Gold contract.
+
+Status marker for the external review candidate:
+
+`MODEL_SIMULATED_HUMAN_REVIEW_NOT_ACTUAL_HUMAN_GOLD`
+
+Implemented files:
+
+- `tests/evaluation/gold/course_model_review_v1.json`: metadata-only fingerprint/count verification for the external review candidate;
+- `tests/evaluation/course_candidate_evaluation.py`: strict external-file loader, review/source fingerprint checks, section-aware tuning preparation, Phase-10 metric reuse and deterministic weight search;
+- `tests/evaluation/run_course_candidate_tuning.py`: real-DI tuning runner;
+- `tests/evaluation/test_course_candidate_evaluation.py`: split-isolation, fingerprint drift, weight-simplex and baseline-parity regression tests.
+
+Safety/evaluation boundaries:
+
+- the existing `Phase10GoldEvaluator` still rejects non-adjudicated/non-human Gold data;
+- raw COURSE materialized text and the model-review labels remain outside the repository;
+- source corpus SHA-256 remains `ea6fc2af90570db504cce5e31f594410d4505917aa15289e699c8e59d7f98d78`;
+- external model-review JSON SHA-256 is frozen as `9db3195b527c246c5d0c236433eb7761d0a7da218fe4732cdfe94c307c6e8e2b`;
+- the candidate contains 11 cases and 117 positive relevance labels;
+- the tuner prepares and ranks only the 7 tuning cases;
+- the 4 holdout cases are loaded only for split-integrity/count verification and are never passed to preprocessing, semantic analysis, Hybrid Ranking or weight selection;
+- `chunk_coverage` remains fixed because the selected corpus provides section boundaries but no independent chunk-boundary ground truth;
+- semantic analysis is prepared once per tuning case, while candidate weight configurations reuse the prepared semantic result and execute the real Hybrid Ranking path;
+- ranking metrics reuse the same `Phase10GoldEvaluator.ranking_metrics` implementation;
+- candidate-label coverage is reported separately to expose keyphrases that never enter the Phase 7 candidate universe.
+
+Search policy:
+
+1. baseline COURSE weights;
+2. deterministic pairwise transfer search with deltas 0.05 and 0.10 across semantic relevance, frequency, section coverage and phrase quality;
+3. one refinement pass around the first-pass winner with delta 0.025;
+4. deterministic selection priority: NDCG@10, Recall@10, Precision@5, Precision@10, minimum L1 distance from baseline, deterministic weight signature.
+
+This path is engineering evidence only. Its selected weights must not be called production-final and it does not satisfy the Human Gold closure gate.
+
+Local verification of this new tuning path is still required after pulling the implementation. Phase 10 status therefore remains unchanged.
+
 ## Remaining closure dependency
 
 Runtime/local verification is complete.
