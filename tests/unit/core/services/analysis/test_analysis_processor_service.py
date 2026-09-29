@@ -6,7 +6,12 @@ from src.core.services.analysis.analysis_processor_service import (
     AnalysisProcessingError,
     AnalysisProcessorService,
 )
-from src.core.services.analysis.profile_result import StructuredProfileResult
+from src.core.services.analysis.profile_result import (
+    ProfileKeywordResult,
+    ProfileTopicKeywordResult,
+    ProfileTopicResult,
+    StructuredProfileResult,
+)
 
 
 class _Profile:
@@ -19,13 +24,41 @@ class _Profile:
         self.calls += 1
         if self.fail:
             raise RuntimeError("RAW-SECRET-SHOULD-NOT-LEAK")
+        keyword = ProfileKeywordResult(
+            text="کلیدواژه",
+            canonical_text="کلیدواژه",
+            rank=1,
+            final_score=0.9,
+            statistical_score=0.8,
+            semantic_score=0.9,
+            coverage=1.0,
+            frequency=1,
+            signals={},
+        )
+        topic = ProfileTopicResult(
+            topic_id="topic-1",
+            label="کلیدواژه",
+            rank=1,
+            prevalence=1.0,
+            coverage=1.0,
+            representative_keyphrases=(
+                ProfileTopicKeywordResult(
+                    canonical_text="کلیدواژه",
+                    text="کلیدواژه",
+                    rank=1,
+                    relevance_score=1.0,
+                ),
+            ),
+            document_ids=("sha256:test",) if self.profile == "SOLDIER_CONCERN" else ("d",),
+        )
         return StructuredProfileResult(
             profile=self.profile,
-            keywords=(),
+            keywords=(keyword,),
             metrics={"document_count": len(documents)},
             profile_result={"profile": self.profile},
             model_version="model-v1",
             scoring_version="score-v1",
+            topics=(topic,),
         )
 
 
@@ -67,8 +100,13 @@ class AnalysisProcessorServiceTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(expected.calls, 1)
 
         self.assertEqual(len(repository.saved), 3)
-        self.assertTrue(all(item["topics"] == [] for item in repository.saved))
-        self.assertTrue(all(item["topic_keywords"] == [] for item in repository.saved))
+        self.assertTrue(all(len(item["topics"]) == 1 for item in repository.saved))
+        self.assertTrue(all(len(item["topic_keywords"]) == 1 for item in repository.saved))
+        soldier_payload = repository.saved[1]
+        self.assertEqual(
+            soldier_payload["topics"][0]["metadata"]["document_ids"],
+            ["sha256:test"],
+        )
 
     async def test_failure_is_sanitized_before_persistence_and_raise(self):
         raw = "RAW-SECRET-SHOULD-NOT-LEAK"
