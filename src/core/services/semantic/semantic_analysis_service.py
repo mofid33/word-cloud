@@ -35,6 +35,10 @@ class SemanticAnalysisResult:
 
 @inject
 class SemanticAnalysisService:
+    SEMANTIC_SCORE_STRATEGY = (
+        "reranker_order_with_bi_encoder_top_n_score_calibration"
+    )
+
     def __init__(
         self,
         embedding_provider: EmbeddingProvider,
@@ -56,7 +60,7 @@ class SemanticAnalysisService:
                 embedding_metadata=self._embedding_provider.metadata,
                 reranker_metadata=self._reranker_provider.metadata,
                 similarity_metric="cosine",
-                semantic_score_strategy="reranker_for_top_n_else_normalized_cosine",
+                semantic_score_strategy=self.SEMANTIC_SCORE_STRATEGY,
                 rerank_top_n=self._rerank_top_n,
             )
         if not isinstance(context, str) or not context.strip():
@@ -97,18 +101,45 @@ class SemanticAnalysisService:
 
         rerank_by_index: dict[int, float] = {}
         for index, score in zip(top_indices, rerank_scores, strict=True):
-            rerank_by_index[index] = self._validate_probability(score, "reranker score")
+            rerank_by_index[index] = self._validate_probability(
+                score,
+                "reranker score",
+            )
 
-        bi_by_index = {index: (similarity, score) for index, similarity, score in preselected}
-        provisional: list[tuple[int, float, float, float | None, float, bool]] = []
+        bi_by_index = {
+            index: (similarity, score)
+            for index, similarity, score in preselected
+        }
+        calibrated_rerank_score_by_index = (
+            self._calibrate_reranked_semantic_scores(
+                top_indices=top_indices,
+                rerank_by_index=rerank_by_index,
+                bi_by_index=bi_by_index,
+                candidates=candidates,
+            )
+        )
+        provisional: list[
+            tuple[int, float, float, float | None, float, bool]
+        ] = []
 
         for index in range(len(candidates)):
             similarity, bi_score = bi_by_index[index]
             reranker_score = rerank_by_index.get(index)
             reranked = reranker_score is not None
-            semantic_score = reranker_score if reranked else bi_score
+            semantic_score = (
+                calibrated_rerank_score_by_index[index]
+                if reranked
+                else bi_score
+            )
             provisional.append(
-                (index, similarity, bi_score, reranker_score, semantic_score, reranked)
+                (
+                    index,
+                    similarity,
+                    bi_score,
+                    reranker_score,
+                    semantic_score,
+                    reranked,
+                )
             )
 
         provisional.sort(
@@ -145,9 +176,40 @@ class SemanticAnalysisService:
             embedding_metadata=self._embedding_provider.metadata,
             reranker_metadata=self._reranker_provider.metadata,
             similarity_metric="cosine",
-            semantic_score_strategy="reranker_for_top_n_else_normalized_cosine",
+            semantic_score_strategy=self.SEMANTIC_SCORE_STRATEGY,
             rerank_top_n=self._rerank_top_n,
         )
+
+    @staticmethod
+    def _calibrate_reranked_semantic_scores(
+        *,
+        top_indices: list[int],
+        rerank_by_index: dict[int, float],
+        bi_by_index: dict[int, tuple[float, float]],
+        candidates: tuple[StatisticalCandidateResult, ...],
+    ) -> dict[int, float]:
+        if not top_indices:
+            return {}
+
+        score_slots = sorted(
+            (
+                bi_by_index[index][1]
+                for index in top_indices
+            ),
+            reverse=True,
+        )
+        reranked_order = sorted(
+            top_indices,
+            key=lambda index: (
+                -rerank_by_index[index],
+                -bi_by_index[index][1],
+                candidates[index].canonical_text,
+            ),
+        )
+        return {
+            index: score_slots[position]
+            for position, index in enumerate(reranked_order)
+        }
 
     @staticmethod
     def _validate_vector(values: object, label: str) -> tuple[float, ...]:
