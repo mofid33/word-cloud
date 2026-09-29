@@ -588,3 +588,45 @@ It reports, for pool sizes 25 / 50 / 100 / 200 / 400:
 - how many reviewed relevant labels are inside the configured Cross-Encoder Top-N.
 
 This tool does not change runtime configuration and does not execute the consumed holdout. Its purpose is to determine whether a larger COURSE pre-MMR pool is justified before modifying Hybrid Ranking configuration.
+
+
+## COURSE profile-specific diversity pool decision
+
+The tuning-only pool sensitivity evaluation was executed after semantic score calibration.
+
+Aggregate tuning evidence:
+
+- reviewed relevant labels: 76;
+- generated relevant labels: 70;
+- candidate-label coverage: 0.9210526315789473;
+- Cross-Encoder reranked relevant labels: 8;
+- reranked relevant coverage: 0.10526315789473684.
+
+Pre-MMR fused-pool recall against generated relevant labels:
+
+- pool 25: 12 / 70 = 0.17142857142857143;
+- pool 50: 14 / 70 = 0.20;
+- pool 100: 15 / 70 = 0.21428571428571427;
+- pool 200: 30 / 70 = 0.42857142857142855;
+- pool 400: 36 / 70 = 0.5142857142857142.
+
+Decision:
+
+- COURSE uses `diversity_candidate_pool_size = 200`;
+- SOLDIER_CONCERN remains at 50;
+- MEDIA remains at 50;
+- the global Hybrid Ranking default remains 50;
+- the override is profile-specific and passed by Profile Services to HybridRankingService;
+- COURSE `scoring_version` is incremented to `phase10-course-baseline-v2`;
+- profile output records the effective pool size for reproducibility.
+
+Rationale:
+
+- 50 → 100 provides negligible gain: +1 generated relevant label;
+- 100 → 200 provides the largest useful gain: +15 generated relevant labels;
+- 200 → 400 adds only 6 more generated relevant labels while doubling the MMR/diversity candidate workload;
+- therefore 200 is the current evidence-based balance between ranking opportunity and CPU/memory cost.
+
+This decision is based only on tuning data. The consumed four-case holdout is not reused for pool selection. SOLDIER_CONCERN and MEDIA are not changed without their own profile-specific evidence.
+
+The semantic calibration correction and COURSE pool=200 are the final planned ranking corrections inside this Phase 10 engineering cycle. After focused tests, real COURSE smoke verification and full regression, no additional tuning loop should be opened without new Human Gold or a newly frozen unseen evaluation set.
