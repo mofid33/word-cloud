@@ -1,6 +1,6 @@
 # Phase 10 — Analysis Profiles
 
-Status: IMPLEMENTED_GOLD_INFRA_VERIFIED_AWAITING_HUMAN_GOLD_DATASETS
+Status: IMPLEMENTATION_AND_ENGINEERING_VERIFIED_HUMAN_GOLD_PENDING
 
 ## Scope
 
@@ -630,3 +630,63 @@ Rationale:
 This decision is based only on tuning data. The consumed four-case holdout is not reused for pool selection. SOLDIER_CONCERN and MEDIA are not changed without their own profile-specific evidence.
 
 The semantic calibration correction and COURSE pool=200 are the final planned ranking corrections inside this Phase 10 engineering cycle. After focused tests, real COURSE smoke verification and full regression, no additional tuning loop should be opened without new Human Gold or a newly frozen unseen evaluation set.
+
+
+## Final engineering verification — 2026-09-29
+
+Final local verification after the semantic score calibration and COURSE profile-specific diversity-pool change:
+
+Focused verification:
+
+- profile configuration: 6/6 PASS;
+- Hybrid Ranking: 24/24 PASS;
+- profile services: 7/7 PASS;
+- semantic analysis: 11/11 PASS;
+- COURSE candidate evaluation: 6/6 PASS;
+- COURSE ranking diagnostic: 2/2 PASS;
+- COURSE pool sensitivity: 1/1 PASS;
+- COURSE holdout evidence guard: 2/2 PASS;
+- `python -m compileall -q src tests`: PASS.
+
+Real-model smoke:
+
+- Phase 6→7→8→9→10 COURSE real-model integration: PASS;
+- runtime observed with configured real semantic providers;
+- no FAIL and no ERROR.
+
+Full regression:
+
+- 326 tests executed;
+- PASS;
+- 20 tests skipped;
+- no FAIL;
+- no ERROR.
+
+The skipped tests are environment-gated integration/benchmark tests such as PostgreSQL-dependent suites and explicitly gated semantic/model runs. They are not failures in the Phase 10 implementation.
+
+Final implemented COURSE runtime decisions:
+
+- semantic score strategy: `reranker_order_with_bi_encoder_top_n_score_calibration`;
+- profile scoring version: `phase10-course-baseline-v2`;
+- COURSE diversity candidate pool: 200;
+- SOLDIER_CONCERN diversity candidate pool: 50;
+- MEDIA diversity candidate pool: 50;
+- global Hybrid Ranking default pool: 50;
+- previously rejected tuning weight set remains unpromoted;
+- baseline COURSE profile weights remain active.
+
+Engineering conclusion:
+
+- Phase 10 runtime implementation is complete;
+- profile workflows are implemented for COURSE, SOLDIER_CONCERN and MEDIA;
+- architecture/DI/configuration/runtime-smoke/regression requirements are satisfied;
+- the final COURSE ranking correction cycle is closed;
+- no additional tuning loop should be opened using the consumed model-simulated holdout.
+
+Remaining external acceptance dependency:
+
+- verified Human Gold datasets and adjudicated evaluation for COURSE, SOLDIER_CONCERN and MEDIA are still pending;
+- model-simulated review evidence is not Human Gold;
+- therefore Phase 10 must not be represented as Human-Gold-validated or production-final in accuracy terms.
+
+Phase 11 may proceed on the verified Phase 10 runtime baseline. Human Gold validation remains an explicit evaluation/production-acceptance dependency and must be completed before making final production accuracy claims.
