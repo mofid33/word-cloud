@@ -546,3 +546,14 @@ After accepted Gold Dataset evaluation, this document may be changed to CLOSED a
 Current marker:
 
 `PHASE_10_IMPLEMENTED_GOLD_INFRA_VERIFIED_AWAITING_HUMAN_GOLD_DATASETS`
+
+
+## Ranking diagnostic finding — semantic score scale mismatch
+
+The tuning-only ranking diagnostic identified the dominant failure before diversity/MMR: 57 of 76 reviewed labels were outside the 50-item diversity candidate pool, while only one label reached the pool and then failed by MMR/top-k cutoff. The diagnostic also showed high-quality candidates receiving severe rank demotion after Cross-Encoder scoring because reranked sigmoid probabilities and non-reranked normalized cosine scores were compared directly.
+
+Representative tuning evidence included a relevant `تبدیل خطی` candidate with strong Bi-Encoder similarity but a low reranker probability, causing its semantic rank to fall into the hundreds, while non-reranked candidates retained normalized cosine scores around the 0.6–0.8 range.
+
+The first corrective change therefore targets the Phase 8 semantic score handoff rather than MMR or diversity-pool size. Cross-Encoder now reorders Top-N but uses rank-preserving Bi-Encoder score-slot calibration so Top-N reranking cannot be numerically compared on an incompatible raw score scale with fallback candidates.
+
+No diversity-pool size, MMR lambda, profile weights, holdout data, or Production config is changed in this correction. A new tuning-only diagnostic run is required before deciding whether a larger diversity pool is justified.
