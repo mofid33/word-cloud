@@ -1,6 +1,6 @@
 # Phase 11 — Topic & Trend
 
-Status: IMPLEMENTED_AWAITING_LOCAL_VERIFICATION
+Status: CLOSED_ENGINEERING_READY_FOR_PHASE_12
 Date: 2026-09-29
 
 ## Baseline
@@ -78,9 +78,33 @@ $env:RUN_PHASE11_REAL_MODEL_BENCHMARK = "1"
 python -m unittest tests.evaluation.test_phase11_topic_performance.Phase11TopicPerformanceTests.test_real_embedding_topic_performance_baseline -v
 ```
 
-## Closure gate
+## Verification evidence
 
-Do not change this status to CLOSED until compile, runtime smoke, focused Phase 11 tests, PostgreSQL integration, evaluation/performance evidence and full regression have been executed successfully in an environment with the project dependencies/model cache/database.
+Verified locally on 2026-09-29 against main commit `b3b1bc6f45db8d10032445160d19bd3e689c9e8f`:
 
-The synthetic evaluation fixture is explicitly `NOT_PRODUCTION_GOLD`.
-Human Gold remains a production validation dependency.
+- `python -m compileall -q src tests`: PASS.
+- Phase 11 Topic/Trend focused unit tests: PASS.
+- Phase 10 constructor/parity and determinism regressions: PASS.
+- Profile regression tests: PASS.
+- PostgreSQL Phase 11 topic persistence integration: PASS.
+- Full PostgreSQL persistence integration suite: 10 tests PASS.
+- Topic evaluation fixture: coherence proxy = 1.0, diversity = 1.0, explicitly `NOT_PRODUCTION_GOLD`.
+- Full regression: 331 tests PASS, 7 environment-gated tests skipped, no failures/errors.
+- Algorithm performance baseline after centroid caching:
+  - 25 documents: P50 = 0.1133s, P95 = 0.1667s.
+  - 100 documents: P50 = 8.4034s, P95 = 8.9514s.
+- Real configured embedding benchmark PASS with
+  `sentence-transformers/paraphrase-multilingual-mpnet-base-v2`:
+  - 20 documents, 2 iterations.
+  - throughput = 0.2206 documents/second.
+  - P50 = 90.6723s.
+  - P95 = 178.7927s.
+  - peak Python-tracked memory = 225,797,889 bytes.
+
+The real-model benchmark contains only two iterations and includes cold-start/model-load cost, so its P50/P95 values are baseline evidence, not a statistically robust production SLA. The provider lifecycle remains singleton/load-once; production warm-up, resource limits and SLA tuning belong to Production Readiness.
+
+## Closure decision
+
+Phase 11 engineering scope is complete and satisfies the project Definition of Done for this phase. The phase is ready for Phase 12.
+
+The synthetic evaluation fixture remains explicitly `NOT_PRODUCTION_GOLD`. Human Gold evaluation is still required before production accuracy/model-threshold claims are finalized; this does not reopen the completed Phase 11 engineering implementation.
