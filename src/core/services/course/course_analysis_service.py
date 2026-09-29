@@ -292,6 +292,10 @@ class CourseAnalysisService:
                     "topic_count": len(topic_result.topics),
                     "evaluation_status": "baseline_requires_human_gold_validation",
                 },
+                "topic_timeline_contract": {
+                    "ordering": "request_document_sequence",
+                    "ranking_order_independent": True,
+                },
                 "topic_timeline": [
                     {
                         "position": item.position,
