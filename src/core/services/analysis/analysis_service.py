@@ -290,7 +290,7 @@ class AnalysisService:
             )
             topics.append(
                 AnalysisTopicResult(
-                    topic_id=topic.id,
+                    topic_id=self._logical_topic_id(topic),
                     label=topic.label,
                     rank=topic.rank,
                     prevalence=topic.prevalence,
@@ -306,6 +306,15 @@ class AnalysisService:
             metrics=dict(analysis.metrics or {}),
             profile_result=dict(analysis.profile_result or {}),
         )
+
+    @staticmethod
+    def _logical_topic_id(topic: Any) -> str:
+        metadata = getattr(topic, "metadata_json", None)
+        if isinstance(metadata, dict):
+            value = metadata.get("logical_topic_id")
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        return str(topic.id)
 
     @staticmethod
     def _status_result(analysis: Any) -> AnalysisStatusResult:
