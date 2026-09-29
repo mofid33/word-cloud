@@ -190,7 +190,16 @@ class AnalysisLifecycleApiTests(unittest.IsolatedAsyncioTestCase):
                 }
             ],
             metrics={"document_count": 1},
-            profile_result={"kind": "course"},
+            profile_result={
+                "kind": "course",
+                "topic_timeline": [
+                    {
+                        "position": 1,
+                        "document_id": "doc-result",
+                        "topic_ids": ["topic-1"],
+                    }
+                ],
+            },
             model_version="test-model",
             scoring_version="test-scoring",
         )
@@ -209,6 +218,11 @@ class AnalysisLifecycleApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             result["topics"][0]["keywords"][0]["text"],
             "هوش مصنوعی",
+        )
+        self.assertEqual(result["topics"][0]["topic_id"], "topic-1")
+        self.assertEqual(
+            result["profile_result"]["topic_timeline"][0]["topic_ids"],
+            ["topic-1"],
         )
         self.assertEqual(result["metrics"]["document_count"], 1)
         self.assertEqual(result["profile_result"]["kind"], "course")
