@@ -51,9 +51,10 @@ class MediaAnalysisService:
         statistical_analysis_service: StatisticalAnalysisService,
         semantic_analysis_service: SemanticAnalysisService,
         hybrid_ranking_service: HybridRankingService,
+        config_reader: ConfigReader,
+        *,
         topic_analysis_service: TopicAnalysisService,
         trend_analysis_service: TrendAnalysisService,
-        config_reader: ConfigReader,
     ):
         self._processor = persian_text_processor
         self._extractor = candidate_extraction_service
@@ -545,7 +546,15 @@ class MediaAnalysisService:
                     "metadata": dict(metadata),
                 }
             )
-        return tuple(normalized)
+        return tuple(
+            sorted(
+                normalized,
+                key=lambda item: (
+                    item["metadata"]["role"],
+                    item["document_id"],
+                ),
+            )
+        )
 
     @staticmethod
     def _unit_interval(value: object, key: str) -> float:
