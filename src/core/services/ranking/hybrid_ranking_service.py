@@ -116,11 +116,18 @@ class HybridRankingService:
         *,
         weights: FusionWeights | None = None,
         maximum_results: int | None = None,
+        diversity_candidate_pool_size: int | None = None,
     ) -> HybridRankingResult:
         selected_weights = self._validate_weights(
             weights or self._config.baseline_weights
         )
-        selected_maximum = self._validate_maximum_results(maximum_results)
+        selected_pool_size = self._validate_pool_size(
+            diversity_candidate_pool_size
+        )
+        selected_maximum = self._validate_maximum_results(
+            maximum_results,
+            selected_pool_size,
+        )
 
         if not statistical_candidates and not semantic_result.candidates:
             return self._build_result(
@@ -128,6 +135,7 @@ class HybridRankingService:
                 deduplicated=(),
                 weights=selected_weights,
                 maximum_results=selected_maximum,
+                diversity_candidate_pool_size=selected_pool_size,
                 semantic_result=semantic_result,
             )
 
@@ -136,10 +144,14 @@ class HybridRankingService:
             semantic_result.candidates,
             selected_weights,
         )
-        deduplicated, removed = self._deduplicate(joined)
+        deduplicated, removed = self._deduplicate(
+            joined,
+            diversity_candidate_pool_size=selected_pool_size,
+        )
         ranked, semantic_removed = await self._apply_semantic_dedup_and_mmr_async(
             deduplicated,
             maximum_results=selected_maximum,
+            diversity_candidate_pool_size=selected_pool_size,
         )
 
         return self._build_result(
@@ -147,6 +159,7 @@ class HybridRankingService:
             deduplicated=removed + semantic_removed,
             weights=selected_weights,
             maximum_results=selected_maximum,
+            diversity_candidate_pool_size=selected_pool_size,
             semantic_result=semantic_result,
         )
 
@@ -229,6 +242,8 @@ class HybridRankingService:
     def _deduplicate(
         self,
         candidates: tuple[_JoinedCandidate, ...],
+        *,
+        diversity_candidate_pool_size: int,
     ) -> tuple[tuple[_JoinedCandidate, ...], tuple[DeduplicationRecord, ...]]:
         kept: list[_JoinedCandidate] = []
         removed: list[DeduplicationRecord] = []
@@ -237,7 +252,7 @@ class HybridRankingService:
             duplicate = self._find_duplicate(candidate, kept)
             if duplicate is None:
                 kept.append(candidate)
-                if len(kept) >= self._config.diversity_candidate_pool_size:
+                if len(kept) >= diversity_candidate_pool_size:
                     break
                 continue
             kept_candidate, reason, similarity = duplicate
@@ -285,6 +300,7 @@ class HybridRankingService:
         candidates: tuple[_JoinedCandidate, ...],
         *,
         maximum_results: int,
+        diversity_candidate_pool_size: int,
     ) -> tuple[
         tuple[HybridRankedCandidate, ...],
         tuple[DeduplicationRecord, ...],
@@ -294,7 +310,7 @@ class HybridRankingService:
 
         pool_size = min(
             len(candidates),
-            self._config.diversity_candidate_pool_size,
+            diversity_candidate_pool_size,
         )
         pool = tuple(candidates[:pool_size])
         target_count = min(maximum_results, len(pool))
@@ -488,6 +504,7 @@ class HybridRankingService:
         deduplicated: tuple[DeduplicationRecord, ...],
         weights: FusionWeights,
         maximum_results: int,
+        diversity_candidate_pool_size: int,
         semantic_result: SemanticAnalysisResult,
     ) -> HybridRankingResult:
         return HybridRankingResult(
@@ -506,7 +523,7 @@ class HybridRankingService:
             ),
             diversity_strategy="mmr_cosine",
             mmr_lambda=self._config.mmr_lambda,
-            diversity_candidate_pool_size=self._config.diversity_candidate_pool_size,
+            diversity_candidate_pool_size=diversity_candidate_pool_size,
             maximum_ranked_results=maximum_results,
             embedding_metadata=semantic_result.embedding_metadata,
             semantic_score_strategy=semantic_result.semantic_score_strategy,
@@ -637,16 +654,31 @@ class HybridRankingService:
     ) -> float:
         return (cls._cosine_similarity(left, right) + 1.0) / 2.0
 
-    def _validate_maximum_results(self, value: int | None) -> int:
+    def _validate_pool_size(self, value: int | None) -> int:
         if value is None:
-            return self._config.maximum_ranked_results
+            return self._config.diversity_candidate_pool_size
         if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
-            raise ValueError("maximum_results must be an integer > 0")
-        if value > self._config.diversity_candidate_pool_size:
+            raise ValueError(
+                "diversity_candidate_pool_size must be an integer > 0"
+            )
+        return value
+
+    def _validate_maximum_results(
+        self,
+        value: int | None,
+        diversity_candidate_pool_size: int,
+    ) -> int:
+        if value is None:
+            selected = self._config.maximum_ranked_results
+        else:
+            if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+                raise ValueError("maximum_results must be an integer > 0")
+            selected = value
+        if selected > diversity_candidate_pool_size:
             raise ValueError(
                 "maximum_results must be <= diversity_candidate_pool_size"
             )
-        return value
+        return selected
 
     @classmethod
     def _validate_weights(cls, weights: FusionWeights) -> FusionWeights:
