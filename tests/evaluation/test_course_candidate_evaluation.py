@@ -14,7 +14,11 @@ from src.core.services.persian_text.persian_text_processor import PersianTextPro
 from src.core.services.ranking.hybrid_ranking_service import HybridRankingService
 from src.core.services.semantic.semantic_analysis_service import SemanticAnalysisService
 from src.core.services.statistical.statistical_analysis_service import StatisticalAnalysisService
+from src.core.services.topic.topic_analysis_service import TopicAnalysisService
 from src.infrastructure.providers.persian_nlp.persian_nlp_resource_provider import PersianNlpResourceProvider
+from src.infrastructure.providers.topic.semantic_agglomerative_topic_model_provider import (
+    SemanticAgglomerativeTopicModelProvider,
+)
 from src.infrastructure.utils.config_reader import ConfigReader
 from tests.evaluation.course_candidate_evaluation import (
     CourseCandidateCase,
@@ -486,6 +490,13 @@ class CourseCandidateTuningEngineParityTests(
             embedding,
             config,
         )
+        topics = TopicAnalysisService(
+            SemanticAgglomerativeTopicModelProvider(
+                embedding,
+                config,
+            ),
+            config,
+        )
         service = CourseAnalysisService(
             processor,
             extractor,
@@ -493,6 +504,7 @@ class CourseCandidateTuningEngineParityTests(
             semantic,
             ranking,
             config,
+            topic_analysis_service=topics,
         )
         engine = CourseCandidateTuningEngine(
             processor,
