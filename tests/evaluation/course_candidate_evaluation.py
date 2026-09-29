@@ -579,6 +579,9 @@ class CourseCandidateTuningEngine:
                 semantic=weights["semantic_relevance"] / fusion_total,
             ),
             maximum_results=self._baseline.maximum_results,
+            diversity_candidate_pool_size=(
+                self._baseline.diversity_candidate_pool_size
+            ),
         )
         return profile_statistics, hybrid
 
