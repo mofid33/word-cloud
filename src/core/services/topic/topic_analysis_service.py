@@ -248,17 +248,29 @@ class TopicAnalysisService:
             for item in documents
         )
         for keyword in keywords:
-            phrase = self._normalized_text(
-                keyword.canonical_text or keyword.text
-            )
-            if not phrase:
+            sequences: list[tuple[str, ...]] = []
+            for phrase_value in (
+                keyword.canonical_text,
+                keyword.text,
+            ):
+                phrase = self._normalized_text(phrase_value)
+                tokens = tuple(
+                    token for token in phrase.split() if token
+                )
+                if tokens and tokens not in sequences:
+                    sequences.append(tokens)
+            if not sequences:
                 continue
-            tokens = tuple(token for token in phrase.split() if token)
-            if not tokens:
-                continue
+
             hits = 0
             for text_tokens in document_tokens:
-                if self._contains_token_sequence(text_tokens, tokens):
+                if any(
+                    self._contains_token_sequence(
+                        text_tokens,
+                        phrase_tokens,
+                    )
+                    for phrase_tokens in sequences
+                ):
                     hits += 1
             if hits == 0:
                 continue
