@@ -59,6 +59,17 @@ class _InvalidEmbedding(EmbeddingProvider):
         return tuple((float("nan"), 1.0) for _ in texts)
 
 
+class _OverrideConfig:
+    def __init__(self, base, overrides):
+        self._base = base
+        self._overrides = overrides
+
+    def require(self, key):
+        if key in self._overrides:
+            return self._overrides[key]
+        return self._base.require(key)
+
+
 class Phase11TopicTrendTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.config = ConfigReader(env_type="development")
@@ -230,6 +241,44 @@ class Phase11TopicTrendTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(by_id["declining"].classification, "declining")
         self.assertGreater(by_id["emerging"].growth, 0)
         self.assertLess(by_id["declining"].growth, 0)
+
+
+    async def test_phase11_config_validation_rejects_bool_nan_inf_and_range_errors(self):
+        bad_topic_values = (True, float("nan"), float("inf"), 1.1)
+        for value in bad_topic_values:
+            with self.subTest(topic_similarity=value):
+                with self.assertRaises(ValueError):
+                    SemanticAgglomerativeTopicModelProvider(
+                        _Embedding(),
+                        _OverrideConfig(
+                            self.config,
+                            {"topic_model.similarity_threshold": value},
+                        ),
+                    )
+
+        with self.assertRaises(ValueError):
+            SemanticAgglomerativeTopicModelProvider(
+                _Embedding(),
+                _OverrideConfig(
+                    self.config,
+                    {"topic_model.maximum_topics": True},
+                ),
+            )
+
+        for key, value in (
+            ("trend_analysis.growth_threshold", True),
+            ("trend_analysis.growth_threshold", float("nan")),
+            ("trend_analysis.growth_threshold", float("inf")),
+            ("trend_analysis.growth_threshold", 1.1),
+            ("trend_analysis.minimum_prevalence", -0.1),
+            ("trend_analysis.window_days", True),
+            ("trend_analysis.minimum_documents_per_window", 0),
+        ):
+            with self.subTest(key=key, value=value):
+                with self.assertRaises(ValueError):
+                    TrendAnalysisService(
+                        _OverrideConfig(self.config, {key: value})
+                    )
 
     async def test_trend_is_unavailable_without_minimum_evidence(self):
         service = TrendAnalysisService(self.config)
