@@ -89,6 +89,7 @@ analysis_profiles:
   course:
     scoring_version: "phase10-course-baseline-v1"
     maximum_results: 25
+    diversity_candidate_pool_size: 200
     weights:
       semantic_relevance: 0.35
       frequency: 0.20
@@ -98,6 +99,7 @@ analysis_profiles:
   soldier_concern:
     scoring_version: "phase10-soldier-baseline-v1"
     maximum_results: 25
+    diversity_candidate_pool_size: 50
     weights:
       document_frequency: 0.30
       document_coverage: 0.25
@@ -106,6 +108,7 @@ analysis_profiles:
   media:
     scoring_version: "phase10-media-baseline-v1"
     maximum_results: 25
+    diversity_candidate_pool_size: 50
     weights:
       mention_share: 0.35
       semantic_relevance: 0.40
