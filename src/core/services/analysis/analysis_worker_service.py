@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from contextlib import suppress
 from datetime import UTC, datetime, timedelta
 from time import monotonic
@@ -21,6 +22,9 @@ from src.infrastructure.providers.analysis_queue.analysis_queue_settings import 
 from src.infrastructure.repositories.analysis.word_cloud_analysis_repository import (
     WordCloudAnalysisRepository,
 )
+
+
+_logger = logging.getLogger("word_cloud.worker")
 
 
 @inject
@@ -172,6 +176,15 @@ class AnalysisWorkerService:
                 )
                 return True
 
+        _logger.info(
+            "analysis_worker_processing_started",
+            extra={
+                "event": "analysis_worker_processing_started",
+                "analysis_id": message.job.analysis_id,
+                "profile": message.job.analysis_type,
+                "execution_mode": "async",
+            },
+        )
         heartbeat_stop = asyncio.Event()
         heartbeat = asyncio.create_task(
             self._heartbeat_async(message, heartbeat_stop)
@@ -199,6 +212,15 @@ class AnalysisWorkerService:
                         message.job.analysis_id
                     )
             await self._queue.acknowledge_async(message)
+            _logger.info(
+                "analysis_worker_processing_completed",
+                extra={
+                    "event": "analysis_worker_processing_completed",
+                    "analysis_id": message.job.analysis_id,
+                    "profile": message.job.analysis_type,
+                    "execution_mode": "async",
+                },
+            )
         finally:
             heartbeat_stop.set()
             heartbeat.cancel()

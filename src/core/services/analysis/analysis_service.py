@@ -3,6 +3,7 @@ from __future__ import annotations
 from contextlib import suppress
 from dataclasses import dataclass
 from datetime import datetime
+import logging
 from typing import Any
 from uuid import uuid4
 
@@ -18,6 +19,9 @@ from src.infrastructure.di.inject import inject
 from src.infrastructure.repositories.analysis.word_cloud_analysis_repository import (
     WordCloudAnalysisRepository,
 )
+
+
+_logger = logging.getLogger("word_cloud.analysis")
 
 
 class AnalysisRequestValidationError(ValueError):
@@ -267,6 +271,16 @@ class AnalysisService:
                 ),
             )
 
+        _logger.info(
+            "analysis_created",
+            extra={
+                "event": "analysis_created",
+                "analysis_id": analysis.id,
+                "profile": analysis_type,
+                "execution_mode": validation.resolved_execution_mode,
+            },
+        )
+
         if validation.resolved_execution_mode == "sync":
             await self._analysis_processor_service.process_async(
                 analysis_id=analysis.id,
@@ -283,6 +297,15 @@ class AnalysisService:
         job = AnalysisQueueJob.create(
             analysis_id=analysis.id,
             analysis_type=analysis_type,
+        )
+        _logger.info(
+            "analysis_enqueued",
+            extra={
+                "event": "analysis_enqueued",
+                "analysis_id": analysis.id,
+                "profile": analysis_type,
+                "execution_mode": "async",
+            },
         )
         try:
             await self._queue_provider.enqueue_async(
