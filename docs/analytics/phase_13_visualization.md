@@ -1,6 +1,6 @@
 # Phase 13 — Visualization
 
-Status: IMPLEMENTED — AWAITING_TOPIC_VISUALIZATION_VERIFICATION
+Status: COMPLETE — READY_FOR_PHASE_14
 Date: 2026-10-01
 
 ## Scope implemented
@@ -94,6 +94,16 @@ Previous target verification received on 2026-10-01 confirmed:
 - regression result before the topic-level correction: `Ran 386 tests in 119.618s — OK (skipped=8)`;
 - skipped tests are explicit model/benchmark-gated suites and are not Phase 13 failures.
 
-A subsequent product-contract audit found that SOLDIER_CONCERN requires both Overall WordCloud and Topic-level WordCloud. The topic-level path is now implemented from persisted `AnalysisTopic` / `AnalysisTopicKeyword` data without loading raw documents.
+A subsequent product-contract audit found that SOLDIER_CONCERN requires both Overall WordCloud and Topic-level WordCloud. The topic-level path is implemented from persisted `AnalysisTopic` / `AnalysisTopicKeyword` data without loading raw documents.
 
-Phase 13 is reopened until target verification confirms compile, focused topic-level unit/API/discovery tests, runtime OpenAPI exposure of the topic route, and full regression. The completion marker must not be restored before those gates pass.
+Final topic-visualization target verification received on 2026-10-01 confirms:
+
+- runtime OpenAPI exposes both `/api/v1/visualization/{analysis_id}` and `/api/v1/visualization/{analysis_id}/topics/{topic_id}`;
+- topic-level PostgreSQL API integration test PASS;
+- SOLDIER_CONCERN topic-level raw-marker privacy test PASS;
+- logical topic-id, persisted relevance-score weighting, missing-topic and empty-topic unit tests PASS;
+- discovery requires the topic visualization route;
+- full regression result: `Ran 390 tests in 178.426s — OK (skipped=8)`;
+- skipped tests remain explicit model/benchmark-gated suites and are not Phase 13 failures.
+
+PHASE_13_COMPLETE_READY_FOR_PHASE_14
