@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import unittest
 from dataclasses import dataclass
+from unittest.mock import AsyncMock, patch
 
 from src.core.services.visualization.providers.visualization_renderer import (
     RenderedVisualization,
@@ -85,6 +86,27 @@ class VisualizationServiceTests(unittest.IsolatedAsyncioTestCase):
             [("اول", 1, 0.9), ("دوم", 2, 0.6)],
         )
         self.assertEqual(repository.requested_id, "analysis-1")
+
+    async def test_renderer_is_offloaded_from_event_loop(self) -> None:
+        analysis = _Analysis(
+            status="completed",
+            keywords=[_Keyword("پردازش زبان فارسی", "پردازش زبان فارسی", 1, 1.0)],
+        )
+        renderer = _Renderer()
+        service = VisualizationService(_Repository(analysis), renderer, _Settings())
+
+        rendered = RenderedVisualization(b"threaded", "image/png")
+        with patch(
+            "src.core.services.visualization.visualization_service.to_thread",
+            new=AsyncMock(return_value=rendered),
+        ) as to_thread_mock:
+            result = await service.render_async("analysis-thread", "png")
+
+        self.assertIs(result, rendered)
+        to_thread_mock.assert_awaited_once()
+        args = to_thread_mock.await_args.args
+        self.assertEqual(args[0], renderer.render_png)
+        self.assertEqual(tuple(item.text for item in args[1]), ("پردازش زبان فارسی",))
 
     async def test_order_is_deterministic_for_equal_rank_input(self) -> None:
         analysis = _Analysis(
