@@ -122,5 +122,32 @@ class AnalysisQueueProvider(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    async def recover_orphaned_async(self, *, limit: int) -> int:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def put_transient_payload_async(
+        self,
+        analysis_id: str,
+        documents: list[dict[str, Any]],
+    ) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def get_transient_payload_async(
+        self,
+        analysis_id: str,
+    ) -> list[dict[str, Any]] | None:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def touch_transient_payload_async(self, analysis_id: str) -> bool:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def delete_transient_payload_async(self, analysis_id: str) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
     async def close_async(self) -> None:
         raise NotImplementedError

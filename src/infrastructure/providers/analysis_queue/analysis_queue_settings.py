@@ -21,6 +21,8 @@ class AnalysisQueueSettings:
     visibility_timeout_seconds: float
     heartbeat_interval_seconds: float
     processing_stale_seconds: float
+    recovery_interval_seconds: float
+    recovery_batch_size: int
     concurrency: int
 
     def __init__(self, config_reader: ConfigReader):
@@ -95,6 +97,24 @@ class AnalysisQueueSettings:
                 config_reader,
                 "analysis_queue.processing_stale_seconds",
                 minimum=1.0,
+            ),
+        )
+        object.__setattr__(
+            self,
+            "recovery_interval_seconds",
+            self._number(
+                config_reader,
+                "analysis_queue.recovery_interval_seconds",
+                minimum=0.001,
+            ),
+        )
+        object.__setattr__(
+            self,
+            "recovery_batch_size",
+            self._integer(
+                config_reader,
+                "analysis_queue.recovery_batch_size",
+                minimum=1,
             ),
         )
         object.__setattr__(

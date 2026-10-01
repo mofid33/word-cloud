@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from contextlib import suppress
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
+from uuid import uuid4
 
 from src.core.services.analysis.analysis_execution_policy_service import (
     AnalysisExecutionPolicyService,
@@ -184,15 +186,6 @@ class AnalysisService:
             documents=documents,
         )
 
-        if (
-            analysis_type == "SOLDIER_CONCERN"
-            and decision.resolved_execution_mode == "async"
-        ):
-            raise AnalysisRequestValidationError(
-                "soldier_async_transport_unavailable",
-                "SOLDIER_CONCERN async execution is unavailable until a privacy-safe transient transport is configured",
-            )
-
         return AnalysisValidationResult(
             analysis_type=analysis_type,
             execution_mode=decision.requested_execution_mode,
@@ -215,17 +208,65 @@ class AnalysisService:
             execution_mode=execution_mode,
             documents=documents,
         )
-        analysis = await self._analysis_repository.create_pending_async(
-            analysis_type=analysis_type,
-            execution_mode=validation.resolved_execution_mode,
-            documents=documents,
-            reference=reference,
-            options=options,
-            persist_raw_text=(
-                validation.resolved_execution_mode == "async"
-                and analysis_type != "SOLDIER_CONCERN"
-            ),
+        is_soldier_async = (
+            analysis_type == "SOLDIER_CONCERN"
+            and validation.resolved_execution_mode == "async"
         )
+
+        if is_soldier_async:
+            analysis_id = str(uuid4())
+            try:
+                await self._queue_provider.put_transient_payload_async(
+                    analysis_id,
+                    documents,
+                )
+            except Exception:
+                analysis = await self._analysis_repository.create_pending_async(
+                    analysis_type=analysis_type,
+                    execution_mode=validation.resolved_execution_mode,
+                    documents=documents,
+                    reference=reference,
+                    options=options,
+                    persist_raw_text=False,
+                    analysis_id=analysis_id,
+                )
+                failed = await self._analysis_repository.mark_failed_async(
+                    analysis.id,
+                    error_code="analysis_transient_transport_unavailable",
+                    error_message="Analysis transient transport is unavailable",
+                )
+                if failed is None:
+                    raise RuntimeError("Failed analysis could not be reloaded")
+                return self._status_result(failed)
+
+            try:
+                analysis = await self._analysis_repository.create_pending_async(
+                    analysis_type=analysis_type,
+                    execution_mode=validation.resolved_execution_mode,
+                    documents=documents,
+                    reference=reference,
+                    options=options,
+                    persist_raw_text=False,
+                    analysis_id=analysis_id,
+                )
+            except Exception:
+                with suppress(Exception):
+                    await self._queue_provider.delete_transient_payload_async(
+                        analysis_id
+                    )
+                raise
+        else:
+            analysis = await self._analysis_repository.create_pending_async(
+                analysis_type=analysis_type,
+                execution_mode=validation.resolved_execution_mode,
+                documents=documents,
+                reference=reference,
+                options=options,
+                persist_raw_text=(
+                    validation.resolved_execution_mode == "async"
+                ),
+            )
+
         if validation.resolved_execution_mode == "sync":
             await self._analysis_processor_service.process_async(
                 analysis_id=analysis.id,
@@ -255,6 +296,11 @@ class AnalysisService:
                 error_message="Analysis queue is unavailable",
             )
             await self._analysis_repository.clear_raw_text_async(analysis.id)
+            if is_soldier_async:
+                with suppress(Exception):
+                    await self._queue_provider.delete_transient_payload_async(
+                        analysis.id
+                    )
             failed = await self._analysis_repository.get_aggregate_by_id_async(
                 analysis.id
             )

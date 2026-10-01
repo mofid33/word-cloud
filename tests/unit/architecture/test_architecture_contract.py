@@ -146,6 +146,31 @@ class ArchitectureContractTests(unittest.TestCase):
             "repositories",
         })
 
+    def test_phase12_queue_sql_is_confined_to_repository(self) -> None:
+        project_root = Path(__file__).resolve().parents[3]
+        provider_source = (
+            project_root
+            / "src"
+            / "infrastructure"
+            / "providers"
+            / "analysis_queue"
+            / "postgres_analysis_queue_provider.py"
+        ).read_text(encoding="utf-8")
+        repository_source = (
+            project_root
+            / "src"
+            / "infrastructure"
+            / "repositories"
+            / "analysis"
+            / "analysis_queue_repository.py"
+        ).read_text(encoding="utf-8")
+
+        self.assertNotIn("sqlalchemy", provider_source)
+        self.assertNotIn("PsqlDbContext", provider_source)
+        self.assertNotIn("AnalysisQueueJobModel", provider_source)
+        self.assertIn("PsqlDbContext", repository_source)
+        self.assertIn("AnalysisQueueJobModel", repository_source)
+
     def test_repository_transaction_boundary_is_frozen(self) -> None:
         persistence = self.architecture["persistence"]
         self.assertEqual(

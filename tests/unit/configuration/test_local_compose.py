@@ -26,6 +26,20 @@ class LocalComposeTests(unittest.TestCase):
             )
         )
 
+    def test_compose_provides_non_durable_redis_for_transient_payloads(self) -> None:
+        compose = yaml.safe_load(
+            (PROJECT_ROOT / "compose.yaml").read_text(encoding="utf-8")
+        )
+        redis = compose["services"]["redis"]
+
+        self.assertEqual(redis["image"], "redis:7-alpine")
+        self.assertIn("healthcheck", redis)
+        command = " ".join(str(item) for item in redis["command"])
+        self.assertIn("--appendonly no", command)
+        self.assertIn("--save ", command)
+        self.assertNotIn("volumes", redis)
+        self.assertIn("127.0.0.1", str(redis["ports"]))
+
     def test_test_database_initialization_is_present(self) -> None:
         init_sql = (
             PROJECT_ROOT

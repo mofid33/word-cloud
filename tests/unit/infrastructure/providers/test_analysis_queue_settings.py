@@ -18,6 +18,8 @@ class _Config:
             "analysis_queue.visibility_timeout_seconds": 120.0,
             "analysis_queue.heartbeat_interval_seconds": 30.0,
             "analysis_queue.processing_stale_seconds": 300.0,
+            "analysis_queue.recovery_interval_seconds": 5.0,
+            "analysis_queue.recovery_batch_size": 100,
             "analysis_queue.concurrency": 2,
         }
         self.values.update(overrides or {})
@@ -31,6 +33,7 @@ class AnalysisQueueSettingsTests(unittest.TestCase):
         settings = AnalysisQueueSettings(_Config())
         self.assertEqual(settings.backend, "postgres")
         self.assertEqual(settings.maximum_attempts, 3)
+        self.assertEqual(settings.recovery_batch_size, 100)
         self.assertEqual(settings.concurrency, 2)
 
     def test_bool_is_not_accepted_as_integer(self) -> None:

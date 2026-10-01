@@ -38,7 +38,7 @@ class _Repository:
         self.last_create = kwargs
         now = datetime.now(UTC)
         self.analysis = SimpleNamespace(
-            id="analysis-1",
+            id=kwargs.get("analysis_id") or "analysis-1",
             analysis_type=kwargs["analysis_type"],
             status="pending",
             execution_mode=kwargs["execution_mode"],
@@ -101,12 +101,19 @@ class _Processor:
 class _Queue:
     def __init__(self):
         self.messages = []
+        self.transient_payloads = {}
         self.fail = False
 
     async def enqueue_async(self, analysis_id, payload):
         if self.fail:
             raise RuntimeError("queue unavailable")
         self.messages.append((analysis_id, payload))
+
+    async def put_transient_payload_async(self, analysis_id, documents):
+        self.transient_payloads[analysis_id] = list(documents)
+
+    async def delete_transient_payload_async(self, analysis_id):
+        self.transient_payloads.pop(analysis_id, None)
 
 
 class AnalysisServiceTests(unittest.TestCase):
@@ -384,31 +391,32 @@ class AnalysisServiceTests(unittest.TestCase):
         self.assertEqual(result.error.code, "analysis_queue_unavailable")
         self.assertEqual(len(self.processor.calls), 0)
 
-    def test_soldier_async_is_fail_closed_without_privacy_safe_transport(self) -> None:
-        with self.assertRaises(AnalysisRequestValidationError) as context:
-            asyncio.run(
-                self.service.create_async(
-                    analysis_type="SOLDIER_CONCERN",
-                    execution_mode="async",
-                    documents=[
-                        {
-                            "document_id": "private-1",
-                            "text": "SECRET",
-                            "metadata": {},
-                        }
-                    ],
-                )
+    def test_soldier_async_uses_transient_payload_without_db_raw_text(self) -> None:
+        result = asyncio.run(
+            self.service.create_async(
+                analysis_type="SOLDIER_CONCERN",
+                execution_mode="async",
+                documents=[
+                    {
+                        "document_id": "private-1",
+                        "text": "SECRET",
+                        "metadata": {},
+                    }
+                ],
             )
+        )
+
+        self.assertEqual(result.status, "pending")
+        self.assertFalse(self.repository.last_create["persist_raw_text"])
         self.assertEqual(
-            context.exception.code,
-            "soldier_async_transport_unavailable",
-        )
-        self.assertIsNone(self.repository.last_create)
-        self.assertEqual(self.queue.messages, [])
-        self.assertNotIn(
+            self.queue.transient_payloads[result.analysis_id][0]["text"],
             "SECRET",
-            str(context.exception),
         )
+        self.assertEqual(len(self.queue.messages), 1)
+        queued_analysis_id, payload = self.queue.messages[0]
+        self.assertEqual(queued_analysis_id, result.analysis_id)
+        self.assertNotIn("SECRET", repr(payload))
+        self.assertEqual(payload["analysis_type"], "SOLDIER_CONCERN")
 
     def test_completed_result_maps_structured_json_groups(self) -> None:
         now = datetime.now(UTC)

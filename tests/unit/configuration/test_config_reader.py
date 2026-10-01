@@ -65,6 +65,18 @@ class ConfigReaderTests(unittest.TestCase):
                     config.get("analysis_queue.visibility_timeout_seconds"),
                     config.get("analysis_queue.heartbeat_interval_seconds"),
                 )
+                self.assertGreater(
+                    config.get("analysis_queue.recovery_batch_size"),
+                    0,
+                )
+                self.assertEqual(
+                    config.get("analysis_queue.transient_payload.backend"),
+                    "redis",
+                )
+                self.assertGreaterEqual(
+                    config.get("analysis_queue.transient_payload.ttl_seconds"),
+                    60,
+                )
 
     def test_non_development_environment_uses_production_file(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

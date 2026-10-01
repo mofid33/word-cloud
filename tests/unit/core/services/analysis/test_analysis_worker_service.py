@@ -20,6 +20,8 @@ class _Queue:
         self.failed = 0
         self.requeued = 0
         self.closed = False
+        self.recovery_calls = 0
+        self.transient_payloads = {}
 
     async def receive_async(self, *, timeout_seconds):
         if not self.messages:
@@ -48,6 +50,22 @@ class _Queue:
 
     async def extend_lease_async(self, message):
         return True
+
+    async def recover_orphaned_async(self, *, limit):
+        self.recovery_calls += 1
+        return 0
+
+    async def put_transient_payload_async(self, analysis_id, documents):
+        self.transient_payloads[analysis_id] = list(documents)
+
+    async def get_transient_payload_async(self, analysis_id):
+        return self.transient_payloads.get(analysis_id)
+
+    async def touch_transient_payload_async(self, analysis_id):
+        return analysis_id in self.transient_payloads
+
+    async def delete_transient_payload_async(self, analysis_id):
+        self.transient_payloads.pop(analysis_id, None)
 
     async def close_async(self):
         self.closed = True
@@ -127,6 +145,8 @@ class _Settings:
     visibility_timeout_seconds = 10.0
     heartbeat_interval_seconds = 1.0
     processing_stale_seconds = 20.0
+    recovery_interval_seconds = 60.0
+    recovery_batch_size = 100
 
 
 def _message(attempt=1):
@@ -162,6 +182,23 @@ class AnalysisWorkerServiceTests(unittest.TestCase):
             self.assertEqual(repository.analysis.status, "completed")
             self.assertEqual(queue.acked, 1)
             self.assertEqual(processor.calls, 2)
+
+        asyncio.run(run())
+
+    def test_worker_runs_orphan_recovery_before_receiving(self) -> None:
+        async def run():
+            queue = _Queue()
+            repository = _Repository()
+            processor = _Processor(repository, failures=0)
+            worker = AnalysisWorkerService(
+                queue,
+                processor,
+                repository,
+                _Settings(),
+            )
+
+            self.assertFalse(await worker.run_once_async())
+            self.assertEqual(queue.recovery_calls, 1)
 
         asyncio.run(run())
 

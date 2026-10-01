@@ -32,20 +32,32 @@ class WordCloudAnalysisRepository(BaseRepository[WordCloudAnalysis]):
         reference: str | None = None,
         options: dict[str, Any] | None = None,
         persist_raw_text: bool = False,
+        analysis_id: str | None = None,
     ) -> WordCloudAnalysis:
         if analysis_type == "SOLDIER_CONCERN" and persist_raw_text:
             raise ValueError(
                 "Raw text persistence is forbidden for SOLDIER_CONCERN analyses"
             )
 
+        if analysis_id is not None and (
+            not isinstance(analysis_id, str)
+            or not analysis_id.strip()
+            or analysis_id != analysis_id.strip()
+            or len(analysis_id) > 36
+        ):
+            raise ValueError("analysis_id is invalid")
+
         is_soldier_concern = analysis_type == "SOLDIER_CONCERN"
-        analysis = WordCloudAnalysis(
-            analysis_type=analysis_type,
-            status="pending",
-            execution_mode=execution_mode,
-            reference=None if is_soldier_concern else reference,
-            options={} if is_soldier_concern else dict(options or {}),
-        )
+        analysis_values: dict[str, Any] = {
+            "analysis_type": analysis_type,
+            "status": "pending",
+            "execution_mode": execution_mode,
+            "reference": None if is_soldier_concern else reference,
+            "options": {} if is_soldier_concern else dict(options or {}),
+        }
+        if analysis_id is not None:
+            analysis_values["id"] = analysis_id
+        analysis = WordCloudAnalysis(**analysis_values)
         for document in documents:
             request_metadata = dict(document.get("metadata") or {})
             persisted_metadata = (

@@ -43,7 +43,15 @@ analysis_queue:
   visibility_timeout_seconds: 120.0
   heartbeat_interval_seconds: 30.0
   processing_stale_seconds: 300.0
+  recovery_interval_seconds: 5.0
+  recovery_batch_size: 100
   concurrency: 2
+  transient_payload:
+    backend: "redis"
+    ttl_seconds: 86400
+    socket_timeout_seconds: 5.0
+    key_prefix: "word-cloud:analysis-transient:"
+    url: "redis://127.0.0.1:6379/0"
 
 persian_nlp:
   resources:

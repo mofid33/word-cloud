@@ -1,7 +1,7 @@
 # Phase 12 — Async Jobs & Workers
 
-Status: IMPLEMENTED_AWAITING_LOCAL_VERIFICATION_AND_PRIVACY_TRANSPORT_DECISION
-Date: 2026-09-29
+Status: IMPLEMENTED_AWAITING_LOCAL_VERIFICATION
+Date: 2026-10-01
 Baseline: `611c0f45d6a31e04fdca1af3a21f6288b87a981e`
 
 ## مرحله
@@ -21,7 +21,7 @@ Phase 12 — Async Jobs & Workers
 
 ## خروجی پیاده‌سازی‌شده
 
-- PostgreSQL-backed durable queue؛ dependency جدید خارجی اضافه نشده است.
+- PostgreSQL-backed durable queue + Redis non-durable transient payload transport for SOLDIER_CONCERN.
 - versioned identifier-only queue job payload.
 - enqueue / receive / lease / heartbeat / acknowledgement / requeue / final failure.
 - `FOR UPDATE SKIP LOCKED` consumption برای concurrent workers.
@@ -34,19 +34,32 @@ Phase 12 — Async Jobs & Workers
 - queue error metadata فقط sanitized error code است.
 - queue payload شامل raw text، request object، secret یا model config نیست.
 
-## Privacy blocker — SOLDIER_CONCERN
+## SOLDIER_CONCERN transient privacy transport
 
-Frozen contract هم‌زمان این دو شرط را دارد:
+مسیر async برای `SOLDIER_CONCERN` اکنون پیاده‌سازی شده است.
 
-1. Worker برای تحلیل به raw text نیاز دارد.
-2. SOLDIER_CONCERN raw text نه در DB و نه در durable queue payload قابل ذخیره نیست.
+- Raw Text در PostgreSQL persist نمی‌شود.
+- Raw Text وارد durable `analysis_queue_job.payload` نمی‌شود.
+- PostgreSQL queue فقط identifier/type/version را نگهداری می‌کند.
+- Raw processing payload فقط در Redis transient memory نگهداری می‌شود.
+- Redis provider قبل از استفاده verify می‌کند که RDB snapshot و AOF هر دو disabled باشند؛ در غیر این صورت fail-closed است.
+- payload دارای TTL است و هنگام completion/final failure حذف می‌شود.
+- heartbeat و retry TTL را renew می‌کنند.
+- اگر transient payload پس از crash/restart موجود نباشد، analysis با error sanitized به `failed` می‌رود.
+- Redis URL در Production از environment/Vault boundary resolve می‌شود و در repository commit نمی‌شود.
 
-در baseline هیچ privacy-safe transient transport contractشده‌ای برای انتقال raw text از HTTP process به Worker وجود ندارد. ساخت storage یا fake ephemeral provider جدید فقط برای سبز کردن Phase ممنوع است.
+## Crash / Recovery
 
-بنابراین مسیر SOLDIER_CONCERN که به async resolve شود با کد
-`soldier_async_transport_unavailable` به‌صورت fail-closed رد می‌شود. هیچ lifecycle row، durable queue payload یا persisted raw text برای این request ساخته نمی‌شود.
+- Queue lease expiration باعث redelivery می‌شود.
+- `processing` stale قابل reclaim است.
+- Worker به‌صورت دوره‌ای `pending + async` analysisهایی را که queue row ندارند reconcile می‌کند.
+- بنابراین crash بین commit شدن Analysis و enqueue شدن Queue باعث pending دائمی نمی‌شود.
+- enqueue idempotent است و unique `analysis_id` مانع duplicate durable jobs می‌شود.
 
-به همین دلیل Phase 12 تا زمانی که یک transport privacy-safe واقعی و contractشده تعیین و پیاده‌سازی نشود، `CLOSED` اعلام نمی‌شود.
+## Repository Boundary
+
+تمام SQL مربوط به Queue در `AnalysisQueueRepository` قرار دارد.
+`PostgresAnalysisQueueProvider` دیگر `PsqlDbContext`، SQLAlchemy query یا SQLAlchemy model را مستقیماً استفاده نمی‌کند.
 
 ## Configuration
 
@@ -61,7 +74,13 @@ Frozen contract هم‌زمان این دو شرط را دارد:
 - visibility_timeout_seconds
 - heartbeat_interval_seconds
 - processing_stale_seconds
+- recovery_interval_seconds
+- recovery_batch_size
 - concurrency
+- transient_payload.backend
+- transient_payload.ttl_seconds
+- transient_payload.socket_timeout_seconds
+- transient_payload.key_prefix
 
 Validation مقادیر bool-as-number، NaN/Inf و rangeهای ناسازگار را fail-fast می‌کند.
 
@@ -90,23 +109,31 @@ Queue schema فقط orchestration metadata را نگهداری می‌کند.
 
 - queue job validation/privacy serialization.
 - queue configuration validation.
-- AnalysisService async enqueue + SOLDIER fail-closed.
+- AnalysisService async enqueue + SOLDIER transient transport.
 - worker retry/retry-exhaustion/duplicate completed delivery.
 - PostgreSQL enqueue/receive/ack/requeue.
 - concurrent queue consumption.
 - atomic processing claim.
 - processing input cleanup.
+- orphan dispatch reconciliation after API crash.
+- expired lease + stale-processing recovery.
+- real Redis SOLDIER async privacy/integration test.
+- repository boundary test preventing SQLAlchemy query usage inside Queue Provider.
 
 ## Commands to Run
 
 ```powershell
+python -m pip install -r requirements.txt
 python -m compileall -q src tests
+docker compose up -d postgres redis
 python -m src.infrastructure.scripts.run_migrations --upgrade
 $env:TEST_DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost:5432/word_cloud_test"
+$env:TEST_TRANSIENT_PAYLOAD_REDIS_URL = "redis://127.0.0.1:6379/0"
 python -m unittest tests.unit.core.services.analysis.test_analysis_queue_job -v
 python -m unittest tests.unit.infrastructure.providers.test_analysis_queue_settings -v
 python -m unittest tests.unit.core.services.analysis.test_analysis_worker_service -v
 python -m unittest tests.integration.persistence.test_phase12_async_queue -v
+python -m unittest tests.integration.persistence.test_phase12_soldier_async -v
 python -m unittest discover -s tests -p "test_*.py" -v
 ```
 
@@ -118,8 +145,11 @@ python -m unittest discover -s tests -p "test_*.py" -v
 - فقط یک concurrent claim موفق.
 - retry محدود و final failure deterministic.
 - duplicate delivery result graph دوم تولید نکند.
-- raw text در queue payload وجود نداشته باشد.
-- SOLDIER async بدون transport امن fail-closed باشد.
+- raw text در durable queue payload وجود نداشته باشد.
+- SOLDIER async با Redis non-durable واقعی completed شود.
+- Redis دارای RDB/AOF روشن توسط runtime رد شود.
+- orphan pending analysis recover شود.
+- expired lease + stale processing recover شود.
 - Phaseهای 1 تا 11 regression نشکنند.
 
 ## Acceptance Checklist
@@ -132,11 +162,16 @@ python -m unittest discover -s tests -p "test_*.py" -v
 - [x] atomic processing claim
 - [x] duplicate-delivery protection
 - [x] queue payload privacy boundary
+- [x] privacy-safe SOLDIER async transient transport
+- [x] Redis non-durability enforcement
+- [x] orphan dispatch reconciliation
+- [x] lease/stale-processing recovery
+- [x] Queue SQL moved to Repository
 - [x] config parity
 - [x] Alembic model registration/migration
 - [x] unit tests added
 - [x] PostgreSQL integration/concurrency tests added
-- [ ] local compile/full-regression evidence from target development environment
-- [ ] privacy-safe SOLDIER async transport contract + implementation
+- [ ] local compile/full-regression evidence after final Phase 12 fixes
+- [ ] real Redis + PostgreSQL Soldier async integration evidence from target development environment
 
-Phase closure marker remains intentionally unset.
+Phase closure marker remains intentionally unset until the final local verification is received.

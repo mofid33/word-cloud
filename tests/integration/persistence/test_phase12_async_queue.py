@@ -19,9 +19,11 @@ from src.core.services.analysis.analysis_service import AnalysisService
 from src.core.services.analysis.analysis_worker_service import AnalysisWorkerService
 from src.core.services.analysis.providers.analysis_queue_provider import AnalysisQueueJob
 from src.infrastructure.context.sql_db.psql_dbcontext import Base, PsqlDbContext
-from src.infrastructure.models.analysis_queue_job import AnalysisQueueJobModel
 from src.infrastructure.providers.analysis_queue.postgres_analysis_queue_provider import (
     PostgresAnalysisQueueProvider,
+)
+from src.infrastructure.repositories.analysis.analysis_queue_repository import (
+    AnalysisQueueRepository,
 )
 from src.infrastructure.repositories.analysis.word_cloud_analysis_repository import (
     WordCloudAnalysisRepository,
@@ -42,9 +44,34 @@ class _Vault:
     enabled = False
 
 
+class _TransientStore:
+    def __init__(self):
+        self.payloads = {}
+
+    async def put_async(self, analysis_id, documents):
+        self.payloads[analysis_id] = list(documents)
+
+    async def get_async(self, analysis_id):
+        return self.payloads.get(analysis_id)
+
+    async def touch_async(self, analysis_id):
+        return analysis_id in self.payloads
+
+    async def delete_async(self, analysis_id):
+        self.payloads.pop(analysis_id, None)
+
+    async def close_async(self):
+        return None
+
+
 class _Settings:
     poll_interval_seconds = 0.01
     visibility_timeout_seconds = 30.0
+
+
+class _ShortLeaseSettings:
+    poll_interval_seconds = 0.005
+    visibility_timeout_seconds = 0.05
 
 
 class _WorkerSettings(_Settings):
@@ -55,6 +82,12 @@ class _WorkerSettings(_Settings):
     receive_timeout_seconds = 0.05
     heartbeat_interval_seconds = 5.0
     processing_stale_seconds = 60.0
+    recovery_interval_seconds = 60.0
+    recovery_batch_size = 100
+
+
+class _CrashRecoveryWorkerSettings(_WorkerSettings):
+    processing_stale_seconds = 0.05
 
 
 class _PolicyConfig:
@@ -106,9 +139,12 @@ class Phase12AsyncQueueIntegrationTests(unittest.IsolatedAsyncioTestCase):
         with patch.dict(os.environ, {"DATABASE_URL": url}, clear=False):
             self.db_context = PsqlDbContext(_Config(url), _Vault())
         self.repository = WordCloudAnalysisRepository(self.db_context)
+        self.queue_repository = AnalysisQueueRepository(self.db_context)
+        self.transient_store = _TransientStore()
         self.queue = PostgresAnalysisQueueProvider(
-            self.db_context,
+            self.queue_repository,
             _Settings(),
+            self.transient_store,
         )
         async with self.db_context.engine.begin() as connection:
             await connection.run_sync(Base.metadata.drop_all)
@@ -133,14 +169,17 @@ class Phase12AsyncQueueIntegrationTests(unittest.IsolatedAsyncioTestCase):
             persist_raw_text=True,
         )
 
-    async def test_async_api_create_queue_worker_completed_end_to_end(self):
+    def _processor(self):
         profile = _ProfileService()
-        processor = AnalysisProcessorService(
+        return AnalysisProcessorService(
             profile,
             profile,
             profile,
             self.repository,
         )
+
+    async def test_async_api_create_queue_worker_completed_end_to_end(self):
+        processor = self._processor()
         policy = AnalysisExecutionPolicyService(_PolicyConfig())
         service = AnalysisService(
             policy,
@@ -280,10 +319,54 @@ class Phase12AsyncQueueIntegrationTests(unittest.IsolatedAsyncioTestCase):
             error_code="analysis_processing_failed",
             error_message="Analysis processing failed",
         )
-        await self.repository.clear_raw_text_async(analysis.id)
         failed = await self.repository.get_aggregate_by_id_async(analysis.id)
         self.assertEqual(failed.status, "failed")
         self.assertIsNone(failed.documents[0].raw_text)
+
+    async def test_orphaned_pending_analysis_is_recovered_into_queue(self):
+        analysis = await self._create_analysis()
+
+        recovered = await self.queue.recover_orphaned_async(limit=10)
+
+        self.assertEqual(recovered, 1)
+        message = await self.queue.receive_async(timeout_seconds=0.2)
+        self.assertIsNotNone(message)
+        assert message is not None
+        self.assertEqual(message.job.analysis_id, analysis.id)
+        self.assertEqual(message.job.analysis_type, "COURSE")
+        await self.queue.acknowledge_async(message)
+
+    async def test_expired_lease_and_stale_processing_are_recovered(self):
+        analysis = await self._create_analysis()
+        queue = PostgresAnalysisQueueProvider(
+            self.queue_repository,
+            _ShortLeaseSettings(),
+            self.transient_store,
+        )
+        job = AnalysisQueueJob.create(
+            analysis_id=analysis.id,
+            analysis_type="COURSE",
+        )
+        await queue.enqueue_async(analysis.id, job.to_payload())
+        first = await queue.receive_async(timeout_seconds=0.2)
+        self.assertIsNotNone(first)
+        await self.repository.try_claim_processing_async(analysis.id)
+
+        await asyncio.sleep(0.08)
+
+        worker = AnalysisWorkerService(
+            queue,
+            self._processor(),
+            self.repository,
+            _CrashRecoveryWorkerSettings(),
+        )
+        self.assertTrue(await worker.run_once_async())
+
+        completed = await self.repository.get_aggregate_by_id_async(analysis.id)
+        self.assertEqual(completed.status, "completed")
+        self.assertIsNone(
+            await queue.receive_async(timeout_seconds=0.05)
+        )
 
 
 if __name__ == "__main__":
