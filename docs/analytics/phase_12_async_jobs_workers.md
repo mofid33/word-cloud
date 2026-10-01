@@ -1,6 +1,6 @@
 # Phase 12 — Async Jobs & Workers
 
-Status: IMPLEMENTED_AWAITING_LOCAL_VERIFICATION
+Status: COMPLETE — READY_FOR_PHASE_13
 Date: 2026-10-01
 Baseline: `611c0f45d6a31e04fdca1af3a21f6288b87a981e`
 
@@ -171,7 +171,19 @@ python -m unittest discover -s tests -p "test_*.py" -v
 - [x] Alembic model registration/migration
 - [x] unit tests added
 - [x] PostgreSQL integration/concurrency tests added
-- [ ] local compile/full-regression evidence after final Phase 12 fixes
-- [ ] real Redis + PostgreSQL Soldier async integration evidence from target development environment
+- [x] local compile/full-regression evidence after final Phase 12 fixes
+- [x] real Redis + PostgreSQL Soldier async integration evidence from target development environment
 
-Phase closure marker remains intentionally unset until the final local verification is received.
+## Verification Evidence
+
+Local verification received on 2026-10-01:
+
+- PostgreSQL container healthy on the development host.
+- Redis non-durable transient container healthy.
+- `python -m compileall -q src tests` completed without errors.
+- Alembic upgrade completed successfully.
+- Phase 12 PostgreSQL queue integration tests passed, including concurrent delivery, orphan recovery, lease expiry and stale-processing recovery.
+- Phase 12 SOLDIER_CONCERN Redis/PostgreSQL integration tests passed, including durable-payload privacy and orphan-dispatch recovery.
+- Full regression suite: `Ran 364 tests ... OK (skipped=7)`; skips are explicit environment/model-gated tests.
+
+PHASE_12_COMPLETE_READY_FOR_PHASE_13
