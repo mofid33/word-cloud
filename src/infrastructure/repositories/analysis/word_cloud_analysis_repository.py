@@ -6,7 +6,7 @@ from typing import Any
 from uuid import uuid4
 
 from sqlalchemy import delete, select, update
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import raiseload, selectinload
 
 from src.infrastructure.context.sql_db.psql_dbcontext import PsqlDbContext
 from src.infrastructure.di.inject import inject
@@ -107,6 +107,22 @@ class WordCloudAnalysisRepository(BaseRepository[WordCloudAnalysis]):
                     selectinload(WordCloudAnalysis.topics)
                     .selectinload(AnalysisTopic.keyword_links)
                     .selectinload(AnalysisTopicKeyword.keyword),
+                )
+            )
+            return result.scalar_one_or_none()
+
+    async def get_visualization_source_by_id_async(
+        self,
+        analysis_id: str,
+    ) -> WordCloudAnalysis | None:
+        async with self._db_context.session() as session:
+            result = await session.execute(
+                select(WordCloudAnalysis)
+                .where(WordCloudAnalysis.id == analysis_id)
+                .options(
+                    selectinload(WordCloudAnalysis.keywords),
+                    raiseload(WordCloudAnalysis.documents),
+                    raiseload(WordCloudAnalysis.topics),
                 )
             )
             return result.scalar_one_or_none()

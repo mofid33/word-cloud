@@ -51,6 +51,15 @@ analysis_queue:
     socket_timeout_seconds: 5.0
     key_prefix: "word-cloud:analysis-transient:"
 
+visualization:
+  width: 1200
+  height: 675
+  maximum_words: 100
+  background: "#FFFFFF"
+  font_family: "DejaVu Sans"
+  font_path: "@matplotlib/DejaVuSans.ttf"
+  random_seed: 42
+
 persian_nlp:
   resources:
     path: "src/infrastructure/resources/persian_nlp/persian_nlp_resources.json"
