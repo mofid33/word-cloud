@@ -62,7 +62,8 @@ class VisualizationSettings:
                 f"Visualization font file not found: {self.font_path}"
             )
         try:
-            with self.font_path.open("rb") as stream:\n                stream.read(1)
+            with self.font_path.open("rb") as stream:
+                stream.read(1)
             ImageFont.truetype(str(self.font_path), size=32)
         except (OSError, ValueError) as exc:
             raise ValueError(
