@@ -103,6 +103,14 @@ class WebService:
 
         @app.middleware("http")
         async def production_middleware(request: Request, call_next):
+            def apply_security_headers(response, request_id: str):
+                response.headers["X-Request-ID"] = request_id
+                response.headers["X-Content-Type-Options"] = "nosniff"
+                response.headers["X-Frame-Options"] = "DENY"
+                response.headers["Referrer-Policy"] = "no-referrer"
+                response.headers["Cache-Control"] = "no-store"
+                return response
+
             header = request.headers.get("x-request-id", "")
             request_id = header if _REQUEST_ID_PATTERN.fullmatch(header) else uuid4().hex
             token = request_id_context.set(request_id)
@@ -116,29 +124,24 @@ class WebService:
                     except ValueError:
                         response = JSONResponse(status_code=400, content={"detail": {"code": "invalid_content_length", "message": "Invalid Content-Length header"}})
                         status_code = response.status_code
-                        return response
+                        return apply_security_headers(response, request_id)
                     if size > self._runtime.maximum_request_body_bytes:
                         response = JSONResponse(status_code=413, content={"detail": {"code": "request_body_too_large", "message": "Request body exceeds the configured limit"}})
                         status_code = response.status_code
-                        return response
+                        return apply_security_headers(response, request_id)
                 if request.method in {"POST", "PUT", "PATCH"}:
                     body = await request.body()
                     if len(body) > self._runtime.maximum_request_body_bytes:
                         response = JSONResponse(status_code=413, content={"detail": {"code": "request_body_too_large", "message": "Request body exceeds the configured limit"}})
                         status_code = response.status_code
-                        return response
+                        return apply_security_headers(response, request_id)
                 try:
                     async with asyncio.timeout(self._runtime.request_timeout_seconds):
                         response = await call_next(request)
                 except TimeoutError:
                     response = JSONResponse(status_code=504, content={"detail": {"code": "request_timeout", "message": "Request processing timed out"}})
                 status_code = response.status_code
-                response.headers["X-Request-ID"] = request_id
-                response.headers["X-Content-Type-Options"] = "nosniff"
-                response.headers["X-Frame-Options"] = "DENY"
-                response.headers["Referrer-Policy"] = "no-referrer"
-                response.headers["Cache-Control"] = "no-store"
-                return response
+                return apply_security_headers(response, request_id)
             finally:
                 elapsed = monotonic() - started
                 route = getattr(request.scope.get("route"), "path", "unresolved")

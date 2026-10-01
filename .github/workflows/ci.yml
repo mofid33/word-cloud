@@ -88,7 +88,23 @@ jobs:
           curl --fail --silent http://127.0.0.1:5000/api/v1/health/live
           curl --fail --silent http://127.0.0.1:5000/api/v1/metrics/ | grep word_cloud_http_requests_total
       - name: Verify worker health
-        run: docker compose -f compose.production.yaml ps worker
+        run: |
+          worker_id="$(docker compose -f compose.production.yaml ps -q worker)"
+          test -n "$worker_id"
+          for i in $(seq 1 20); do
+            health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}missing{{end}}' "$worker_id")"
+            if [ "$health" = "healthy" ]; then
+              exit 0
+            fi
+            if [ "$health" = "unhealthy" ]; then
+              docker compose -f compose.production.yaml logs --no-color worker
+              exit 1
+            fi
+            sleep 3
+          done
+          docker compose -f compose.production.yaml ps worker
+          docker compose -f compose.production.yaml logs --no-color worker
+          exit 1
       - name: Graceful stop smoke
         run: docker compose -f compose.production.yaml stop -t 35 api worker
       - name: Dump logs on failure
