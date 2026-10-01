@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from asyncio import to_thread
 from math import isfinite
 
 from src.core.services.visualization.providers.visualization_renderer import (
@@ -79,8 +80,8 @@ class VisualizationService:
             )
 
         if normalized_format == "png":
-            return self._renderer.render_png(keywords)
-        return self._renderer.render_svg(keywords)
+            return await to_thread(self._renderer.render_png, keywords)
+        return await to_thread(self._renderer.render_svg, keywords)
 
     def _prepare_keywords(self, persisted_keywords: object) -> tuple[VisualizationKeyword, ...]:
         ordered = sorted(
