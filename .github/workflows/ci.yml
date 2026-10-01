@@ -1,0 +1,99 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:16.4-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres-ci
+          POSTGRES_DB: word_cloud_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d word_cloud_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      ENV_TYPE: development
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres-ci@127.0.0.1:5432/word_cloud_test
+      TEST_DATABASE_URL: postgresql+asyncpg://postgres:postgres-ci@127.0.0.1:5432/word_cloud_test
+      TRANSIENT_PAYLOAD_REDIS_URL: redis://127.0.0.1:6379/0
+      TEST_TRANSIENT_PAYLOAD_REDIS_URL: redis://127.0.0.1:6379/0
+      RUN_SEMANTIC_MODEL_BENCHMARK: "0"
+      RUN_PHASE11_REAL_MODEL_BENCHMARK: "0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Start non-durable Redis
+        run: docker run -d --name word-cloud-ci-redis -p 6379:6379 redis:7.4-alpine redis-server --save "" --appendonly no --maxmemory-policy noeviction
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -r requirements-dev.txt
+      - name: Compile
+        run: python -m compileall -q src tests
+      - name: Migrate
+        run: python src/infrastructure/scripts/run_migrations.py --upgrade
+      - name: Unit tests
+        run: python -m unittest discover -s tests/unit -p "test_*.py" -v
+      - name: Integration tests
+        run: python -m unittest discover -s tests/integration -p "test_*.py" -v
+      - name: Evaluation regression
+        run: python -m unittest discover -s tests/evaluation -p "test_*.py" -v
+
+  container:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    needs: test
+    env:
+      POSTGRES_PASSWORD: compose-ci-password
+      DATABASE_URL: postgresql+asyncpg://postgres:compose-ci-password@postgres:5432/postgres
+      TRANSIENT_PAYLOAD_REDIS_URL: redis://redis:6379/0
+      IMAGE_TAG: ci
+      API_PORT: "5000"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build production image
+        run: docker build --tag word-cloud:ci .
+      - name: Start production-like stack
+        run: docker compose -f compose.production.yaml up -d --no-build
+      - name: Wait for API readiness
+        run: |
+          for i in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:5000/api/v1/health/ready >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose -f compose.production.yaml ps
+          docker compose -f compose.production.yaml logs --no-color
+          exit 1
+      - name: Verify liveness and metrics
+        run: |
+          curl --fail --silent http://127.0.0.1:5000/api/v1/health/live
+          curl --fail --silent http://127.0.0.1:5000/api/v1/metrics/ | grep word_cloud_http_requests_total
+      - name: Verify worker health
+        run: docker compose -f compose.production.yaml ps worker
+      - name: Graceful stop smoke
+        run: docker compose -f compose.production.yaml stop -t 35 api worker
+      - name: Dump logs on failure
+        if: failure()
+        run: docker compose -f compose.production.yaml logs --no-color
+      - name: Cleanup
+        if: always()
+        run: docker compose -f compose.production.yaml down -v --remove-orphans

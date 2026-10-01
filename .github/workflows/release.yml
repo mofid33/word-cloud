@@ -1,0 +1,33 @@
+name: Release Image
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build production image
+        run: |
+          docker build --tag word-cloud:${GITHUB_SHA} .
+          docker inspect word-cloud:${GITHUB_SHA} --format '{{.Id}}'
+      - name: Export OCI-compatible image archive
+        run: |
+          docker save word-cloud:${GITHUB_SHA} -o word-cloud-image.tar
+          sha256sum word-cloud-image.tar > word-cloud-image.tar.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: word-cloud-image-${{ github.sha }}
+          path: |
+            word-cloud-image.tar
+            word-cloud-image.tar.sha256
+          if-no-files-found: error
+          retention-days: 14
