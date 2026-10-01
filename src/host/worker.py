@@ -4,13 +4,19 @@ import asyncio
 import signal
 
 from src.core.services.analysis.analysis_worker_service import AnalysisWorkerService
+from src.infrastructure.context.sql_db.psql_dbcontext import PsqlDbContext
 from src.infrastructure.di.bootstrap import bootstrap_di
 from src.infrastructure.di.inject import resolve
+from src.infrastructure.observability.logging_config import configure_logging
+from src.infrastructure.providers.runtime.runtime_settings import RuntimeSettings
 
 
 async def _run_async() -> None:
     bootstrap_di()
+    runtime_settings = resolve(RuntimeSettings)
+    configure_logging(runtime_settings.log_level)
     worker = resolve(AnalysisWorkerService)
+    db_context = resolve(PsqlDbContext)
     loop = asyncio.get_running_loop()
     stop_requested = asyncio.Event()
 
@@ -30,7 +36,12 @@ async def _run_async() -> None:
         raise
     finally:
         await worker.stop_async()
-        await run_task
+        try:
+            await asyncio.wait_for(run_task, timeout=runtime_settings.graceful_shutdown_seconds)
+        except TimeoutError:
+            run_task.cancel()
+            await asyncio.gather(run_task, return_exceptions=True)
+        await db_context.dispose_async()
 
 
 def main() -> None:
