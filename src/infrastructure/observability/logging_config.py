@@ -16,7 +16,7 @@ class JsonFormatter(logging.Formatter):
         payload: dict[str, Any] = {
             "timestamp": datetime.now(UTC).isoformat(),
             "severity": record.levelname,
-            "event": getattr(record, "event", record.getMessage()),
+            "event": getattr(record, "event", "log_event"),
         }
         request_id = request_id_context.get()
         if request_id:
