@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass
 
 from src.infrastructure.di.inject import inject
@@ -32,6 +33,12 @@ class RuntimeSettings:
         docs_enabled = self._boolean(security, "docs_enabled")
         allowed_hosts = self._string_list(security, "allowed_hosts")
         cors_allowed_origins = self._string_list(security, "cors_allowed_origins")
+        allowed_hosts_override = os.getenv("ALLOWED_HOSTS")
+        if allowed_hosts_override is not None:
+            allowed_hosts = self._csv(allowed_hosts_override, "ALLOWED_HOSTS")
+        cors_override = os.getenv("CORS_ALLOWED_ORIGINS")
+        if cors_override is not None:
+            cors_allowed_origins = self._csv(cors_override, "CORS_ALLOWED_ORIGINS")
         maximum_request_body_bytes = self._integer(runtime, "maximum_request_body_bytes", 1024, 100_000_000)
         request_timeout_seconds = self._number(runtime, "request_timeout_seconds", 1.0, 3600.0)
         graceful_shutdown_seconds = self._number(runtime, "graceful_shutdown_seconds", 1.0, 300.0)
@@ -76,6 +83,13 @@ class RuntimeSettings:
         if not isinstance(value, list) or any(not isinstance(item, str) or not item.strip() for item in value):
             raise ValueError(f"{key} must be a list of non-empty strings")
         return tuple(item.strip() for item in value)
+
+    @staticmethod
+    def _csv(value: str, key: str) -> tuple[str, ...]:
+        items = tuple(item.strip() for item in value.split(",") if item.strip())
+        if not items:
+            raise ValueError(f"{key} must contain at least one value")
+        return items
 
     @staticmethod
     def _integer(mapping: dict, key: str, minimum: int, maximum: int) -> int:

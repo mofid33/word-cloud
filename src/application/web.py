@@ -121,6 +121,12 @@ class WebService:
                         response = JSONResponse(status_code=413, content={"detail": {"code": "request_body_too_large", "message": "Request body exceeds the configured limit"}})
                         status_code = response.status_code
                         return response
+                if request.method in {"POST", "PUT", "PATCH"}:
+                    body = await request.body()
+                    if len(body) > self._runtime.maximum_request_body_bytes:
+                        response = JSONResponse(status_code=413, content={"detail": {"code": "request_body_too_large", "message": "Request body exceeds the configured limit"}})
+                        status_code = response.status_code
+                        return response
                 try:
                     async with asyncio.timeout(self._runtime.request_timeout_seconds):
                         response = await call_next(request)
@@ -135,7 +141,7 @@ class WebService:
                 return response
             finally:
                 elapsed = monotonic() - started
-                route = getattr(request.scope.get("route"), "path", request.url.path)
+                route = getattr(request.scope.get("route"), "path", "unresolved")
                 self._metrics.observe_http(method=request.method, route=str(route), status_code=status_code, duration_seconds=elapsed)
                 self._logger.info(
                     "http_request_completed",
