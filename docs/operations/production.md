@@ -82,3 +82,13 @@ The release workflow builds one production image, exports it as a tar artifact, 
 - production startup fails before serving: check required configuration/secrets and host/security settings.
 - semantic analysis fails with local model load error: provision the configured model/revision into the model cache or explicitly change the deployment policy; production remote download is disabled by design.
 - Docker dependency install fails on PyTorch: confirm outbound access to the configured PyTorch wheel index. The default image intentionally uses the official CPU wheel index; do not switch to a CUDA wheel index unless that deployment target has been benchmarked and approved.
+
+## Target-machine performance baseline
+
+With the production-like stack healthy, run the Phase 14 HTTP benchmark from the project virtual environment:
+
+```bash
+RUN_PHASE14_RUNTIME_BENCHMARK=1 PHASE14_BASE_URL=http://127.0.0.1:5001 python -m unittest tests.evaluation.test_phase14_runtime_performance -v
+```
+
+On PowerShell set the environment variables first. The benchmark records P50/P95 latency and throughput for liveness plus the analysis validation path, and captures one-shot Docker CPU/memory statistics for API and Worker. It does not invent an SLA; the emitted JSON is target-machine baseline evidence to be compared across releases. CPU is the default production image, so VRAM is reported as null.

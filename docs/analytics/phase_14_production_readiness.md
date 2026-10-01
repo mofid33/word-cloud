@@ -19,6 +19,7 @@ Phase 13 marker verified: `PHASE_13_COMPLETE_READY_FOR_PHASE_14`
 - production model-cache mount, remote-download disabled, trust_remote_code=false and lazy semantic providers;
 - CI for compile/unit/integration/evaluation/migrations plus production container smoke;
 - provider-neutral release workflow exporting immutable image archive + SHA256;
+- gated target-machine HTTP performance baseline reporting P50/P95, throughput and container resource statistics;
 - production operations documentation.
 
 ## Privacy invariants
