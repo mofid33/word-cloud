@@ -127,6 +127,24 @@ class WordCloudAnalysisRepository(BaseRepository[WordCloudAnalysis]):
             )
             return result.scalar_one_or_none()
 
+    async def get_topic_visualization_source_by_id_async(
+        self,
+        analysis_id: str,
+    ) -> WordCloudAnalysis | None:
+        async with self._db_context.session() as session:
+            result = await session.execute(
+                select(WordCloudAnalysis)
+                .where(WordCloudAnalysis.id == analysis_id)
+                .options(
+                    raiseload(WordCloudAnalysis.documents),
+                    raiseload(WordCloudAnalysis.keywords),
+                    selectinload(WordCloudAnalysis.topics)
+                    .selectinload(AnalysisTopic.keyword_links)
+                    .selectinload(AnalysisTopicKeyword.keyword),
+                )
+            )
+            return result.scalar_one_or_none()
+
     async def mark_processing_async(
         self,
         analysis_id: str,
