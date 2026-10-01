@@ -105,7 +105,13 @@ class Phase13VisualizationApiTests(unittest.IsolatedAsyncioTestCase):
             ],
         )
 
-    async def _complete(self, analysis_id: str, keyword: str = "یادگیری ماشین"):
+    async def _complete(
+        self,
+        analysis_id: str,
+        keyword: str = "یادگیری ماشین",
+        *,
+        include_topic: bool = False,
+    ):
         return await self.repository.save_result_atomically_async(
             analysis_id=analysis_id,
             keywords=[
@@ -132,8 +138,38 @@ class Phase13VisualizationApiTests(unittest.IsolatedAsyncioTestCase):
                     "frequency": 2,
                 },
             ],
-            topics=[],
-            topic_keywords=[],
+            topics=(
+                [
+                    {
+                        "topic_id": "topic-welfare",
+                        "label": "رفاه و حمایت",
+                        "rank": 1,
+                        "prevalence": 0.75,
+                        "coverage": 0.80,
+                        "metadata": {"provider": "phase13-test"},
+                    }
+                ]
+                if include_topic
+                else []
+            ),
+            topic_keywords=(
+                [
+                    {
+                        "topic_id": "topic-welfare",
+                        "keyword_id": "kw-1",
+                        "rank": 1,
+                        "relevance_score": 0.98,
+                    },
+                    {
+                        "topic_id": "topic-welfare",
+                        "keyword_id": "kw-2",
+                        "rank": 2,
+                        "relevance_score": 0.82,
+                    },
+                ]
+                if include_topic
+                else []
+            ),
             metrics={"document_count": 1},
             profile_result={"kind": "test"},
             model_version="phase13-test-model",
@@ -155,6 +191,52 @@ class Phase13VisualizationApiTests(unittest.IsolatedAsyncioTestCase):
         root = ET.fromstring(svg.content)
         self.assertTrue(root.tag.endswith("svg"))
         self.assertIn("یادگیری ماشین", svg.text)
+
+    async def test_topic_level_visualization_uses_persisted_links_and_preserves_soldier_privacy(self) -> None:
+        raw_marker = "PRIVATE-SOLDIER-TOPIC-RAW-MARKER-24680"
+        analysis = await self._create_analysis(
+            analysis_type="SOLDIER_CONCERN",
+            marker=raw_marker,
+        )
+        await self._complete(
+            analysis.id,
+            keyword="حمایت اجتماعی",
+            include_topic=True,
+        )
+
+        aggregate = await self.repository.get_aggregate_by_id_async(analysis.id)
+        assert aggregate is not None
+        self.assertIsNone(aggregate.documents[0].raw_text)
+        self.assertEqual(
+            aggregate.topics[0].metadata_json["logical_topic_id"],
+            "topic-welfare",
+        )
+
+        png = await self.client.get(
+            f"/api/v1/visualization/{analysis.id}/topics/topic-welfare?format=png"
+        )
+        self.assertEqual(png.status_code, 200)
+        self.assertTrue(png.headers["content-type"].startswith("image/png"))
+        self.assertTrue(png.content.startswith(b"\x89PNG\r\n\x1a\n"))
+        self.assertNotIn(raw_marker.encode("utf-8"), png.content)
+
+        svg = await self.client.get(
+            f"/api/v1/visualization/{analysis.id}/topics/topic-welfare?format=svg"
+        )
+        self.assertEqual(svg.status_code, 200)
+        self.assertTrue(svg.headers["content-type"].startswith("image/svg+xml"))
+        ET.fromstring(svg.content)
+        self.assertIn("حمایت اجتماعی", svg.text)
+        self.assertNotIn(raw_marker, svg.text)
+
+        missing = await self.client.get(
+            f"/api/v1/visualization/{analysis.id}/topics/missing-topic?format=png"
+        )
+        self.assertEqual(missing.status_code, 404)
+        self.assertEqual(
+            missing.json()["detail"]["code"],
+            "analysis_topic_not_found",
+        )
 
     async def test_unknown_pending_processing_failed_and_invalid_format_contract(self) -> None:
         unknown = await self.client.get("/api/v1/visualization/missing?format=png")
