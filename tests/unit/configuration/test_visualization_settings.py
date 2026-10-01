@@ -54,6 +54,18 @@ class VisualizationSettingsTests(unittest.TestCase):
                         _Config(**{"visualization.maximum_words": value})
                     )
 
+    def test_invalid_render_concurrency_is_rejected(self) -> None:
+        for value in (0, 33, True, 1.5):
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError):
+                    VisualizationSettings(
+                        _Config(
+                            **{
+                                "visualization.maximum_concurrent_renders": value
+                            }
+                        )
+                    )
+
     def test_invalid_seed_is_rejected(self) -> None:
         for value in (-1, 2**32, True, 1.5):
             with self.subTest(value=value):

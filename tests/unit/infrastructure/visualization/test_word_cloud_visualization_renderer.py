@@ -22,6 +22,7 @@ class _Config:
         "visualization.width": 800,
         "visualization.height": 450,
         "visualization.maximum_words": 20,
+        "visualization.maximum_concurrent_renders": 2,
         "visualization.background": "#FFFFFF",
         "visualization.font_family": "DejaVu Sans",
         "visualization.font_path": "@matplotlib/DejaVuSans.ttf",

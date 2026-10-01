@@ -88,6 +88,7 @@ class _Renderer:
 
 class _Settings:
     maximum_words = 2
+    maximum_concurrent_renders = 2
 
 
 class VisualizationServiceTests(unittest.IsolatedAsyncioTestCase):

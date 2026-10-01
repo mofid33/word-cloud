@@ -7,7 +7,8 @@ server:
 security:
   docs_enabled: false
   allowed_hosts:
-    - "localhost"\n    - "127.0.0.1"
+    - "localhost"
+    - "127.0.0.1"
   cors_allowed_origins: []
 runtime:
   maximum_request_body_bytes: 12000000
