@@ -1,0 +1,158 @@
+from __future__ import annotations
+
+import unittest
+from dataclasses import dataclass
+
+from src.core.services.visualization.providers.visualization_renderer import (
+    RenderedVisualization,
+)
+from src.core.services.visualization.visualization_service import (
+    VisualizationFormatError,
+    VisualizationNotFoundError,
+    VisualizationService,
+    VisualizationUnavailableError,
+)
+
+
+@dataclass
+class _Keyword:
+    text: str
+    canonical_text: str
+    rank: int
+    final_score: float
+
+
+class _Analysis:
+    def __init__(self, *, status: str, keywords: list[_Keyword]):
+        self.status = status
+        self.keywords = keywords
+
+    @property
+    def documents(self):
+        raise AssertionError("Visualization must never access raw documents")
+
+
+class _Repository:
+    def __init__(self, analysis):
+        self.analysis = analysis
+        self.requested_id = None
+
+    async def get_visualization_source_by_id_async(self, analysis_id: str):
+        self.requested_id = analysis_id
+        return self.analysis
+
+
+class _Renderer:
+    def __init__(self):
+        self.last_keywords = None
+        self.last_format = None
+
+    def render_png(self, keywords):
+        self.last_keywords = keywords
+        self.last_format = "png"
+        return RenderedVisualization(b"png", "image/png")
+
+    def render_svg(self, keywords):
+        self.last_keywords = keywords
+        self.last_format = "svg"
+        return RenderedVisualization(b"svg", "image/svg+xml")
+
+
+class _Settings:
+    maximum_words = 2
+
+
+class VisualizationServiceTests(unittest.IsolatedAsyncioTestCase):
+    async def test_completed_result_uses_final_score_rank_and_limit(self) -> None:
+        analysis = _Analysis(
+            status="completed",
+            keywords=[
+                _Keyword("سوم", "سوم", 3, 0.3),
+                _Keyword("اول", "اول", 1, 0.9),
+                _Keyword("دوم", "دوم", 2, 0.6),
+            ],
+        )
+        repository = _Repository(analysis)
+        renderer = _Renderer()
+        service = VisualizationService(repository, renderer, _Settings())
+
+        result = await service.render_async("analysis-1", "PNG")
+
+        self.assertEqual(result.media_type, "image/png")
+        self.assertEqual(renderer.last_format, "png")
+        self.assertEqual(
+            [(item.text, item.rank, item.weight) for item in renderer.last_keywords],
+            [("اول", 1, 0.9), ("دوم", 2, 0.6)],
+        )
+        self.assertEqual(repository.requested_id, "analysis-1")
+
+    async def test_order_is_deterministic_for_equal_rank_input(self) -> None:
+        analysis = _Analysis(
+            status="completed",
+            keywords=[
+                _Keyword("ب", "ب", 1, 0.8),
+                _Keyword("الف", "الف", 1, 0.8),
+            ],
+        )
+        renderer = _Renderer()
+        service = VisualizationService(_Repository(analysis), renderer, _Settings())
+
+        await service.render_async("analysis-2", "svg")
+
+        self.assertEqual([item.text for item in renderer.last_keywords], ["الف", "ب"])
+
+    async def test_non_positive_or_non_finite_scores_are_not_visualized(self) -> None:
+        analysis = _Analysis(
+            status="completed",
+            keywords=[
+                _Keyword("zero", "zero", 1, 0.0),
+                _Keyword("nan", "nan", 2, float("nan")),
+            ],
+        )
+        service = VisualizationService(_Repository(analysis), _Renderer(), _Settings())
+
+        with self.assertRaisesRegex(
+            VisualizationUnavailableError,
+            "no visualizable keywords",
+        ):
+            await service.render_async("analysis-3", "png")
+
+    async def test_unknown_analysis(self) -> None:
+        service = VisualizationService(_Repository(None), _Renderer(), _Settings())
+        with self.assertRaises(VisualizationNotFoundError):
+            await service.render_async("missing", "png")
+
+    async def test_pending_processing_and_failed_are_unavailable(self) -> None:
+        for state, expected_code in (
+            ("pending", "analysis_visualization_not_ready"),
+            ("processing", "analysis_visualization_not_ready"),
+            ("failed", "analysis_failed"),
+        ):
+            with self.subTest(state=state):
+                service = VisualizationService(
+                    _Repository(_Analysis(status=state, keywords=[])),
+                    _Renderer(),
+                    _Settings(),
+                )
+                with self.assertRaises(VisualizationUnavailableError) as context:
+                    await service.render_async("analysis", "png")
+                self.assertEqual(context.exception.code, expected_code)
+
+    async def test_invalid_format_is_rejected_before_repository_access(self) -> None:
+        repository = _Repository(None)
+        service = VisualizationService(repository, _Renderer(), _Settings())
+        with self.assertRaises(VisualizationFormatError):
+            await service.render_async("analysis", "pdf")
+        self.assertIsNone(repository.requested_id)
+
+    async def test_raw_document_marker_is_never_read(self) -> None:
+        analysis = _Analysis(
+            status="completed",
+            keywords=[_Keyword("خروجی امن", "خروجی امن", 1, 1.0)],
+        )
+        service = VisualizationService(_Repository(analysis), _Renderer(), _Settings())
+        await service.render_async("soldier", "svg")
+
+
+if __name__ == "__main__":
+    unittest.main()
