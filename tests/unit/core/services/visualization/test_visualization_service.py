@@ -11,6 +11,7 @@ from src.core.services.visualization.visualization_service import (
     VisualizationFormatError,
     VisualizationNotFoundError,
     VisualizationService,
+    VisualizationTopicNotFoundError,
     VisualizationUnavailableError,
 )
 
@@ -23,10 +24,31 @@ class _Keyword:
     final_score: float
 
 
+@dataclass
+class _TopicKeywordLink:
+    keyword: _Keyword
+    rank: int
+    relevance_score: float
+
+
+@dataclass
+class _Topic:
+    id: str
+    metadata_json: dict
+    keyword_links: list[_TopicKeywordLink]
+
+
 class _Analysis:
-    def __init__(self, *, status: str, keywords: list[_Keyword]):
+    def __init__(
+        self,
+        *,
+        status: str,
+        keywords: list[_Keyword],
+        topics: list[_Topic] | None = None,
+    ):
         self.status = status
         self.keywords = keywords
+        self.topics = list(topics or [])
 
     @property
     def documents(self):
@@ -39,6 +61,11 @@ class _Repository:
         self.requested_id = None
 
     async def get_visualization_source_by_id_async(self, analysis_id: str):
+        self.requested_id = analysis_id
+        return self.analysis
+
+
+    async def get_topic_visualization_source_by_id_async(self, analysis_id: str):
         self.requested_id = analysis_id
         return self.analysis
 
@@ -86,6 +113,76 @@ class VisualizationServiceTests(unittest.IsolatedAsyncioTestCase):
             [("اول", 1, 0.9), ("دوم", 2, 0.6)],
         )
         self.assertEqual(repository.requested_id, "analysis-1")
+
+    async def test_topic_result_uses_persisted_relevance_rank_and_logical_topic_id(self) -> None:
+        first = _Keyword("امنیت روانی", "امنیت روانی", 1, 0.95)
+        second = _Keyword("حمایت اجتماعی", "حمایت اجتماعی", 2, 0.80)
+        third = _Keyword("خدمات رفاهی", "خدمات رفاهی", 3, 0.70)
+        analysis = _Analysis(
+            status="completed",
+            keywords=[],
+            topics=[
+                _Topic(
+                    id="database-topic-id",
+                    metadata_json={"logical_topic_id": "topic-welfare"},
+                    keyword_links=[
+                        _TopicKeywordLink(third, 3, 0.55),
+                        _TopicKeywordLink(first, 1, 0.98),
+                        _TopicKeywordLink(second, 2, 0.81),
+                    ],
+                )
+            ],
+        )
+        repository = _Repository(analysis)
+        renderer = _Renderer()
+        service = VisualizationService(repository, renderer, _Settings())
+
+        result = await service.render_topic_async(
+            "analysis-topic",
+            "topic-welfare",
+            "svg",
+        )
+
+        self.assertEqual(result.media_type, "image/svg+xml")
+        self.assertEqual(renderer.last_format, "svg")
+        self.assertEqual(
+            [(item.text, item.rank, item.weight) for item in renderer.last_keywords],
+            [("امنیت روانی", 1, 0.98), ("حمایت اجتماعی", 2, 0.81)],
+        )
+        self.assertEqual(repository.requested_id, "analysis-topic")
+
+    async def test_unknown_topic_is_not_found(self) -> None:
+        analysis = _Analysis(
+            status="completed",
+            keywords=[],
+            topics=[],
+        )
+        service = VisualizationService(_Repository(analysis), _Renderer(), _Settings())
+
+        with self.assertRaises(VisualizationTopicNotFoundError):
+            await service.render_topic_async("analysis", "missing-topic", "png")
+
+    async def test_topic_without_positive_relevance_is_unavailable(self) -> None:
+        keyword = _Keyword("موضوع", "موضوع", 1, 0.9)
+        analysis = _Analysis(
+            status="completed",
+            keywords=[],
+            topics=[
+                _Topic(
+                    id="topic-db",
+                    metadata_json={"logical_topic_id": "topic-empty"},
+                    keyword_links=[_TopicKeywordLink(keyword, 1, 0.0)],
+                )
+            ],
+        )
+        service = VisualizationService(_Repository(analysis), _Renderer(), _Settings())
+
+        with self.assertRaises(VisualizationUnavailableError) as context:
+            await service.render_topic_async("analysis", "topic-empty", "png")
+        self.assertEqual(
+            context.exception.code,
+            "analysis_topic_visualization_empty",
+        )
 
     async def test_renderer_is_offloaded_from_event_loop(self) -> None:
         analysis = _Analysis(
