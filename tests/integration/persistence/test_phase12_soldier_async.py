@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import unittest
+from unittest.mock import patch
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -135,23 +136,32 @@ class Phase12SoldierAsyncIntegrationTests(unittest.IsolatedAsyncioTestCase):
         redis_url = os.environ["TEST_TRANSIENT_PAYLOAD_REDIS_URL"]
         assert database_url is not None
 
-        self.db_context = PsqlDbContext(
-            _DatabaseConfig(database_url),
-            _Vault(),
-        )
+        with patch.dict(
+            os.environ,
+            {
+                "DATABASE_URL": database_url,
+                "TRANSIENT_PAYLOAD_REDIS_URL": redis_url,
+            },
+            clear=False,
+        ):
+            self.db_context = PsqlDbContext(
+                _DatabaseConfig(database_url),
+                _Vault(),
+            )
+            self.transient_store = RedisAnalysisTransientPayloadStore(
+                _TransientConfig(
+                    redis_url,
+                    f"test:phase12:{uuid4()}:",
+                ),
+                _Vault(),
+            )
+
         async with self.db_context.engine.begin() as connection:
             await connection.run_sync(Base.metadata.drop_all)
             await connection.run_sync(Base.metadata.create_all)
 
         self.analysis_repository = WordCloudAnalysisRepository(self.db_context)
         self.queue_repository = AnalysisQueueRepository(self.db_context)
-        self.transient_store = RedisAnalysisTransientPayloadStore(
-            _TransientConfig(
-                redis_url,
-                f"test:phase12:{uuid4()}:",
-            ),
-            _Vault(),
-        )
         self.queue = PostgresAnalysisQueueProvider(
             self.queue_repository,
             _QueueSettings(),
@@ -163,6 +173,50 @@ class Phase12SoldierAsyncIntegrationTests(unittest.IsolatedAsyncioTestCase):
         async with self.db_context.engine.begin() as connection:
             await connection.run_sync(Base.metadata.drop_all)
         await self.db_context.dispose_async()
+
+    async def test_soldier_orphan_dispatch_recovers_after_api_crash_window(self):
+        analysis_id = str(uuid4())
+        marker = "SOLDIER-ORPHAN-RECOVERY-MARKER"
+        documents = [
+            {
+                "document_id": "private-orphan-id",
+                "text": marker,
+                "metadata": {},
+            }
+        ]
+        await self.transient_store.put_async(analysis_id, documents)
+        await self.analysis_repository.create_pending_async(
+            analysis_type="SOLDIER_CONCERN",
+            execution_mode="async",
+            documents=documents,
+            persist_raw_text=False,
+            analysis_id=analysis_id,
+        )
+
+        recovered = await self.queue.recover_orphaned_async(limit=10)
+        self.assertEqual(recovered, 1)
+
+        profile = _Profile()
+        processor = AnalysisProcessorService(
+            profile,
+            profile,
+            profile,
+            self.analysis_repository,
+        )
+        worker = AnalysisWorkerService(
+            self.queue,
+            processor,
+            self.analysis_repository,
+            _WorkerSettings(),
+        )
+        self.assertTrue(await worker.run_once_async())
+
+        completed = await self.analysis_repository.get_aggregate_by_id_async(
+            analysis_id
+        )
+        self.assertEqual(completed.status, "completed")
+        self.assertIsNone(completed.documents[0].raw_text)
+        self.assertIsNone(await self.transient_store.get_async(analysis_id))
 
     async def test_soldier_async_never_persists_raw_text_or_durable_payload(self):
         marker = "SOLDIER-RAW-SECRET-MARKER"
