@@ -1,0 +1,87 @@
+services:
+  postgres:
+    image: postgres:16.4-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - word_cloud_prod_postgres:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory-policy", "noeviction"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: word-cloud:${IMAGE_TAG:-local}
+    environment:
+      ENV_TYPE: production
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      TRANSIENT_PAYLOAD_REDIS_URL: ${TRANSIENT_PAYLOAD_REDIS_URL:?TRANSIENT_PAYLOAD_REDIS_URL is required}
+    command: ["python", "src/infrastructure/scripts/run_migrations.py", "--upgrade"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    image: word-cloud:${IMAGE_TAG:-local}
+    environment:
+      ENV_TYPE: production
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      TRANSIENT_PAYLOAD_REDIS_URL: ${TRANSIENT_PAYLOAD_REDIS_URL:?TRANSIENT_PAYLOAD_REDIS_URL is required}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    ports:
+      - "127.0.0.1:${API_PORT:-5000}:5000"
+    volumes:
+      - word_cloud_model_cache:/var/lib/word-cloud/models
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    stop_grace_period: 35s
+
+  worker:
+    image: word-cloud:${IMAGE_TAG:-local}
+    environment:
+      ENV_TYPE: production
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      TRANSIENT_PAYLOAD_REDIS_URL: ${TRANSIENT_PAYLOAD_REDIS_URL:?TRANSIENT_PAYLOAD_REDIS_URL is required}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    command: ["python", "-m", "src.host.worker"]
+    volumes:
+      - word_cloud_model_cache:/var/lib/word-cloud/models
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-m", "src.host.worker_health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 20s
+      retries: 3
+    restart: unless-stopped
+    stop_grace_period: 35s
+
+volumes:
+  word_cloud_prod_postgres:
+  word_cloud_model_cache:
