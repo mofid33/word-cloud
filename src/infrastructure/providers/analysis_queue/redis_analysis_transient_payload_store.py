@@ -146,6 +146,10 @@ class RedisAnalysisTransientPayloadStore:
         await self._ensure_non_durable_async()
         await self._client.delete(self._key(analysis_id))
 
+    async def ping_async(self) -> bool:
+        await self._ensure_non_durable_async()
+        return bool(await self._client.ping())
+
     async def close_async(self) -> None:
         close = getattr(self._client, "aclose", None)
         if close is not None:
