@@ -23,6 +23,16 @@ class Phase13VisualizationDiscoveryTests(unittest.TestCase):
             "get",
             openapi_paths["/api/v1/visualization/{analysis_id}"],
         )
+        self.assertIn(
+            "/api/v1/visualization/{analysis_id}/topics/{topic_id}",
+            openapi_paths,
+        )
+        self.assertIn(
+            "get",
+            openapi_paths[
+                "/api/v1/visualization/{analysis_id}/topics/{topic_id}"
+            ],
+        )
 
 
 if __name__ == "__main__":
