@@ -8,6 +8,10 @@ This document describes the Phase 14 provider-neutral production runtime.
 docker build -t word-cloud:local .
 ```
 
+The default production image is CPU-oriented because the production baseline config uses `device.type=cpu`. PyTorch is installed first from the official CPU wheel index, preventing pip from resolving the CUDA-heavy PyPI distribution for this image. Dependency downloads use bounded retry/resume settings for large wheels.
+
+For an approved GPU deployment, override `TORCH_INDEX_URL` and `TORCH_SPEC` at build time only after the target PyTorch/device combination has passed the project's semantic benchmark and regression gates.
+
 The image runs as UID/GID 10001, does not bake secrets, disables the server banner, writes model cache under `/var/lib/word-cloud/models`, and records the exact resolved Python dependency set at `/opt/word-cloud/resolved-dependencies.txt`.
 
 ## Required runtime environment
@@ -77,3 +81,4 @@ The release workflow builds one production image, exports it as a tar artifact, 
 - readiness 503 with `redis_transient=false`: verify Redis URL and that both snapshot persistence and AOF are disabled.
 - production startup fails before serving: check required configuration/secrets and host/security settings.
 - semantic analysis fails with local model load error: provision the configured model/revision into the model cache or explicitly change the deployment policy; production remote download is disabled by design.
+- Docker dependency install fails on PyTorch: confirm outbound access to the configured PyTorch wheel index. The default image intentionally uses the official CPU wheel index; do not switch to a CUDA wheel index unless that deployment target has been benchmarked and approved.

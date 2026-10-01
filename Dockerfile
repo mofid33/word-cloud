@@ -4,8 +4,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1 \
+    PIP_DEFAULT_TIMEOUT=120 \
+    PIP_ROOT_USER_ACTION=ignore \
     MPLCONFIGDIR=/tmp/matplotlib \
     HF_HOME=/var/lib/word-cloud/models
+
+ARG TORCH_INDEX_URL=https://download.pytorch.org/whl/cpu
+ARG TORCH_SPEC="torch>=2.2,<3.0"
 
 WORKDIR /app
 
@@ -16,7 +21,10 @@ RUN groupadd --system --gid 10001 wordcloud \
 
 COPY requirements.txt /app/requirements.txt
 RUN python -m pip install --upgrade "pip==25.2" \
-    && python -m pip install --requirement /app/requirements.txt
+    && python -m pip install --retries 10 --resume-retries 20 --index-url "${TORCH_INDEX_URL}" "${TORCH_SPEC}" \
+    && python -m pip install --retries 10 --resume-retries 20 --requirement /app/requirements.txt \
+    && mkdir -p /opt/word-cloud \
+    && python -m pip freeze --all | sort > /opt/word-cloud/resolved-dependencies.txt
 
 COPY src /app/src
 
