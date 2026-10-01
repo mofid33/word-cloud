@@ -1,12 +1,14 @@
 # Phase 13 — Visualization
 
-Status: COMPLETE — READY_FOR_PHASE_14
+Status: IMPLEMENTED — AWAITING_TOPIC_VISUALIZATION_VERIFICATION
 Date: 2026-10-01
 
 ## Scope implemented
 
-- Persian-aware WordCloud rendering from persisted final keywords only.
-- Final score drives visualization weight; rank provides deterministic ordering.
+- Persian-aware Overall WordCloud rendering from persisted final keywords only.
+- Overall WordCloud weight comes from persisted final_score; rank provides deterministic ordering.
+- Topic-level WordCloud rendering from persisted AnalysisTopicKeyword links.
+- Topic-level WordCloud weight comes from persisted relevance_score; topic-keyword rank provides deterministic ordering.
 - Explicit Arabic/Persian shaping with arabic-reshaper and bidi visual ordering.
 - ZWNJ, multi-token Persian phrases, mixed Persian/Latin text, digits and punctuation are covered by rendering tests.
 - Deterministic WordCloud layout through a fixed configuration seed.
@@ -14,8 +16,10 @@ Date: 2026-10-01
 - Real PNG output.
 - Real UTF-8 SVG output with XML escaping and no raw HTML injection.
 - Thin VisualizationController discovered by the existing WebService convention.
-- Route: GET /api/v1/visualization/{analysis_id}?format=png|svg
-- Repository query dedicated to visualization loads only the analysis row and final keywords; documents and topics are configured with raiseload.
+- Overall route: GET /api/v1/visualization/{analysis_id}?format=png|svg
+- Topic route: GET /api/v1/visualization/{analysis_id}/topics/{topic_id}?format=png|svg
+- Overall repository query loads only the analysis row and final keywords; documents and topics are configured with raiseload.
+- Topic repository query loads only topics, topic-keyword links and linked persisted keywords; documents and the overall keyword collection are configured with raiseload.
 - SOLDIER_CONCERN visualization never re-reads or re-analyzes raw text.
 - No visualization binary or SVG content is persisted in the structured analysis result.
 - No new SQLAlchemy model or Alembic migration is required.
@@ -52,6 +56,8 @@ No font binary is added to this repository.
 - failed -> 409 analysis_failed
 - completed with no positive finite final-score keywords -> 409 analysis_visualization_empty
 - unsupported format -> 422 unsupported_visualization_format
+- unknown topic -> 404 analysis_topic_not_found
+- completed topic with no positive finite relevance-score keywords -> 409 analysis_topic_visualization_empty
 
 ## Determinism contract
 
@@ -80,12 +86,14 @@ The performance baseline exposed a production concern: synchronous CPU-bound ren
 
 A subsequent full-regression review exposed that the two new visualization unit-test directories lacked `__init__.py`, so `unittest discover -s tests` did not recurse into them even though their focused module runs passed. Package markers have now been added so the full discovery suite includes those tests.
 
-Final target verification received on 2026-10-01 confirms:
+Previous target verification received on 2026-10-01 confirmed:
 
 - `python -m compileall -q src tests` completed without error;
-- full test discovery includes all Phase 13 visualization service and renderer tests;
+- full test discovery included all existing Phase 13 visualization service and renderer tests;
 - event-loop offload regression test PASS;
-- final regression result: `Ran 386 tests in 119.618s — OK (skipped=8)`;
+- regression result before the topic-level correction: `Ran 386 tests in 119.618s — OK (skipped=8)`;
 - skipped tests are explicit model/benchmark-gated suites and are not Phase 13 failures.
 
-PHASE_13_COMPLETE_READY_FOR_PHASE_14
+A subsequent product-contract audit found that SOLDIER_CONCERN requires both Overall WordCloud and Topic-level WordCloud. The topic-level path is now implemented from persisted `AnalysisTopic` / `AnalysisTopicKeyword` data without loading raw documents.
+
+Phase 13 is reopened until target verification confirms compile, focused topic-level unit/API/discovery tests, runtime OpenAPI exposure of the topic route, and full regression. The completion marker must not be restored before those gates pass.
