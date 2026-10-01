@@ -78,4 +78,6 @@ Target Windows verification received on 2026-10-01 confirms:
 
 The performance baseline exposed a production concern: synchronous CPU-bound rendering blocked the async request event loop. The service now offloads renderer execution through `asyncio.to_thread`.
 
-Phase 13 remains intentionally open until the corrected `python -m compileall -q src tests` command and the focused/full regression are rerun against the event-loop offload commit.
+A subsequent full-regression review exposed that the two new visualization unit-test directories lacked `__init__.py`, so `unittest discover -s tests` did not recurse into them even though their focused module runs passed. Package markers have now been added so the full discovery suite includes those tests.
+
+Phase 13 remains intentionally open until the corrected `python -m compileall -q src tests` command and the full discovery suite are rerun after this test-discovery fix. The expected discovered test count is 386 (8 visualization service tests + 4 renderer tests added to the previous 374-test suite), subject only to future test additions.
