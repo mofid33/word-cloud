@@ -10,6 +10,7 @@ Date: 2026-10-01
 - Explicit Arabic/Persian shaping with arabic-reshaper and bidi visual ordering.
 - ZWNJ, multi-token Persian phrases, mixed Persian/Latin text, digits and punctuation are covered by rendering tests.
 - Deterministic WordCloud layout through a fixed configuration seed.
+- CPU-bound PNG/SVG rendering is offloaded from the FastAPI event loop via asyncio.to_thread.
 - Real PNG output.
 - Real UTF-8 SVG output with XML escaping and no raw HTML injection.
 - Thin VisualizationController discovered by the existing WebService convention.
@@ -63,4 +64,18 @@ With the same persisted analysis keywords, configuration, renderer/library versi
 
 ## Verification state
 
-Repository implementation and tests are committed, but Phase 13 is intentionally not marked complete until the target Windows environment runs dependency installation, compile, PostgreSQL integration tests, discovery/runtime smoke, rendering benchmark and full regression.
+Target Windows verification received on 2026-10-01 confirms:
+
+- visualization configuration unit tests PASS;
+- visualization service unit tests PASS;
+- Persian/RTL PNG/SVG renderer tests PASS;
+- visualization controller discovery PASS;
+- PostgreSQL-backed visualization API integration tests PASS;
+- SOLDIER_CONCERN raw marker privacy test PASS;
+- runtime OpenAPI smoke exposes `/api/v1/visualization/{analysis_id}`;
+- rendering baseline recorded: PNG P50 10375.19 ms, SVG P50 8687.71 ms for 100 words;
+- full regression before the event-loop offload fix: `Ran 374 tests ... OK (skipped=8)`.
+
+The performance baseline exposed a production concern: synchronous CPU-bound rendering blocked the async request event loop. The service now offloads renderer execution through `asyncio.to_thread`.
+
+Phase 13 remains intentionally open until the corrected `python -m compileall -q src tests` command and the focused/full regression are rerun against the event-loop offload commit.
