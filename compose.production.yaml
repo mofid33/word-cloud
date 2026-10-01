@@ -33,7 +33,7 @@ services:
       ENV_TYPE: production
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
       TRANSIENT_PAYLOAD_REDIS_URL: ${TRANSIENT_PAYLOAD_REDIS_URL:?TRANSIENT_PAYLOAD_REDIS_URL is required}
-    command: ["python", "src/infrastructure/scripts/run_migrations.py", "--upgrade"]
+    command: ["python", "-m", "src.infrastructure.scripts.run_migrations", "--upgrade"]
     depends_on:
       postgres:
         condition: service_healthy

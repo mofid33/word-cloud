@@ -48,7 +48,7 @@ jobs:
       - name: Compile
         run: python -m compileall -q src tests
       - name: Migrate
-        run: python src/infrastructure/scripts/run_migrations.py --upgrade
+        run: python -m src.infrastructure.scripts.run_migrations --upgrade
       - name: Unit tests
         run: python -m unittest discover -s tests/unit -p "test_*.py" -v
       - name: Integration tests
