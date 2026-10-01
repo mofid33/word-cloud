@@ -32,6 +32,12 @@ class VisualizationSettings:
             minimum=1,
             maximum=500,
         )
+        self.maximum_concurrent_renders = self._require_int(
+            config_reader,
+            "visualization.maximum_concurrent_renders",
+            minimum=1,
+            maximum=32,
+        )
         self.random_seed = self._require_int(
             config_reader,
             "visualization.random_seed",

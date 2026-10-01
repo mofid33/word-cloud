@@ -4,6 +4,20 @@ app:
 server:
   host: "0.0.0.0"
   port: 5000
+security:
+  docs_enabled: false
+  allowed_hosts:
+    - "localhost"\n    - "127.0.0.1"
+  cors_allowed_origins: []
+runtime:
+  maximum_request_body_bytes: 12000000
+  request_timeout_seconds: 300
+  graceful_shutdown_seconds: 30
+observability:
+  logging:
+    level: "INFO"
+  metrics:
+    enabled: true
 api:
   prefix: "/api/v1"
 database:
@@ -52,6 +66,7 @@ analysis_queue:
     key_prefix: "word-cloud:analysis-transient:"
 
 visualization:
+  maximum_concurrent_renders: 2
   width: 1200
   height: 675
   maximum_words: 100

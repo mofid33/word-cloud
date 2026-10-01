@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from asyncio import to_thread
+from asyncio import Semaphore, to_thread
 from math import isfinite
 
 from src.core.services.visualization.providers.visualization_renderer import (
@@ -50,6 +50,7 @@ class VisualizationService:
         self._analysis_repository = analysis_repository
         self._renderer = renderer
         self._settings = settings
+        self._render_semaphore = Semaphore(settings.maximum_concurrent_renders)
 
     async def render_async(
         self,
@@ -136,9 +137,10 @@ class VisualizationService:
         output_format: str,
         keywords: tuple[VisualizationKeyword, ...],
     ) -> RenderedVisualization:
-        if output_format == "png":
-            return await to_thread(self._renderer.render_png, keywords)
-        return await to_thread(self._renderer.render_svg, keywords)
+        async with self._render_semaphore:
+            if output_format == "png":
+                return await to_thread(self._renderer.render_png, keywords)
+            return await to_thread(self._renderer.render_svg, keywords)
 
     @staticmethod
     def _logical_topic_id(topic: object) -> str:
