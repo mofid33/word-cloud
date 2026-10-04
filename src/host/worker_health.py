@@ -1,27 +1,44 @@
 from __future__ import annotations
 
-import asyncio
-
-from src.core.services.health.health_service import HealthService
-from src.infrastructure.context.sql_db.psql_dbcontext import PsqlDbContext
-from src.infrastructure.di.inject import resolve
-from src.infrastructure.providers.analysis_queue.redis_analysis_transient_payload_store import RedisAnalysisTransientPayloadStore
+import os
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 
-async def _main_async() -> int:
-    service = resolve(HealthService)
-    db = resolve(PsqlDbContext)
-    redis_store = resolve(RedisAnalysisTransientPayloadStore)
+_DEFAULT_READINESS_URL = "http://api:5000/api/v1/health/ready"
+_DEFAULT_TIMEOUT_SECONDS = 5.0
+
+
+def _is_healthy() -> bool:
     try:
-        ready, _ = await service.readiness_async()
-        return 0 if ready else 1
-    finally:
-        await redis_store.close_async()
-        await db.dispose_async()
+        os.kill(1, 0)
+    except (OSError, PermissionError):
+        return False
+
+    readiness_url = os.getenv(
+        "WORKER_READINESS_URL",
+        _DEFAULT_READINESS_URL,
+    ).strip()
+    if not readiness_url:
+        return False
+
+    request = Request(
+        readiness_url,
+        headers={"Host": "localhost"},
+        method="GET",
+    )
+    try:
+        with urlopen(
+            request,
+            timeout=_DEFAULT_TIMEOUT_SECONDS,
+        ) as response:
+            return response.status == 200
+    except (HTTPError, URLError, TimeoutError, OSError):
+        return False
 
 
 def main() -> None:
-    raise SystemExit(asyncio.run(_main_async()))
+    raise SystemExit(0 if _is_healthy() else 1)
 
 
 if __name__ == "__main__":
