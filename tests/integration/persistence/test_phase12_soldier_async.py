@@ -50,7 +50,7 @@ class _TransientConfig:
             "analysis_queue.transient_payload.backend": "redis",
             "analysis_queue.transient_payload.url": url,
             "analysis_queue.transient_payload.ttl_seconds": 3600,
-            "analysis_queue.transient_payload.socket_timeout_seconds": 2.0,
+            "analysis_queue.transient_payload.socket_timeout_seconds": 5.0,
             "analysis_queue.transient_payload.key_prefix": key_prefix,
         }
 
