@@ -8,6 +8,13 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 
 class ProductionCiContractTests(unittest.TestCase):
+    def test_worker_health_budget_covers_cold_start_probe(self) -> None:
+        compose = (PROJECT_ROOT / "compose.production.yaml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("timeout: 20s", compose)
+        self.assertIn("start_period: 30s", compose)
+
     def test_worker_health_gate_waits_for_healthy_state(self) -> None:
         workflow = (PROJECT_ROOT / ".github" / "workflows" / "ci.yml").read_text(
             encoding="utf-8"
