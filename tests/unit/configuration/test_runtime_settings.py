@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import os
 import unittest
+from unittest.mock import patch
 
 from src.infrastructure.providers.runtime.runtime_settings import RuntimeSettings
 
@@ -57,6 +59,47 @@ class RuntimeSettingsTests(unittest.TestCase):
         }
         settings = RuntimeSettings(config)
         self.assertTrue(settings.docs_enabled)
+
+    def test_environment_overrides_runtime_security_and_log_level(self) -> None:
+        with patch.dict(
+            os.environ,
+            {
+                "ALLOWED_HOSTS": "api.example.com,localhost",
+                "CORS_ALLOWED_ORIGINS": "https://app.example.com",
+                "LOG_LEVEL": "warning",
+            },
+            clear=False,
+        ):
+            settings = RuntimeSettings(_Config())
+
+        self.assertEqual(
+            settings.allowed_hosts,
+            ("api.example.com", "localhost"),
+        )
+        self.assertEqual(
+            settings.cors_allowed_origins,
+            ("https://app.example.com",),
+        )
+        self.assertEqual(settings.log_level, "WARNING")
+
+    def test_empty_cors_environment_override_preserves_empty_configuration(self) -> None:
+        with patch.dict(
+            os.environ,
+            {"CORS_ALLOWED_ORIGINS": ""},
+            clear=False,
+        ):
+            settings = RuntimeSettings(_Config())
+
+        self.assertEqual(settings.cors_allowed_origins, ())
+
+    def test_invalid_log_level_environment_override_is_rejected(self) -> None:
+        with patch.dict(
+            os.environ,
+            {"LOG_LEVEL": "definitely-not-a-level"},
+            clear=False,
+        ):
+            with self.assertRaises(ValueError):
+                RuntimeSettings(_Config())
 
 
 if __name__ == "__main__":
