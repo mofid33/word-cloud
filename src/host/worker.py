@@ -12,6 +12,27 @@ from src.infrastructure.observability.logging_config import configure_logging
 from src.infrastructure.providers.runtime.runtime_settings import RuntimeSettings
 
 
+async def _wait_for_shutdown_or_worker_exit_async(
+    run_task: asyncio.Task,
+    stop_requested: asyncio.Event,
+) -> bool:
+    stop_wait_task = asyncio.create_task(stop_requested.wait())
+    try:
+        done, _ = await asyncio.wait(
+            {run_task, stop_wait_task},
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+        if run_task in done:
+            await run_task
+            if not stop_requested.is_set():
+                raise RuntimeError("Analysis worker stopped unexpectedly")
+            return False
+        return True
+    finally:
+        stop_wait_task.cancel()
+        await asyncio.gather(stop_wait_task, return_exceptions=True)
+
+
 async def _run_async() -> None:
     bootstrap_di()
     runtime_settings = resolve(RuntimeSettings)
@@ -32,17 +53,12 @@ async def _run_async() -> None:
             pass
 
     run_task = asyncio.create_task(worker.run_async())
-    stop_wait_task = asyncio.create_task(stop_requested.wait())
     try:
-        done, _ = await asyncio.wait(
-            {run_task, stop_wait_task},
-            return_when=asyncio.FIRST_COMPLETED,
+        shutdown_requested = await _wait_for_shutdown_or_worker_exit_async(
+            run_task,
+            stop_requested,
         )
-        if run_task in done:
-            await run_task
-            if not stop_requested.is_set():
-                raise RuntimeError("Analysis worker stopped unexpectedly")
-        else:
+        if shutdown_requested:
             logger.info(
                 "worker_shutdown_requested",
                 extra={"event": "worker_shutdown_requested"},
@@ -50,8 +66,6 @@ async def _run_async() -> None:
     except asyncio.CancelledError:
         raise
     finally:
-        stop_wait_task.cancel()
-        await asyncio.gather(stop_wait_task, return_exceptions=True)
         await worker.stop_async()
         if not run_task.done():
             try:
