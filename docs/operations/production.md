@@ -32,12 +32,15 @@ Do not commit populated production env files.
 
 ## Production-like local stack
 
-Copy `.env.production.example` to an untracked local file, replace example credentials, then pass that file explicitly to Compose:
+Copy `.env.production.example` to an untracked local file, replace example credentials, then pass that file explicitly to Compose. Docker Compose gives already-exported shell variables precedence over values from `--env-file`; clear stale Phase/test variables or use a fresh shell before validating the rendered configuration:
 
 ```bash
 cp .env.production.example .env.production.local
+docker compose --env-file .env.production.local -f compose.production.yaml config
 docker compose --env-file .env.production.local -f compose.production.yaml up -d --build
 ```
+
+Before startup, verify that container-facing service URLs use Compose DNS names such as `postgres:5432` and `redis:6379`, not host-loopback addresses such as `127.0.0.1:<host-port>`.
 
 The production Compose API service passes `ALLOWED_HOSTS`, `CORS_ALLOWED_ORIGINS`, and `LOG_LEVEL` into the application runtime. An empty `CORS_ALLOWED_ORIGINS` keeps CORS disabled.
 
