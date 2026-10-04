@@ -78,8 +78,16 @@ class WebService:
         @asynccontextmanager
         async def lifespan(_app: FastAPI):
             yield
+            self._logger.info(
+                "application_shutdown_started",
+                extra={"event": "application_shutdown_started"},
+            )
             await self._transient_store.close_async()
             await self._db.dispose_async()
+            self._logger.info(
+                "application_shutdown_complete",
+                extra={"event": "application_shutdown_complete"},
+            )
 
         docs_url = "/docs" if self._runtime.docs_enabled else None
         openapi_url = "/openapi.json" if self._runtime.docs_enabled else None
