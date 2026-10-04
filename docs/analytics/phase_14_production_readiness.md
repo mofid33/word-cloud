@@ -11,11 +11,12 @@ Phase 13 marker verified: `PHASE_13_COMPLETE_READY_FOR_PHASE_14`
 - migration-before-runtime strategy without API migration races;
 - liveness/readiness with PostgreSQL and transient Redis dependency checks;
 - structured JSON logging with privacy-safe fields;
-- request ID and analysis ID correlation across HTTP, analysis creation, queue and worker;
+- request ID plus W3C traceparent/trace ID/span ID correlation on HTTP, with analysis ID correlation across analysis creation, queue and worker;
 - Prometheus metrics endpoint with bounded labels;
 - production docs policy, trusted hosts, explicit CORS, body limit, timeout, sanitized 500 errors and security headers;
 - API and Worker graceful shutdown;
 - bounded WordCloud rendering concurrency;
+- explicit CPU, memory and PID ceilings for API/Worker containers with environment overrides and CI inspection;
 - production model-cache mount, remote-download disabled, trust_remote_code=false and lazy semantic providers;
 - CI for compile/unit/integration/evaluation/migrations plus production container smoke;
 - provider-neutral release workflow exporting immutable image archive + SHA256;
@@ -28,6 +29,8 @@ No Phase 14 implementation intentionally logs or emits raw document text. SOLDIE
 
 ## Verification state
 
-Static repository implementation is complete, but Phase 14 is intentionally not marked COMPLETE until target-machine verification is returned by the user. Required remaining evidence is runtime evidence: dependency installation, compile, full regression, Docker build, production-like Compose, migration, API/Worker health, privacy checks, performance/concurrency gates.
+Target-machine verification has passed for dependency installation, compile, migration execution, DB/Redis-backed integration, full regression, Docker build, CPU-only PyTorch image, production-like Compose, API/Worker health, non-root execution, Redis non-durability, docs/OpenAPI disablement, security headers, request-size enforcement, privacy-safe logs/metrics, performance baseline and graceful shutdown.
+
+Phase 14 remains intentionally open until the newly added W3C HTTP tracing and container CPU/memory/PID ceilings are verified on the target machine and the final regression is re-run on that exact HEAD.
 
 No Phase 14 completion marker is present.
