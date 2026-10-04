@@ -44,6 +44,35 @@ class _WebServiceWithoutControllers(WebService):
 
 
 class ProductionMiddlewareIntegrationTests(unittest.IsolatedAsyncioTestCase):
+    async def test_traceparent_is_propagated_with_new_server_span(self) -> None:
+        service = _WebServiceWithoutControllers(
+            _Config(),
+            _Runtime(),
+            _Metrics(),
+            _Db(),
+            _TransientStore(),
+        )
+        app = service.create_app()
+        parent = "00-0123456789abcdef0123456789abcdef-0123456789abcdef-01"
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://testserver",
+        ) as client:
+            response = await client.get(
+                "/missing",
+                headers={"traceparent": parent},
+            )
+
+        self.assertEqual(response.status_code, 404)
+        traceparent = response.headers["traceparent"]
+        self.assertTrue(
+            traceparent.startswith(
+                "00-0123456789abcdef0123456789abcdef-"
+            )
+        )
+        self.assertTrue(traceparent.endswith("-01"))
+        self.assertNotEqual(traceparent, parent)
+
     async def test_early_413_response_includes_security_headers(self) -> None:
         service = _WebServiceWithoutControllers(
             _Config(),
