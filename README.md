@@ -287,6 +287,8 @@ source .venv/bin/activate
 python -m src.host.worker
 ~~~
 
+The copied <code>.env</code> file is consumed automatically by Docker Compose. The Python API, Worker and migration runner do not load dotenv files themselves; they read the selected YAML configuration plus actual process environment variables. The checked-in development YAML matches the default local Compose PostgreSQL/Redis settings. If you change runtime URLs for Python processes, export <code>DATABASE_URL</code> and/or <code>TRANSIENT_PAYLOAD_REDIS_URL</code> in the shell before starting migrations, API or Worker.
+
 Development configuration enables FastAPI docs at <code>http://127.0.0.1:5000/docs</code>.
 
 ## Docker Development
@@ -350,7 +352,7 @@ Application configuration is YAML-based. <code>ENV_TYPE=development</code> selec
 | <code>VAULT_DATABASE_URL</code> | Conditional | Vault-enabled runtime | Environment-backed VaultService secret for DB URL | secret value, not committed |
 | <code>VAULT_TRANSIENT_PAYLOAD_REDIS_URL</code> | Conditional | Vault-enabled runtime | Environment-backed VaultService secret for transient Redis | secret value, not committed |
 | <code>ALLOWED_HOSTS</code> | Optional override | production | Comma-separated TrustedHost values; wildcard rejected outside development | <code>service.example.com,localhost</code> |
-| <code>CORS_ALLOWED_ORIGINS</code> | Optional override | production | Comma-separated explicit CORS origins; wildcard rejected outside development | <code>https://app.example.com</code> |
+| <code>CORS_ALLOWED_ORIGINS</code> | Optional override | production | Comma-separated explicit CORS origins; empty keeps CORS disabled and wildcard is rejected outside development | <code>https://app.example.com</code> |
 | <code>LOG_LEVEL</code> | Optional | runtime | Logging level override | <code>INFO</code> |
 | <code>POSTGRES_USER</code> | Compose | local/prod-like | PostgreSQL user | <code>postgres</code> |
 | <code>POSTGRES_PASSWORD</code> | Prod-like: yes | Compose | PostgreSQL password | use an untracked secret |
@@ -849,7 +851,7 @@ Triggered on pushes to <code>main</code>, pull requests and manual dispatch. It 
 
 ### Release — <code>.github/workflows/release.yml</code>
 
-Triggered manually or by tags matching <code>v*</code>. It builds the production image, exports it as an OCI/Docker image tar archive, generates a SHA256 file and uploads both as a GitHub Actions artifact with 14-day retention.
+Triggered manually or by tags matching <code>v*</code>. It builds the production image, exports it with <code>docker save</code> as a Docker image tar archive, generates a SHA256 file and uploads both as a GitHub Actions artifact with 14-day retention.
 
 No registry, cloud vendor or Kubernetes destination is assumed.
 
@@ -875,7 +877,7 @@ $env:PHASE14_BASE_URL = "http://127.0.0.1:5000"
 python -m unittest tests.evaluation.test_phase14_runtime_performance -v
 ~~~
 
-It records P50/P95 latency and throughput for liveness plus analysis validation, and captures one-shot API/Worker Docker CPU/memory statistics. The CPU production path reports VRAM as null.
+It records P50/P95 latency and throughput for liveness plus analysis validation, and requires one-shot API/Worker Docker CPU/memory statistics. By default the benchmark resolves the running containers from Docker Compose service labels. If more than one Compose project with <code>api</code>/<code>worker</code> services is running, set <code>PHASE14_COMPOSE_PROJECT</code>, or set explicit <code>PHASE14_API_CONTAINER</code> and <code>PHASE14_WORKER_CONTAINER</code> values. The benchmark fails instead of silently reporting null resource statistics when the target containers cannot be resolved. The CPU production path reports VRAM as null.
 
 ## Production Deployment Notes
 
