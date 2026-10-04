@@ -31,6 +31,6 @@ No Phase 14 implementation intentionally logs or emits raw document text. SOLDIE
 
 Target-machine verification has passed for dependency installation, compile, migration execution, DB/Redis-backed integration, full regression, Docker build, CPU-only PyTorch image, production-like Compose, API/Worker health, non-root execution, Redis non-durability, docs/OpenAPI disablement, security headers, request-size enforcement, privacy-safe logs/metrics, performance baseline and graceful shutdown.
 
-Phase 14 remains intentionally open until the newly added W3C HTTP tracing and container CPU/memory/PID ceilings are verified on the target machine and the final regression is re-run on that exact HEAD.
+W3C HTTP tracing and container CPU/memory/PID ceilings have been verified on the target machine. Phase 14 remains intentionally open only until the constant-time Worker health probe and the hardened transient-Redis SOLDIER async path pass target-machine verification and the final regression is re-run on that exact HEAD.
 
 No Phase 14 completion marker is present.
