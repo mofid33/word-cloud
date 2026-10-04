@@ -1,64 +1,77 @@
 from __future__ import annotations
 
-import asyncio
 import inspect
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
-from src.core.services.health.health_service import HealthService
 from src.host import worker_health
-from src.infrastructure.context.sql_db.psql_dbcontext import PsqlDbContext
-from src.infrastructure.providers.analysis_queue.redis_analysis_transient_payload_store import (
-    RedisAnalysisTransientPayloadStore,
-)
 
 
-class _Health:
-    async def readiness_async(self):
-        return True, {"status": "ready"}
+class _Response:
+    status = 200
 
+    def __enter__(self):
+        return self
 
-class _Db:
-    def __init__(self):
-        self.closed = False
-
-    async def dispose_async(self):
-        self.closed = True
-
-
-class _Redis:
-    def __init__(self):
-        self.closed = False
-
-    async def close_async(self):
-        self.closed = True
+    def __exit__(self, exc_type, exc, traceback):
+        return False
 
 
 class WorkerHealthProbeTests(unittest.TestCase):
-    def test_probe_does_not_bootstrap_full_discovery(self) -> None:
+    def test_probe_uses_only_stdlib_runtime_dependencies(self) -> None:
         source = inspect.getsource(worker_health)
         self.assertNotIn("bootstrap_di", source)
+        self.assertNotIn("sqlalchemy", source)
+        self.assertNotIn("redis", source)
+        self.assertNotIn("src.core", source)
+        self.assertNotIn("src.infrastructure", source)
 
-    def test_probe_checks_readiness_and_closes_resources(self) -> None:
-        health = _Health()
-        db = _Db()
-        redis_store = _Redis()
+    def test_probe_requires_worker_process_and_api_readiness(self) -> None:
+        with (
+            patch.object(worker_health.os, "kill") as kill,
+            patch.object(
+                worker_health,
+                "urlopen",
+                return_value=_Response(),
+            ) as urlopen_mock,
+        ):
+            self.assertTrue(worker_health._is_healthy())
 
-        def fake_resolve(dependency_type):
-            if dependency_type is HealthService:
-                return health
-            if dependency_type is PsqlDbContext:
-                return db
-            if dependency_type is RedisAnalysisTransientPayloadStore:
-                return redis_store
-            raise AssertionError(dependency_type)
+        kill.assert_called_once_with(1, 0)
+        request = urlopen_mock.call_args.args[0]
+        self.assertEqual(
+            request.full_url,
+            "http://api:5000/api/v1/health/ready",
+        )
+        self.assertEqual(request.get_header("Host"), "localhost")
+        self.assertEqual(
+            urlopen_mock.call_args.kwargs["timeout"],
+            5.0,
+        )
 
-        with patch.object(worker_health, "resolve", side_effect=fake_resolve):
-            result = asyncio.run(worker_health._main_async())
+    def test_probe_is_unhealthy_when_worker_process_is_missing(self) -> None:
+        with (
+            patch.object(
+                worker_health.os,
+                "kill",
+                side_effect=ProcessLookupError(),
+            ),
+            patch.object(worker_health, "urlopen") as urlopen_mock,
+        ):
+            self.assertFalse(worker_health._is_healthy())
 
-        self.assertEqual(result, 0)
-        self.assertTrue(db.closed)
-        self.assertTrue(redis_store.closed)
+        urlopen_mock.assert_not_called()
+
+    def test_probe_is_unhealthy_when_api_readiness_is_unavailable(self) -> None:
+        with (
+            patch.object(worker_health.os, "kill"),
+            patch.object(
+                worker_health,
+                "urlopen",
+                side_effect=worker_health.URLError("unavailable"),
+            ),
+        ):
+            self.assertFalse(worker_health._is_healthy())
 
 
 if __name__ == "__main__":
