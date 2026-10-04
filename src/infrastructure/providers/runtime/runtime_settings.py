@@ -37,7 +37,7 @@ class RuntimeSettings:
         if allowed_hosts_override is not None:
             allowed_hosts = self._csv(allowed_hosts_override, "ALLOWED_HOSTS")
         cors_override = os.getenv("CORS_ALLOWED_ORIGINS")
-        if cors_override is not None:
+        if cors_override is not None and cors_override.strip():
             cors_allowed_origins = self._csv(cors_override, "CORS_ALLOWED_ORIGINS")
         maximum_request_body_bytes = self._integer(runtime, "maximum_request_body_bytes", 1024, 100_000_000)
         request_timeout_seconds = self._number(runtime, "request_timeout_seconds", 1.0, 3600.0)
@@ -47,9 +47,15 @@ class RuntimeSettings:
         metrics_config = observability.get("metrics")
         if not isinstance(logging_config, dict) or not isinstance(metrics_config, dict):
             raise ValueError("observability.logging and observability.metrics must be mappings")
-        log_level = str(logging_config.get("level", "")).strip().upper()
+        configured_log_level = str(logging_config.get("level", "")).strip().upper()
+        log_level_override = os.getenv("LOG_LEVEL")
+        log_level = (
+            log_level_override.strip().upper()
+            if log_level_override is not None
+            else configured_log_level
+        )
         if log_level not in logging._nameToLevel:
-            raise ValueError("observability.logging.level is invalid")
+            raise ValueError("LOG_LEVEL or observability.logging.level is invalid")
         metrics_enabled = self._boolean(metrics_config, "enabled")
 
         if config_reader.environment != "development":
