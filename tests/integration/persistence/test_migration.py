@@ -7,7 +7,7 @@ from pathlib import Path
 
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import inspect
+from sqlalchemy import inspect, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import create_async_engine
 
@@ -30,6 +30,16 @@ def _test_database_url() -> str | None:
     return url
 
 
+async def _reset_public_schema(url: str) -> None:
+    engine = create_async_engine(url)
+    try:
+        async with engine.begin() as connection:
+            await connection.execute(text("DROP SCHEMA IF EXISTS public CASCADE"))
+            await connection.execute(text("CREATE SCHEMA public"))
+    finally:
+        await engine.dispose()
+
+
 @unittest.skipUnless(
     os.getenv("TEST_DATABASE_URL"),
     "TEST_DATABASE_URL is required for migration integration tests",
@@ -43,45 +53,67 @@ class MigrationIntegrationTests(unittest.IsolatedAsyncioTestCase):
         config.set_main_option("script_location", str(ALEMBIC_DIR))
         config.set_main_option("sqlalchemy.url", url)
 
-        await asyncio.to_thread(command.downgrade, config, "base")
-        await asyncio.to_thread(command.upgrade, config, "head")
-
-        engine = create_async_engine(url)
+        await _reset_public_schema(url)
         try:
-            async with engine.connect() as connection:
-                table_names = set(
-                    await connection.run_sync(
-                        lambda sync_connection: inspect(sync_connection).get_table_names()
-                    )
-                )
-            self.assertTrue(
-                {
-                    "word_cloud_analysis",
-                    "analysis_document",
-                    "analysis_keyword",
-                    "analysis_topic",
-                    "analysis_topic_keyword",
-                    "analysis_queue_job",
-                    "alembic_version",
-                }.issubset(table_names)
-            )
-        finally:
-            await engine.dispose()
+            await asyncio.to_thread(command.upgrade, config, "head")
 
-        await asyncio.to_thread(command.downgrade, config, "base")
-
-        engine = create_async_engine(url)
-        try:
-            async with engine.connect() as connection:
-                table_names = set(
-                    await connection.run_sync(
-                        lambda sync_connection: inspect(sync_connection).get_table_names()
+            engine = create_async_engine(url)
+            try:
+                async with engine.connect() as connection:
+                    table_names = set(
+                        await connection.run_sync(
+                            lambda sync_connection: inspect(
+                                sync_connection
+                            ).get_table_names()
+                        )
                     )
+                    queue_indexes = {
+                        item["name"]
+                        for item in await connection.run_sync(
+                            lambda sync_connection: inspect(
+                                sync_connection
+                            ).get_indexes("analysis_queue_job")
+                        )
+                    }
+
+                self.assertTrue(
+                    {
+                        "word_cloud_analysis",
+                        "analysis_document",
+                        "analysis_keyword",
+                        "analysis_topic",
+                        "analysis_topic_keyword",
+                        "analysis_queue_job",
+                        "alembic_version",
+                    }.issubset(table_names)
                 )
-            self.assertNotIn("word_cloud_analysis", table_names)
-            self.assertNotIn("analysis_queue_job", table_names)
+                self.assertTrue(
+                    {
+                        "ix_analysis_queue_job_available",
+                        "ix_analysis_queue_job_lease_expiry",
+                    }.issubset(queue_indexes)
+                )
+            finally:
+                await engine.dispose()
+
+            await asyncio.to_thread(command.downgrade, config, "base")
+
+            engine = create_async_engine(url)
+            try:
+                async with engine.connect() as connection:
+                    table_names = set(
+                        await connection.run_sync(
+                            lambda sync_connection: inspect(
+                                sync_connection
+                            ).get_table_names()
+                        )
+                    )
+                self.assertNotIn("word_cloud_analysis", table_names)
+                self.assertNotIn("analysis_queue_job", table_names)
+            finally:
+                await engine.dispose()
         finally:
-            await engine.dispose()
+            await _reset_public_schema(url)
 
 
 if __name__ == "__main__":
