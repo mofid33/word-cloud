@@ -45,7 +45,7 @@ def _docker_stats(container_name: str) -> dict[str, str] | None:
     os.getenv("RUN_PHASE14_RUNTIME_BENCHMARK") == "1",
     "Set RUN_PHASE14_RUNTIME_BENCHMARK=1 to run the production HTTP runtime benchmark",
 )
-class Phase14RuntimePerformanceTests(unittest.IsolatedAsyncioTestCase):
+class Phase14RuntimePerformanceTests(unittest.TestCase):
     async def _measure(
         self,
         client: httpx.AsyncClient,
@@ -80,7 +80,7 @@ class Phase14RuntimePerformanceTests(unittest.IsolatedAsyncioTestCase):
             "wall_seconds": total,
         }
 
-    async def test_production_http_runtime_baseline(self) -> None:
+    async def _run_benchmark_async(self) -> None:
         base_url = os.getenv("PHASE14_BASE_URL", "http://127.0.0.1:5001")
         api_container = os.getenv(
             "PHASE14_API_CONTAINER",
@@ -105,11 +105,19 @@ class Phase14RuntimePerformanceTests(unittest.IsolatedAsyncioTestCase):
         }
 
         timeout = httpx.Timeout(30.0)
-        async with httpx.AsyncClient(base_url=base_url, timeout=timeout) as client:
+        async with httpx.AsyncClient(
+            base_url=base_url,
+            timeout=timeout,
+            trust_env=False,
+        ) as client:
             live = await client.get("/api/v1/health/live")
             ready = await client.get("/api/v1/health/ready")
             self.assertEqual(live.status_code, 200)
             self.assertEqual(ready.status_code, 200)
+
+            for _ in range(10):
+                warmup = await client.get("/api/v1/health/live")
+                self.assertEqual(warmup.status_code, 200)
 
             live_metrics = await self._measure(
                 client,
@@ -141,6 +149,9 @@ class Phase14RuntimePerformanceTests(unittest.IsolatedAsyncioTestCase):
             "PHASE14_RUNTIME_PERFORMANCE="
             + json.dumps(evidence, sort_keys=True, ensure_ascii=False)
         )
+
+    def test_production_http_runtime_baseline(self) -> None:
+        asyncio.run(self._run_benchmark_async())
 
 
 if __name__ == "__main__":
