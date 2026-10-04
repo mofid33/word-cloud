@@ -87,6 +87,17 @@ jobs:
         run: |
           curl --fail --silent http://127.0.0.1:5000/api/v1/health/live
           curl --fail --silent http://127.0.0.1:5000/api/v1/metrics/ | grep word_cloud_http_requests_total
+      - name: Verify container resource limits
+        run: |
+          api_id="$(docker compose -f compose.production.yaml ps -q api)"
+          worker_id="$(docker compose -f compose.production.yaml ps -q worker)"
+          test -n "$api_id"
+          test -n "$worker_id"
+          for container_id in "$api_id" "$worker_id"; do
+            test "$(docker inspect --format '{{.HostConfig.Memory}}' "$container_id")" -gt 0
+            test "$(docker inspect --format '{{.HostConfig.NanoCpus}}' "$container_id")" -gt 0
+            test "$(docker inspect --format '{{.HostConfig.PidsLimit}}' "$container_id")" -gt 0
+          done
       - name: Verify worker health
         run: |
           worker_id="$(docker compose -f compose.production.yaml ps -q worker)"
