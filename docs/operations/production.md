@@ -26,6 +26,7 @@ Optional production overrides:
 - `ALLOWED_HOSTS` comma-separated, explicit hosts only
 - `CORS_ALLOWED_ORIGINS` comma-separated origins
 - `LOG_LEVEL`
+- `WORKER_READINESS_URL` for non-default Worker-to-API readiness routing
 
 Do not commit populated production env files.
 
