@@ -33,6 +33,11 @@ class _Config:
 
 
 class RuntimeSettingsTests(unittest.TestCase):
+    def setUp(self) -> None:
+        environment = patch.dict(os.environ, {}, clear=True)
+        environment.start()
+        self.addCleanup(environment.stop)
+
     def test_production_settings_are_validated(self) -> None:
         settings = RuntimeSettings(_Config())
         self.assertFalse(settings.docs_enabled)
