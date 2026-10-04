@@ -379,6 +379,9 @@ Application configuration is YAML-based. <code>ENV_TYPE=development</code> selec
 | <code>RUN_PHASE11_REAL_MODEL_BENCHMARK=1</code> | Enables the real configured embedding/topic performance test |
 | <code>RUN_PHASE14_RUNTIME_BENCHMARK=1</code> | Enables the production-like HTTP/container performance baseline |
 | <code>PHASE14_BASE_URL</code> | Base URL used by the Phase 14 runtime benchmark |
+| <code>PHASE14_COMPOSE_PROJECT</code> | Optional Compose project label used to disambiguate benchmark container discovery |
+| <code>PHASE14_API_CONTAINER</code> | Optional explicit API container ID/name for the Phase 14 benchmark |
+| <code>PHASE14_WORKER_CONTAINER</code> | Optional explicit Worker container ID/name for the Phase 14 benchmark |
 | <code>PHASE10_GOLD_COURSE_DIR</code> | External/approved COURSE gold data location |
 | <code>PHASE10_GOLD_SOLDIER_DIR</code> | Private external SOLDIER gold data location; raw concerns must not be committed |
 | <code>PHASE10_GOLD_MEDIA_DIR</code> | External/approved MEDIA gold data location |
