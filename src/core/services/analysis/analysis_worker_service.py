@@ -51,8 +51,13 @@ class AnalysisWorkerService:
         ]
         try:
             await self._shutdown.wait()
-        finally:
             await asyncio.gather(*consumers, return_exceptions=False)
+        except asyncio.CancelledError:
+            for consumer in consumers:
+                consumer.cancel()
+            await asyncio.gather(*consumers, return_exceptions=True)
+            raise
+        finally:
             await self._queue.close_async()
 
     async def stop_async(self) -> None:
