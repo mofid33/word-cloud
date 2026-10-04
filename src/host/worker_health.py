@@ -4,13 +4,11 @@ import asyncio
 
 from src.core.services.health.health_service import HealthService
 from src.infrastructure.context.sql_db.psql_dbcontext import PsqlDbContext
-from src.infrastructure.di.bootstrap import bootstrap_di
 from src.infrastructure.di.inject import resolve
 from src.infrastructure.providers.analysis_queue.redis_analysis_transient_payload_store import RedisAnalysisTransientPayloadStore
 
 
 async def _main_async() -> int:
-    bootstrap_di()
     service = resolve(HealthService)
     db = resolve(PsqlDbContext)
     redis_store = resolve(RedisAnalysisTransientPayloadStore)
