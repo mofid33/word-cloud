@@ -45,7 +45,7 @@ Redis in this stack has RDB snapshots and AOF disabled. No volume is mounted for
 
 - `GET /api/v1/health/live`: process liveness only.
 - `GET /api/v1/health/ready`: PostgreSQL + transient Redis readiness. No URLs, credentials, raw text, or exception messages are returned.
-- Worker container health executes `python -m src.host.worker_health`. The probe performs real PostgreSQL + transient Redis readiness checks and is given a 20-second bounded timeout with a 30-second startup grace period to accommodate cold Python/import/connection startup on constrained hosts without masking persistent dependency failure.
+- Worker container health executes `python -m src.host.worker_health`. The probe is constant-time and checks that the Worker process (PID 1) is alive and that the API readiness endpoint is healthy. PostgreSQL + transient Redis readiness therefore remains centralized in the API health service instead of re-importing SQLAlchemy/Redis and rebuilding DI inside every Worker probe. The Worker host also exits if its processing task stops unexpectedly, so a live PID cannot mask a dead Worker loop.
 
 ## Metrics
 
