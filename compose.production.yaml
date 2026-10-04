@@ -70,6 +70,7 @@ services:
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
       TRANSIENT_PAYLOAD_REDIS_URL: ${TRANSIENT_PAYLOAD_REDIS_URL:?TRANSIENT_PAYLOAD_REDIS_URL is required}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      WORKER_READINESS_URL: ${WORKER_READINESS_URL:-http://api:5000/api/v1/health/ready}
     command: ["python", "-m", "src.host.worker"]
     volumes:
       - word_cloud_model_cache:/var/lib/word-cloud/models
