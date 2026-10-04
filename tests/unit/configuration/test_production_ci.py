@@ -65,5 +65,21 @@ class ProductionCiContractTests(unittest.TestCase):
         self.assertIn("pids_limit: ${WORKER_PIDS_LIMIT:-512}", compose)
 
 
+    def test_api_receives_runtime_security_overrides(self) -> None:
+        compose = (PROJECT_ROOT / "compose.production.yaml").read_text(
+            encoding="utf-8"
+        )
+        env_example = (PROJECT_ROOT / ".env.production.example").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("ALLOWED_HOSTS:", compose)
+        self.assertIn("CORS_ALLOWED_ORIGINS:", compose)
+        self.assertIn("LOG_LEVEL:", compose)
+        self.assertIn("ALLOWED_HOSTS=", env_example)
+        self.assertIn("CORS_ALLOWED_ORIGINS=", env_example)
+
+
+
 if __name__ == "__main__":
     unittest.main()
