@@ -161,14 +161,23 @@ class RedisAnalysisTransientPayloadStore:
         async with self._validation_lock:
             if self._validated_non_durable:
                 return
-            try:
-                save_config = await self._client.config_get("save")
-                append_config = await self._client.config_get("appendonly")
-            except Exception as exc:
-                raise RuntimeError(
-                    "Unable to verify transient Redis persistence policy"
-                ) from exc
 
+            save_config = None
+            append_config = None
+            for attempt in range(2):
+                try:
+                    save_config = await self._client.config_get("save")
+                    append_config = await self._client.config_get("appendonly")
+                    break
+                except Exception as exc:
+                    if attempt == 1:
+                        raise RuntimeError(
+                            "Unable to verify transient Redis persistence policy"
+                        ) from exc
+                    await asyncio.sleep(0.05)
+
+            assert save_config is not None
+            assert append_config is not None
             save_value = str(save_config.get("save", "")).strip()
             append_value = str(
                 append_config.get("appendonly", "")
