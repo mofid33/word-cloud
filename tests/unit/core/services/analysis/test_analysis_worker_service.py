@@ -245,6 +245,33 @@ class AnalysisWorkerServiceTests(unittest.TestCase):
 
         asyncio.run(run())
 
+    def test_worker_cancellation_closes_queue(self) -> None:
+        class _BlockingQueue(_Queue):
+            async def receive_async(self, *, timeout_seconds):
+                await asyncio.sleep(60.0)
+                return None
+
+        async def run():
+            queue = _BlockingQueue()
+            repository = _Repository()
+            processor = _Processor(repository, failures=0)
+            worker = AnalysisWorkerService(
+                queue,
+                processor,
+                repository,
+                _Settings(),
+            )
+
+            task = asyncio.create_task(worker.run_async())
+            await asyncio.sleep(0.01)
+            task.cancel()
+            with self.assertRaises(asyncio.CancelledError):
+                await task
+
+            self.assertTrue(queue.closed)
+
+        asyncio.run(run())
+
     def test_completed_duplicate_delivery_is_acknowledged_without_processing(self) -> None:
         async def run():
             queue = _Queue()
