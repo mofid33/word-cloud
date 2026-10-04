@@ -19,6 +19,11 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from src.infrastructure.context.sql_db.psql_dbcontext import PsqlDbContext
 from src.infrastructure.di.inject import inject
 from src.infrastructure.observability.logging_config import request_id_context
+from src.infrastructure.observability.tracing import (
+    span_id_context,
+    start_server_trace,
+    trace_id_context,
+)
 from src.infrastructure.observability.metrics_service import MetricsService
 from src.infrastructure.providers.analysis_queue.redis_analysis_transient_payload_store import RedisAnalysisTransientPayloadStore
 from src.infrastructure.providers.runtime.runtime_settings import RuntimeSettings
@@ -105,14 +110,16 @@ class WebService:
                 CORSMiddleware,
                 allow_origins=list(self._runtime.cors_allowed_origins),
                 allow_methods=["GET", "POST"],
-                allow_headers=["Content-Type", "X-Request-ID"],
+                allow_headers=["Content-Type", "X-Request-ID", "traceparent"],
+                expose_headers=["X-Request-ID", "traceparent"],
                 allow_credentials=False,
             )
 
         @app.middleware("http")
         async def production_middleware(request: Request, call_next):
-            def apply_security_headers(response, request_id: str):
+            def apply_security_headers(response, request_id: str, traceparent: str):
                 response.headers["X-Request-ID"] = request_id
+                response.headers["traceparent"] = traceparent
                 response.headers["X-Content-Type-Options"] = "nosniff"
                 response.headers["X-Frame-Options"] = "DENY"
                 response.headers["Referrer-Policy"] = "no-referrer"
@@ -121,7 +128,10 @@ class WebService:
 
             header = request.headers.get("x-request-id", "")
             request_id = header if _REQUEST_ID_PATTERN.fullmatch(header) else uuid4().hex
-            token = request_id_context.set(request_id)
+            trace = start_server_trace(request.headers.get("traceparent"))
+            request_token = request_id_context.set(request_id)
+            trace_token = trace_id_context.set(trace.trace_id)
+            span_token = span_id_context.set(trace.span_id)
             started = monotonic()
             status_code = 500
             try:
@@ -132,24 +142,24 @@ class WebService:
                     except ValueError:
                         response = JSONResponse(status_code=400, content={"detail": {"code": "invalid_content_length", "message": "Invalid Content-Length header"}})
                         status_code = response.status_code
-                        return apply_security_headers(response, request_id)
+                        return apply_security_headers(response, request_id, trace.traceparent)
                     if size > self._runtime.maximum_request_body_bytes:
                         response = JSONResponse(status_code=413, content={"detail": {"code": "request_body_too_large", "message": "Request body exceeds the configured limit"}})
                         status_code = response.status_code
-                        return apply_security_headers(response, request_id)
+                        return apply_security_headers(response, request_id, trace.traceparent)
                 if request.method in {"POST", "PUT", "PATCH"}:
                     body = await request.body()
                     if len(body) > self._runtime.maximum_request_body_bytes:
                         response = JSONResponse(status_code=413, content={"detail": {"code": "request_body_too_large", "message": "Request body exceeds the configured limit"}})
                         status_code = response.status_code
-                        return apply_security_headers(response, request_id)
+                        return apply_security_headers(response, request_id, trace.traceparent)
                 try:
                     async with asyncio.timeout(self._runtime.request_timeout_seconds):
                         response = await call_next(request)
                 except TimeoutError:
                     response = JSONResponse(status_code=504, content={"detail": {"code": "request_timeout", "message": "Request processing timed out"}})
                 status_code = response.status_code
-                return apply_security_headers(response, request_id)
+                return apply_security_headers(response, request_id, trace.traceparent)
             finally:
                 elapsed = monotonic() - started
                 route = getattr(request.scope.get("route"), "path", "unresolved")
@@ -158,7 +168,9 @@ class WebService:
                     "http_request_completed",
                     extra={"event": "http_request_completed", "method": request.method, "route": str(route), "status_code": status_code, "duration_ms": round(elapsed * 1000, 3)},
                 )
-                request_id_context.reset(token)
+                span_id_context.reset(span_token)
+                trace_id_context.reset(trace_token)
+                request_id_context.reset(request_token)
 
         @app.exception_handler(RequestValidationError)
         async def request_validation_error_handler(_request: Request, _exc: RequestValidationError) -> JSONResponse:
