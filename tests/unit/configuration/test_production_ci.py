@@ -38,5 +38,25 @@ class ProductionCiContractTests(unittest.TestCase):
         self.assertIn("graceful_shutdown_seconds: 30", production)
 
 
+    def test_resource_limit_gate_requires_cpu_memory_and_pid_limits(self) -> None:
+        workflow = (PROJECT_ROOT / ".github" / "workflows" / "ci.yml").read_text(
+            encoding="utf-8"
+        )
+        compose = (PROJECT_ROOT / "compose.production.yaml").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("Verify container resource limits", workflow)
+        self.assertIn(".HostConfig.Memory", workflow)
+        self.assertIn(".HostConfig.NanoCpus", workflow)
+        self.assertIn(".HostConfig.PidsLimit", workflow)
+        self.assertIn('cpus: "${API_CPU_LIMIT:-4.0}"', compose)
+        self.assertIn('mem_limit: "${API_MEMORY_LIMIT:-6g}"', compose)
+        self.assertIn("pids_limit: ${API_PIDS_LIMIT:-512}", compose)
+        self.assertIn('cpus: "${WORKER_CPU_LIMIT:-4.0}"', compose)
+        self.assertIn('mem_limit: "${WORKER_MEMORY_LIMIT:-6g}"', compose)
+        self.assertIn("pids_limit: ${WORKER_PIDS_LIMIT:-512}", compose)
+
+
 if __name__ == "__main__":
     unittest.main()
