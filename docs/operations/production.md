@@ -51,17 +51,27 @@ Redis in this stack has RDB snapshots and AOF disabled. No volume is mounted for
 
 `GET /api/v1/metrics/` exposes Prometheus text format when enabled. HTTP labels are bounded to method, route template and status. Analysis IDs, document IDs, keywords, topic text and raw input are not metric labels.
 
-## Logging and correlation
+## Logging, tracing and correlation
 
-Production logs are JSON with timestamp, severity and event name. HTTP logs include request ID, route template, status and duration. Analysis lifecycle events add safe `analysis_id`, profile and execution mode. Raw request bodies, Authorization headers, cookies, DB/Redis credentials and exception messages are not serialized.
+Production logs are JSON with timestamp, severity and event name. HTTP logs include request ID, W3C trace ID/span ID, route template, status and duration. Analysis lifecycle events add safe `analysis_id`, profile and execution mode. Raw request bodies, Authorization headers, cookies, DB/Redis credentials and exception messages are not serialized.
 
-HTTP request ID + analysis ID + the existing queue analysis ID provide correlation from request -> analysis -> queue -> worker without changing the queue payload contract.
+HTTP middleware accepts a valid W3C `traceparent`, preserves its trace ID and sampling flags, creates a new server span ID, returns the resulting `traceparent` response header, and creates a fresh trace context when the incoming header is absent or invalid. The async queue intentionally keeps its identifier-only durable payload contract; `analysis_id` is the correlation boundary from HTTP analysis creation through queue and Worker.
 
 ## Security baseline
 
 Production disables FastAPI docs/OpenAPI, validates allowed hosts, supports explicit CORS origins, enforces configured request body size and request timeout, sanitizes unhandled errors, adds no-sniff/frame/referrer/cache headers, keeps `trust_remote_code=false`, and disables remote model downloads.
 
 Authentication is intentionally not introduced because the project contract does not define an authentication scheme.
+
+## Resource limits
+
+Production Compose applies explicit, overridable ceilings to both API and Worker containers:
+
+- CPU: `API_CPU_LIMIT` / `WORKER_CPU_LIMIT` (default `4.0`);
+- memory: `API_MEMORY_LIMIT` / `WORKER_MEMORY_LIMIT` (default `6g`);
+- PID count: `API_PIDS_LIMIT` / `WORKER_PIDS_LIMIT` (default `512`).
+
+These are ceilings, not reservations. Tune them only after target-machine measurement and semantic-model memory verification. CI inspects the created containers and fails if CPU, memory or PID limits are absent.
 
 ## Models
 
