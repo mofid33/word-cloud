@@ -76,8 +76,10 @@ class ProductionCiContractTests(unittest.TestCase):
         self.assertIn("ALLOWED_HOSTS:", compose)
         self.assertIn("CORS_ALLOWED_ORIGINS:", compose)
         self.assertIn("LOG_LEVEL:", compose)
+        self.assertIn("WORKER_READINESS_URL:", compose)
         self.assertIn("ALLOWED_HOSTS=", env_example)
         self.assertIn("CORS_ALLOWED_ORIGINS=", env_example)
+        self.assertIn("WORKER_READINESS_URL=", env_example)
 
 
 
