@@ -31,11 +31,14 @@ Do not commit populated production env files.
 
 ## Production-like local stack
 
-Copy `.env.production.example` to an untracked local file, replace example credentials, then export/load those variables before running:
+Copy `.env.production.example` to an untracked local file, replace example credentials, then pass that file explicitly to Compose:
 
 ```bash
-docker compose -f compose.production.yaml up -d --build
+cp .env.production.example .env.production.local
+docker compose --env-file .env.production.local -f compose.production.yaml up -d --build
 ```
+
+The production Compose API service passes `ALLOWED_HOSTS`, `CORS_ALLOWED_ORIGINS`, and `LOG_LEVEL` into the application runtime. An empty `CORS_ALLOWED_ORIGINS` keeps CORS disabled.
 
 The `migrate` service runs Alembic once and must complete before API and Worker start. API replicas therefore do not race to run migrations.
 
@@ -98,7 +101,7 @@ The release workflow builds one production image, exports it as a tar artifact, 
 With the production-like stack healthy, run the Phase 14 HTTP benchmark from the project virtual environment:
 
 ```bash
-RUN_PHASE14_RUNTIME_BENCHMARK=1 PHASE14_BASE_URL=http://127.0.0.1:5001 python -m unittest tests.evaluation.test_phase14_runtime_performance -v
+RUN_PHASE14_RUNTIME_BENCHMARK=1 PHASE14_BASE_URL=http://127.0.0.1:5000 python -m unittest tests.evaluation.test_phase14_runtime_performance -v
 ```
 
-On PowerShell set the environment variables first. The benchmark records P50/P95 latency and throughput for liveness plus the analysis validation path, and captures one-shot Docker CPU/memory statistics for API and Worker. It does not invent an SLA; the emitted JSON is target-machine baseline evidence to be compared across releases. CPU is the default production image, so VRAM is reported as null.
+On PowerShell set the environment variables first. The benchmark records P50/P95 latency and throughput for liveness plus the analysis validation path, and requires one-shot Docker CPU/memory statistics for both API and Worker. By default it discovers the running Compose containers through Docker Compose service labels. If multiple Compose projects with the same service names are running, set `PHASE14_COMPOSE_PROJECT` or explicit `PHASE14_API_CONTAINER` / `PHASE14_WORKER_CONTAINER` values. The test fails instead of silently emitting null resource statistics when the containers cannot be resolved. It does not invent an SLA; the emitted JSON is target-machine baseline evidence to be compared across releases. CPU is the default production image, so VRAM is reported as null.
