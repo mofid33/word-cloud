@@ -4,6 +4,11 @@ import json
 import logging
 import os
 from contextvars import ContextVar
+
+from src.infrastructure.observability.tracing import (
+    span_id_context,
+    trace_id_context,
+)
 from datetime import UTC, datetime
 from typing import Any
 
@@ -21,6 +26,12 @@ class JsonFormatter(logging.Formatter):
         request_id = request_id_context.get()
         if request_id:
             payload["request_id"] = request_id
+        trace_id = trace_id_context.get()
+        if trace_id:
+            payload["trace_id"] = trace_id
+        span_id = span_id_context.get()
+        if span_id:
+            payload["span_id"] = span_id
         for key in ("method", "route", "status_code", "duration_ms", "analysis_id", "profile", "execution_mode", "error_code"):
             value = getattr(record, key, None)
             if value is not None:
