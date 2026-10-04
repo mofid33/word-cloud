@@ -321,11 +321,12 @@ docker compose down
 - API/Worker CPU, memory and PID ceilings;
 - startup dependencies and health checks.
 
-Create an untracked production-like env file from the example and replace example credentials:
+Create an untracked production-like env file from the example and replace example credentials. Docker Compose gives already-exported shell variables precedence over values from <code>--env-file</code>, so clear stale deployment/test variables or use a fresh shell before starting the stack:
 
 ~~~bash
 cp .env.production.example .env.production.local
 
+docker compose --env-file .env.production.local -f compose.production.yaml config
 docker compose --env-file .env.production.local -f compose.production.yaml up -d --build
 docker compose --env-file .env.production.local -f compose.production.yaml ps
 docker compose --env-file .env.production.local -f compose.production.yaml logs -f api worker
