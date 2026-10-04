@@ -106,7 +106,16 @@ jobs:
           docker compose -f compose.production.yaml logs --no-color worker
           exit 1
       - name: Graceful stop smoke
-        run: docker compose -f compose.production.yaml stop -t 35 api worker
+        run: |
+          api_id="$(docker compose -f compose.production.yaml ps -q api)"
+          worker_id="$(docker compose -f compose.production.yaml ps -q worker)"
+          test -n "$api_id"
+          test -n "$worker_id"
+          docker compose -f compose.production.yaml stop api worker
+          test "$(docker inspect --format '{{.State.ExitCode}}' "$api_id")" = "0"
+          test "$(docker inspect --format '{{.State.OOMKilled}}' "$api_id")" = "false"
+          test "$(docker inspect --format '{{.State.ExitCode}}' "$worker_id")" = "0"
+          test "$(docker inspect --format '{{.State.OOMKilled}}' "$worker_id")" = "false"
       - name: Dump logs on failure
         if: failure()
         run: docker compose -f compose.production.yaml logs --no-color
