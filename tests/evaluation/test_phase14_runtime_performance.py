@@ -19,7 +19,46 @@ def _percentile(values: list[float], percentile: float) -> float:
     return ordered[index]
 
 
-def _docker_stats(container_name: str) -> dict[str, str] | None:
+def _resolve_container(service_name: str, environment_key: str) -> str | None:
+    explicit = os.getenv(environment_key, "").strip()
+    if explicit:
+        return explicit
+
+    command = [
+        "docker",
+        "ps",
+        "--filter",
+        f"label=com.docker.compose.service={service_name}",
+    ]
+    compose_project = os.getenv("PHASE14_COMPOSE_PROJECT", "").strip()
+    if compose_project:
+        command.extend(
+            [
+                "--filter",
+                f"label=com.docker.compose.project={compose_project}",
+            ]
+        )
+    command.extend(["--format", "{{.ID}}"])
+
+    result = subprocess.run(
+        command,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    if result.returncode != 0:
+        return None
+
+    matches = [
+        line.strip()
+        for line in result.stdout.splitlines()
+        if line.strip()
+    ]
+    return matches[0] if len(matches) == 1 else None
+
+
+def _docker_stats(container_name: str | None) -> dict[str, str] | None:
     if not container_name:
         return None
     result = subprocess.run(
@@ -81,14 +120,14 @@ class Phase14RuntimePerformanceTests(unittest.TestCase):
         }
 
     async def _run_benchmark_async(self) -> None:
-        base_url = os.getenv("PHASE14_BASE_URL", "http://127.0.0.1:5001")
-        api_container = os.getenv(
+        base_url = os.getenv("PHASE14_BASE_URL", "http://127.0.0.1:5000")
+        api_container = _resolve_container(
+            "api",
             "PHASE14_API_CONTAINER",
-            "word_cloud_phase14-api-1",
         )
-        worker_container = os.getenv(
+        worker_container = _resolve_container(
+            "worker",
             "PHASE14_WORKER_CONTAINER",
-            "word_cloud_phase14-worker-1",
         )
         validation_payload = {
             "analysis_type": "COURSE",
@@ -135,14 +174,25 @@ class Phase14RuntimePerformanceTests(unittest.TestCase):
                 json_body=validation_payload,
             )
 
+        api_container_stats = _docker_stats(api_container)
+        worker_container_stats = _docker_stats(worker_container)
+        self.assertIsNotNone(
+            api_container_stats,
+            "Unable to resolve or inspect the production-like API container",
+        )
+        self.assertIsNotNone(
+            worker_container_stats,
+            "Unable to resolve or inspect the production-like Worker container",
+        )
+
         evidence = {
             "base_url": base_url,
             "device": "cpu",
             "vram_bytes": None,
             "live": live_metrics,
             "analysis_validate": validation_metrics,
-            "api_container_stats": _docker_stats(api_container),
-            "worker_container_stats": _docker_stats(worker_container),
+            "api_container_stats": api_container_stats,
+            "worker_container_stats": worker_container_stats,
             "status": "TARGET_MACHINE_BASELINE",
         }
         print(
