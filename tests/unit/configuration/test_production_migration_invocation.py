@@ -1,9 +1,12 @@
 from __future__ import annotations
 
-import subprocess
+import importlib
+import io
 import sys
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
+from unittest.mock import patch
 
 import yaml
 
@@ -13,20 +16,19 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 class ProductionMigrationInvocationTests(unittest.TestCase):
     def test_migration_runner_is_importable_as_module(self) -> None:
-        result = subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "src.infrastructure.scripts.run_migrations",
-                "--help",
-            ],
-            cwd=PROJECT_ROOT,
-            check=False,
-            capture_output=True,
-            text=True,
+        module = importlib.import_module(
+            "src.infrastructure.scripts.run_migrations"
         )
-        self.assertEqual(result.returncode, 0, msg=result.stderr)
-        self.assertIn("Manage database migrations", result.stdout)
+        self.assertTrue(callable(module.main))
+
+        stdout = io.StringIO()
+        with patch.object(sys, "argv", ["run_migrations", "--help"]):
+            with redirect_stdout(stdout):
+                with self.assertRaises(SystemExit) as context:
+                    module.main()
+
+        self.assertEqual(context.exception.code, 0)
+        self.assertIn("Manage database migrations", stdout.getvalue())
 
     def test_production_compose_uses_module_invocation(self) -> None:
         compose_path = PROJECT_ROOT / "compose.production.yaml"
