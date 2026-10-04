@@ -56,7 +56,7 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
-    stop_grace_period: 35s
+    stop_grace_period: 60s
 
   worker:
     image: word-cloud:${IMAGE_TAG:-local}
@@ -80,7 +80,7 @@ services:
       start_period: 20s
       retries: 3
     restart: unless-stopped
-    stop_grace_period: 35s
+    stop_grace_period: 60s
 
 volumes:
   word_cloud_prod_postgres:
