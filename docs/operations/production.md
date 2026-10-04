@@ -69,7 +69,7 @@ Production config uses `models.allow_remote_downloads=false`. Provision model fi
 
 ## Shutdown
 
-API lifespan closes Redis and the SQLAlchemy engine. Worker handles SIGINT/SIGTERM, stops consumers, observes the configured graceful shutdown timeout, cancels only after timeout, closes the queue transport and disposes the DB pool.
+API lifespan closes Redis and the SQLAlchemy engine. Worker handles SIGINT/SIGTERM, stops consumers, observes the configured 30-second internal graceful shutdown timeout, cancels consumers only after that timeout, closes the queue transport even on cancellation, and disposes the DB pool. Production Compose grants API and Worker a 60-second external stop grace period so application cleanup has bounded headroom after the internal timeout. CI requires both containers to finish with exit code 0 and without OOM termination; a successful container stop command alone is not considered graceful-shutdown evidence.
 
 ## Release
 
