@@ -28,14 +28,20 @@ class _Vault:
 
 
 class _Client:
-    def __init__(self, *, save="", appendonly="no"):
+    def __init__(self, *, save="", appendonly="no", config_failures=0):
         self.save = save
         self.appendonly = appendonly
+        self.config_failures = config_failures
+        self.config_calls = 0
         self.values = {}
         self.ttls = {}
         self.closed = False
 
     async def config_get(self, key):
+        self.config_calls += 1
+        if self.config_failures > 0:
+            self.config_failures -= 1
+            raise TimeoutError("transient config timeout")
         if key == "save":
             return {"save": self.save}
         if key == "appendonly":
@@ -90,6 +96,41 @@ class RedisAnalysisTransientPayloadStoreTests(unittest.TestCase):
             self.assertIsNone(await store.get_async("analysis-1"))
             await store.close_async()
             self.assertTrue(client.closed)
+
+        asyncio.run(run())
+
+    def test_transient_policy_validation_retries_once(self) -> None:
+        async def run():
+            client = _Client(config_failures=1)
+            store = RedisAnalysisTransientPayloadStore(
+                _Config(),
+                _Vault(),
+                client,
+            )
+            await store.put_async(
+                "analysis-1",
+                [{"document_id": "d", "text": "secret", "metadata": {}}],
+            )
+            self.assertGreaterEqual(client.config_calls, 3)
+
+        asyncio.run(run())
+
+    def test_transient_policy_validation_fails_after_bounded_retry(self) -> None:
+        async def run():
+            client = _Client(config_failures=2)
+            store = RedisAnalysisTransientPayloadStore(
+                _Config(),
+                _Vault(),
+                client,
+            )
+            with self.assertRaisesRegex(
+                RuntimeError,
+                "Unable to verify transient Redis persistence policy",
+            ):
+                await store.put_async(
+                    "analysis-1",
+                    [{"document_id": "d", "text": "secret", "metadata": {}}],
+                )
 
         asyncio.run(run())
 
