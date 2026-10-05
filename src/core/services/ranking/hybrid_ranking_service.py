@@ -95,7 +95,7 @@ class _JoinedCandidate:
 
 @inject
 class HybridRankingService:
-    SCORING_VERSION = "hybrid-ranking-v2"
+    SCORING_VERSION = "hybrid-ranking-v3"
 
     def __init__(
         self,
@@ -255,16 +255,37 @@ class HybridRankingService:
                 if len(kept) >= diversity_candidate_pool_size:
                     break
                 continue
-            kept_candidate, reason, similarity = duplicate
-            removed.append(
-                DeduplicationRecord(
-                    removed_canonical_text=candidate.statistical.canonical_text,
-                    kept_canonical_text=kept_candidate.statistical.canonical_text,
-                    reason=reason,
-                    similarity=similarity,
-                )
-            )
 
+            kept_candidate, reason, similarity = duplicate
+            kept_index = kept.index(kept_candidate)
+            if self._prefer_candidate(candidate, kept_candidate):
+                kept[kept_index] = candidate
+                removed.append(
+                    DeduplicationRecord(
+                        removed_canonical_text=kept_candidate.statistical.canonical_text,
+                        kept_canonical_text=candidate.statistical.canonical_text,
+                        reason=reason,
+                        similarity=similarity,
+                    )
+                )
+            else:
+                removed.append(
+                    DeduplicationRecord(
+                        removed_canonical_text=candidate.statistical.canonical_text,
+                        kept_canonical_text=kept_candidate.statistical.canonical_text,
+                        reason=reason,
+                        similarity=similarity,
+                    )
+                )
+
+        kept.sort(
+            key=lambda item: (
+                -item.fused_score,
+                -item.normalized_semantic_score,
+                -item.normalized_statistical_score,
+                item.statistical.canonical_text,
+            )
+        )
         return tuple(kept), tuple(removed)
 
     def _find_duplicate(
@@ -294,6 +315,34 @@ class HybridRankingService:
             if similarity >= self._config.lexical_deduplication_threshold:
                 return existing, "lexical_near_duplicate", similarity
         return None
+
+    @classmethod
+    def _prefer_candidate(
+        cls,
+        candidate: _JoinedCandidate,
+        existing: _JoinedCandidate,
+    ) -> bool:
+        candidate_tokens = len(candidate.statistical.canonical_text.split())
+        existing_tokens = len(existing.statistical.canonical_text.split())
+        candidate_key = (
+            int(candidate.statistical.is_protected),
+            candidate.statistical.phrase_quality,
+            candidate.semantic.semantic_score,
+            candidate.statistical.normalized_frequency,
+            -candidate_tokens,
+            candidate.fused_score,
+            cls._reverse_lexical_key(candidate.statistical.canonical_text),
+        )
+        existing_key = (
+            int(existing.statistical.is_protected),
+            existing.statistical.phrase_quality,
+            existing.semantic.semantic_score,
+            existing.statistical.normalized_frequency,
+            -existing_tokens,
+            existing.fused_score,
+            cls._reverse_lexical_key(existing.statistical.canonical_text),
+        )
+        return candidate_key > existing_key
 
     async def _apply_semantic_dedup_and_mmr_async(
         self,
@@ -440,8 +489,7 @@ class HybridRankingService:
                 if kept_candidate.statistical.is_protected:
                     continue
                 similarity = self._cosine_similarity(
-                    vectors[index],
-                    vectors[kept_index],
+                    vectors[index], vectors[kept_index]
                 )
                 if (
                     similarity >= self._config.semantic_deduplication_threshold
@@ -454,20 +502,40 @@ class HybridRankingService:
                 kept_indices.append(index)
                 continue
 
-            removed.append(
-                DeduplicationRecord(
-                    removed_canonical_text=candidate.statistical.canonical_text,
-                    kept_canonical_text=(
-                        candidates[duplicate_index].statistical.canonical_text
-                    ),
-                    reason="semantic_near_duplicate",
-                    similarity=duplicate_similarity,
+            existing = candidates[duplicate_index]
+            if self._prefer_candidate(candidate, existing):
+                position = kept_indices.index(duplicate_index)
+                kept_indices[position] = index
+                removed.append(
+                    DeduplicationRecord(
+                        removed_canonical_text=existing.statistical.canonical_text,
+                        kept_canonical_text=candidate.statistical.canonical_text,
+                        reason="semantic_near_duplicate",
+                        similarity=duplicate_similarity,
+                    )
                 )
-            )
+            else:
+                removed.append(
+                    DeduplicationRecord(
+                        removed_canonical_text=candidate.statistical.canonical_text,
+                        kept_canonical_text=existing.statistical.canonical_text,
+                        reason="semantic_near_duplicate",
+                        similarity=duplicate_similarity,
+                    )
+                )
 
+        ordered_indices = sorted(
+            kept_indices,
+            key=lambda item: (
+                -candidates[item].fused_score,
+                -candidates[item].normalized_semantic_score,
+                -candidates[item].normalized_statistical_score,
+                candidates[item].statistical.canonical_text,
+            ),
+        )
         return (
-            tuple(candidates[index] for index in kept_indices),
-            tuple(vectors[index] for index in kept_indices),
+            tuple(candidates[index] for index in ordered_indices),
+            tuple(vectors[index] for index in ordered_indices),
             tuple(removed),
         )
 
@@ -515,7 +583,7 @@ class HybridRankingService:
             weights=weights,
             deduplication_strategy=(
                 "bounded_top_fused_pool:"
-                "exact_text+canonical+lexical_sequence_ratio+semantic_cosine"
+                "exact_text+canonical+quality_aware_lexical+quality_aware_semantic"
             ),
             lexical_deduplication_threshold=self._config.lexical_deduplication_threshold,
             semantic_deduplication_threshold=(

@@ -66,6 +66,8 @@ jobs:
       TRANSIENT_PAYLOAD_REDIS_URL: redis://redis:6379/0
       IMAGE_TAG: ci
       API_PORT: "5000"
+      API_CPU_LIMIT: "1.0"
+      WORKER_CPU_LIMIT: "1.0"
     steps:
       - uses: actions/checkout@v4
       - name: Build production image

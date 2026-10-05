@@ -4,6 +4,7 @@ import hashlib
 
 from src.core.services.candidate.candidate_extraction_service import CandidateExtractionService
 from src.core.services.course.course_analysis_service import CourseAnalysisService
+from src.core.services.course.course_document_segmentation_service import CourseDocumentSegmentationService
 from src.core.services.media.media_analysis_service import MediaAnalysisService
 from src.core.services.persian_text.persian_text_processor import PersianTextProcessor
 from src.core.services.ranking.hybrid_ranking_service import HybridRankingService
@@ -70,6 +71,7 @@ def build_profile_services():
         config,
     )
     ranking = HybridRankingService(embedding, config)
+    course_segmentation = CourseDocumentSegmentationService(config)
     topic_provider = SemanticAgglomerativeTopicModelProvider(embedding, config)
     topics = TopicAnalysisService(topic_provider, config)
     trends = TrendAnalysisService(config)
@@ -80,6 +82,7 @@ def build_profile_services():
             statistical,
             semantic,
             ranking,
+            course_segmentation,
             config,
             topic_analysis_service=topics,
         ),

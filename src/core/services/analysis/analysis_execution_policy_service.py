@@ -31,12 +31,21 @@ class AnalysisExecutionPolicyService:
         self,
         *,
         execution_mode: str,
+        analysis_type: str | None = None,
         documents: list[dict[str, Any]],
     ) -> AnalysisExecutionDecision:
         if execution_mode not in {"auto", "sync", "async"}:
             raise AnalysisExecutionPolicyError(
                 "unsupported_execution_mode",
                 "execution_mode must be one of: auto, sync, async",
+            )
+        if (
+            analysis_type is not None
+            and analysis_type not in {"COURSE", "SOLDIER_CONCERN", "MEDIA"}
+        ):
+            raise AnalysisExecutionPolicyError(
+                "unsupported_analysis_type",
+                "analysis_type must be COURSE, SOLDIER_CONCERN, or MEDIA",
             )
 
         document_count = len(documents)
@@ -61,6 +70,14 @@ class AnalysisExecutionPolicyService:
         sync_max_total_characters = self._positive_int(
             "analysis.sync_threshold.max_total_characters"
         )
+        if analysis_type == "COURSE":
+            sync_max_total_characters = min(
+                sync_max_total_characters,
+                self._positive_int_or_default(
+                    "analysis.sync_threshold.course_max_total_characters",
+                    sync_max_total_characters,
+                ),
+            )
 
         if document_count > max_documents:
             raise AnalysisExecutionPolicyError(
@@ -115,3 +132,9 @@ class AnalysisExecutionPolicyService:
         if value <= 0:
             raise ValueError(f"Configuration value must be positive: {key}")
         return value
+
+    def _positive_int_or_default(self, key: str, default: int) -> int:
+        try:
+            return self._positive_int(key)
+        except KeyError:
+            return default

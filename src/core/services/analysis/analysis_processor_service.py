@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 from src.core.services.analysis.profile_result import StructuredProfileResult
@@ -50,6 +51,13 @@ class AnalysisProcessorService:
                 analysis_type=analysis_type,
                 documents=documents,
             )
+        except asyncio.CancelledError:
+            await self._repository.mark_failed_async(
+                analysis_id,
+                error_code="analysis_processing_cancelled",
+                error_message="Analysis processing was cancelled",
+            )
+            raise
         except AnalysisProcessingError:
             await self._repository.mark_failed_async(
                 analysis_id,

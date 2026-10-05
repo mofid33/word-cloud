@@ -7,6 +7,9 @@ import unittest
 from src.core.services.analysis.profile_config import load_profile_scoring_config
 from src.core.services.candidate.candidate_extraction_service import CandidateExtractionService
 from src.core.services.course.course_analysis_service import CourseAnalysisService
+from src.core.services.course.course_document_segmentation_service import (
+    CourseDocumentSegmentationService,
+)
 from src.core.services.media.media_analysis_service import MediaAnalysisService
 from src.core.services.persian_text.persian_text_processor import PersianTextProcessor
 from src.core.services.ranking.hybrid_ranking_service import HybridRankingService
@@ -86,6 +89,7 @@ class AnalysisProfileTests(unittest.IsolatedAsyncioTestCase):
         embedding = _Embedding()
         semantic = SemanticAnalysisService(embedding, _Reranker(), self.config)
         ranking = HybridRankingService(embedding, self.config)
+        course_segmentation = CourseDocumentSegmentationService(self.config)
         topic_provider = SemanticAgglomerativeTopicModelProvider(
             embedding, self.config
         )
@@ -98,6 +102,7 @@ class AnalysisProfileTests(unittest.IsolatedAsyncioTestCase):
             statistical,
             semantic,
             ranking,
+            course_segmentation,
             self.config,
             topic_analysis_service=topics,
         )

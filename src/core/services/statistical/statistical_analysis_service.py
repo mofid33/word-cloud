@@ -7,6 +7,14 @@ from src.infrastructure.di.inject import inject
 from src.infrastructure.utils.config_reader import ConfigReader
 
 
+_VERB_POS = frozenset({"VERB", "AUX"})
+_CONTENT_POS = frozenset({"NOUN", "PROPN", "ADJ", "X", "LATIN", "NUM"})
+_VERB_LIKE_TOKENS = frozenset({
+    "باید", "می‌تواند", "می‌توانند", "می‌توان", "می‌شود", "می‌شوند",
+    "است", "هست", "بود", "شد", "شود", "شده", "دارد", "دارند", "کند", "کنند",
+})
+
+
 @dataclass(frozen=True)
 class StatisticalOccurrence:
     document_id: str
@@ -152,7 +160,7 @@ class StatisticalAnalysisService:
             )
             normalized_frequency = frequency / maximum_frequency
             document_coverage = document_frequency / total_documents
-            phrase_quality = min(candidate_occurrences[0].ngram_size / 3.0, 1.0)
+            phrase_quality = self._phrase_quality(candidate_occurrences)
 
             section_hits = {
                 (item.document_id, item.section_id)
@@ -285,6 +293,38 @@ class StatisticalAnalysisService:
             seen.add(key)
             normalized.append(key)
         return tuple(normalized)
+
+    @classmethod
+    def _phrase_quality(
+        cls,
+        occurrences: list[CandidateOccurrence],
+    ) -> float:
+        representative = occurrences[0]
+        quality = min(representative.ngram_size / 3.0, 1.0)
+
+        canonical_tokens = tuple(
+            token for token in representative.canonical_text.split() if token
+        )
+        if len(set(canonical_tokens)) < len(canonical_tokens):
+            quality *= 0.45
+
+        pos_tags = representative.pos_tags
+        if len(pos_tags) > 1:
+            first_token = canonical_tokens[0] if canonical_tokens else ""
+            last_token = canonical_tokens[-1] if canonical_tokens else ""
+            if pos_tags[0] in _VERB_POS or first_token in _VERB_LIKE_TOKENS:
+                quality *= 0.60
+            if pos_tags[-1] in _VERB_POS or last_token in _VERB_LIKE_TOKENS:
+                quality *= 0.50
+
+        if representative.contains_stopword:
+            quality *= 0.80
+
+        known_pos = tuple(tag for tag in pos_tags if tag is not None)
+        if known_pos and not any(tag in _CONTENT_POS for tag in known_pos):
+            quality *= 0.70
+
+        return cls._bounded_score(quality)
 
     @staticmethod
     def _bounded_score(value: float) -> float:

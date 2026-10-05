@@ -16,6 +16,9 @@ from src.core.services.candidate.candidate_extraction_service import (
     CandidateDocument,
     CandidateExtractionService,
 )
+from src.core.services.course.course_document_segmentation_service import (
+    CourseDocumentSegmentationService,
+)
 from src.core.services.persian_text.persian_text_processor import PersianTextProcessor
 from src.core.services.ranking.hybrid_ranking_service import (
     FusionWeights,
@@ -42,6 +45,7 @@ class CourseAnalysisService:
         statistical_analysis_service: StatisticalAnalysisService,
         semantic_analysis_service: SemanticAnalysisService,
         hybrid_ranking_service: HybridRankingService,
+        course_document_segmentation_service: CourseDocumentSegmentationService,
         config_reader: ConfigReader,
         *,
         topic_analysis_service: TopicAnalysisService,
@@ -51,6 +55,7 @@ class CourseAnalysisService:
         self._statistical = statistical_analysis_service
         self._semantic = semantic_analysis_service
         self._ranking = hybrid_ranking_service
+        self._segmentation = course_document_segmentation_service
         self._topics = topic_analysis_service
         self._config = load_profile_scoring_config(
             config_reader,
@@ -73,41 +78,69 @@ class CourseAnalysisService:
         documents: list[dict[str, Any]],
     ) -> StructuredProfileResult:
         timeline_documents = self._validate_documents(documents)
-        ordered = tuple(
-            sorted(timeline_documents, key=lambda item: item["document_id"])
-        )
-        section_enabled = self._scope_enabled(ordered, "section_id")
-        chunk_enabled = self._scope_enabled(ordered, "chunk_id")
+        self._scope_enabled(timeline_documents, "section_id")
+        self._scope_enabled(timeline_documents, "chunk_id")
 
-        processed: list[tuple[dict[str, Any], Any]] = []
+        segmentation = self._segmentation.segment(timeline_documents)
+        segments = segmentation.segments
+        ranking_segments = tuple(
+            sorted(
+                segments,
+                key=lambda item: (
+                    item.source_document_id,
+                    item.section_id or "",
+                    item.chunk_id or "",
+                    item.segment_document_id,
+                ),
+            )
+        )
+        section_enabled = bool(
+            segments and all(item.section_id is not None for item in segments)
+        )
+        chunk_enabled = bool(
+            segments and all(item.chunk_id is not None for item in segments)
+        )
+
+        processed: list[tuple[Any, Any]] = []
         candidate_documents: list[CandidateDocument] = []
-        for document in ordered:
-            result = self._processor.process(document["text"], domain="COURSE")
-            processed.append((document, result))
-            metadata = document.get("metadata") or {}
+        for segment in ranking_segments:
+            result = self._processor.process(segment.text, domain="COURSE")
+            processed.append((segment, result))
             candidate_documents.append(
                 CandidateDocument(
-                    document_id=document["document_id"],
+                    document_id=segment.source_document_id,
                     processing_result=result,
-                    section_id=metadata.get("section_id") if section_enabled else None,
-                    chunk_id=metadata.get("chunk_id") if chunk_enabled else None,
+                    section_id=segment.section_id if section_enabled else None,
+                    chunk_id=segment.chunk_id if chunk_enabled else None,
                 )
             )
 
         occurrences = self._extractor.extract_documents(tuple(candidate_documents))
-        document_ids = tuple(document["document_id"] for document in ordered)
+        document_ids = tuple(
+            sorted(document["document_id"] for document in timeline_documents)
+        )
         section_keys = (
             tuple(
-                (document["document_id"], document["metadata"]["section_id"])
-                for document in ordered
+                sorted(
+                    {
+                        (segment.source_document_id, str(segment.section_id))
+                        for segment in segments
+                        if segment.section_id is not None
+                    }
+                )
             )
             if section_enabled
             else ()
         )
         chunk_keys = (
             tuple(
-                (document["document_id"], document["metadata"]["chunk_id"])
-                for document in ordered
+                sorted(
+                    {
+                        (segment.source_document_id, str(segment.chunk_id))
+                        for segment in segments
+                        if segment.chunk_id is not None
+                    }
+                )
             )
             if chunk_enabled
             else ()
@@ -163,9 +196,7 @@ class CourseAnalysisService:
             semantic,
             weights=fusion_weights,
             maximum_results=self._config.maximum_results,
-            diversity_candidate_pool_size=(
-                self._config.diversity_candidate_pool_size
-            ),
+            diversity_candidate_pool_size=self._config.diversity_candidate_pool_size,
         )
 
         stats_by_id = {item.canonical_text: item for item in profile_statistics}
@@ -213,23 +244,22 @@ class CourseAnalysisService:
                 }
             )
 
-        processed_by_id = {
-            document["document_id"]: result
-            for document, result in processed
+        processed_by_segment_id = {
+            segment.segment_document_id: result
+            for segment, result in processed
         }
         topic_result = await self._topics.analyze_async(
             documents=tuple(
                 TopicDocument(
-                    document_id=document["document_id"],
-                    text=processed_by_id[document["document_id"]].embedding_text,
-                    order=index,
-                    section_id=(document.get("metadata") or {}).get("section_id"),
-                    chunk_id=(document.get("metadata") or {}).get("chunk_id"),
+                    document_id=segment.segment_document_id,
+                    text=processed_by_segment_id[
+                        segment.segment_document_id
+                    ].embedding_text,
+                    order=segment.order,
+                    section_id=segment.section_id,
+                    chunk_id=segment.chunk_id,
                 )
-                for index, document in enumerate(
-                    timeline_documents,
-                    start=1,
-                )
+                for segment in segments
             ),
             keywords=tuple(keywords),
             build_timeline=True,
@@ -243,7 +273,7 @@ class CourseAnalysisService:
             profile="COURSE",
             keywords=tuple(keywords),
             metrics={
-                "document_count": len(ordered),
+                "document_count": len(timeline_documents),
                 "candidate_occurrence_count": len(occurrences),
                 "candidate_count": len(statistics),
                 "ranked_keyword_count": len(keywords),
@@ -252,6 +282,13 @@ class CourseAnalysisService:
             },
             profile_result={
                 "profile": "COURSE",
+                "segmentation": {
+                    "mode": segmentation.mode,
+                    "version": segmentation.version,
+                    "source_document_count": segmentation.source_document_count,
+                    "section_count": segmentation.section_count,
+                    "chunk_count": segmentation.chunk_count,
+                },
                 "scoring": {
                     "status": "baseline_requires_production_gold_evaluation",
                     "configured_weights": dict(self._config.weights),
@@ -310,7 +347,7 @@ class CourseAnalysisService:
             model_version=model_version,
             scoring_version=(
                 f"{self._config.scoring_version}+{hybrid.scoring_version}+"
-                f"{topic_result.scoring_version}"
+                f"{topic_result.scoring_version}+{segmentation.version}"
             ),
             topics=topic_result.topics,
         )
@@ -353,14 +390,24 @@ class CourseAnalysisService:
         documents: tuple[dict[str, Any], ...],
         key: str,
     ) -> bool:
-        values = [(document.get("metadata") or {}).get(key) for document in documents]
+        values = [
+            (document.get("metadata") or {}).get(key)
+            for document in documents
+        ]
         present = [value is not None for value in values]
         if any(present) and not all(present):
-            raise ValueError(f"COURSE {key} must be supplied consistently for all documents")
+            raise ValueError(
+                f"COURSE {key} must be supplied consistently for all documents"
+            )
         if not any(present):
             return False
-        if any(not isinstance(value, str) or not value.strip() for value in values):
-            raise ValueError(f"COURSE {key} values must be non-empty strings")
+        if any(
+            not isinstance(value, str) or not value.strip()
+            for value in values
+        ):
+            raise ValueError(
+                f"COURSE {key} values must be non-empty strings"
+            )
         return True
 
     @staticmethod

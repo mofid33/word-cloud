@@ -186,6 +186,7 @@ class AnalysisService:
                     )
 
         decision = await self._execution_policy_service.evaluate_async(
+            analysis_type=analysis_type,
             execution_mode=execution_mode,
             documents=documents,
         )

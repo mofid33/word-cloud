@@ -10,6 +10,7 @@ from types import SimpleNamespace
 from src.core.services.analysis.profile_config import ProfileScoringConfig
 from src.core.services.candidate.candidate_extraction_service import CandidateExtractionService
 from src.core.services.course.course_analysis_service import CourseAnalysisService
+from src.core.services.course.course_document_segmentation_service import CourseDocumentSegmentationService
 from src.core.services.persian_text.persian_text_processor import PersianTextProcessor
 from src.core.services.ranking.hybrid_ranking_service import HybridRankingService
 from src.core.services.semantic.semantic_analysis_service import SemanticAnalysisService
@@ -490,6 +491,9 @@ class CourseCandidateTuningEngineParityTests(
             embedding,
             config,
         )
+        course_segmentation = CourseDocumentSegmentationService(
+            config
+        )
         topics = TopicAnalysisService(
             SemanticAgglomerativeTopicModelProvider(
                 embedding,
@@ -503,6 +507,7 @@ class CourseCandidateTuningEngineParityTests(
             statistical,
             semantic,
             ranking,
+            course_segmentation,
             config,
             topic_analysis_service=topics,
         )

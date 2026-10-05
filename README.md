@@ -61,7 +61,7 @@ Typical uses include long-course/document analysis, multi-document concern analy
 
 - Persian normalization, tokenization, stopword/domain resource handling, ZWNJ and whitespace normalization.
 - 1–3 gram candidate extraction with configurable phrase filtering.
-- Frequency, document coverage, section/chunk coverage and phrase-quality signals.
+- Frequency, document coverage, section/chunk coverage and structure-aware phrase-quality signals.
 - Configurable bi-encoder embeddings and cross-encoder reranking.
 - Hybrid statistical/semantic fusion with lexical, canonical and semantic deduplication plus diversity ranking.
 - Topic extraction, representative keyphrases, prevalence and coverage.
@@ -81,7 +81,7 @@ Typical uses include long-course/document analysis, multi-document concern analy
 
 ### COURSE
 
-Designed for long documents, sections, chapters or course material. Documents may include consistent <code>metadata.section_id</code> and/or <code>metadata.chunk_id</code>. If either key is supplied, it must be supplied consistently for all COURSE documents.
+Designed for long documents, sections, chapters or course material. Documents may include consistent <code>metadata.section_id</code> and/or <code>metadata.chunk_id</code>. If either key is supplied, it must be supplied consistently for all COURSE documents. When long COURSE input omits those boundaries, the service now derives deterministic section/chunk boundaries from headings, paragraphs and sentence-safe chunking before ranking.
 
 Implemented signals include semantic relevance, frequency, chunk coverage, section coverage and phrase quality. The profile produces ranked keyphrases, topics and a request-order topic timeline.
 
@@ -613,9 +613,10 @@ Current configured hard input limits:
 Current sync threshold:
 
 - documents ≤ <code>20</code>
-- total characters ≤ <code>100000</code>
+- global total characters ≤ <code>100000</code>
+- COURSE total characters ≤ <code>8000</code> for sync execution
 
-<code>execution_mode="auto"</code> chooses sync only when **both** sync conditions are satisfied; otherwise it chooses async. Explicit <code>sync</code> above the threshold is rejected.
+<code>execution_mode="auto"</code> chooses sync only when the applicable profile-aware sync conditions are satisfied; otherwise it chooses async. Explicit <code>sync</code> above the applicable threshold is rejected. This keeps long semantic COURSE analysis off the HTTP request path while preserving the shared Worker/AnalysisProcessorService workflow.
 
 Async flow:
 

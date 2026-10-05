@@ -46,6 +46,7 @@ analysis:
   sync_threshold:
     max_documents: 20
     max_total_characters: 100000
+    course_max_total_characters: 8000
 
 analysis_queue:
   backend: "postgres"
@@ -87,6 +88,14 @@ persian_nlp:
   embedding:
     remove_stopwords: false
     use_lemmas: false
+
+course_segmentation:
+  enabled: true
+  minimum_document_characters: 1200
+  target_chunk_characters: 1200
+  maximum_chunk_characters: 1800
+  minimum_chunk_characters: 300
+  heading_maximum_characters: 120
 
 candidate_extraction:
   minimum_ngram: 1
@@ -132,7 +141,7 @@ hybrid_ranking:
 
 analysis_profiles:
   course:
-    scoring_version: "phase10-course-baseline-v2"
+    scoring_version: "phase10-course-baseline-v3"
     maximum_results: 25
     diversity_candidate_pool_size: 200
     weights:
