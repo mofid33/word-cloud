@@ -41,7 +41,7 @@ class WordCloudAnalysis(Base):
     execution_mode: Mapped[str] = mapped_column(String(16), nullable=False)
     reference: Mapped[str | None] = mapped_column(String(500), nullable=True)
     options: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")
-    model_version: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    model_version: Mapped[str | None] = mapped_column(Text, nullable=True)
     scoring_version: Mapped[str | None] = mapped_column(String(200), nullable=True)
     metrics: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")
     profile_result: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")

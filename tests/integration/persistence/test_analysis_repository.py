@@ -341,6 +341,45 @@ class AnalysisRepositoryIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(completed.topics[0].keyword_links), 1)
         self.assertEqual(completed.metrics["document_count"], 1)
 
+    async def test_long_model_version_is_persisted_without_truncation(self) -> None:
+        pending = await self.repository.create_pending_async(
+            analysis_type="COURSE",
+            execution_mode="sync",
+            documents=[
+                {
+                    "document_id": "doc-long-model-version",
+                    "text": "content",
+                    "metadata": {},
+                }
+            ],
+        )
+        model_version = (
+            "embedding:sentence-transformers/paraphrase-multilingual-mpnet-base-v2@"
+            + ("a" * 40)
+            + ";reranker:BAAI/bge-reranker-v2-m3@"
+            + ("b" * 40)
+            + ";topic:sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
+        )
+        self.assertGreater(len(model_version), 200)
+
+        completed = await self.repository.save_result_atomically_async(
+            analysis_id=pending.id,
+            keywords=[],
+            topics=[],
+            topic_keywords=[],
+            metrics={},
+            profile_result={},
+            model_version=model_version,
+            scoring_version="test-scoring",
+        )
+
+        self.assertEqual(completed.status, "completed")
+        self.assertEqual(completed.model_version, model_version)
+
+        reloaded = await self.repository.get_aggregate_by_id_async(pending.id)
+        assert reloaded is not None
+        self.assertEqual(reloaded.model_version, model_version)
+
     async def test_duplicate_logical_result_identifiers_are_rejected(self) -> None:
         pending = await self.repository.create_pending_async(
             analysis_type="COURSE",

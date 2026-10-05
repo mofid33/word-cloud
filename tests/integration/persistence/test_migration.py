@@ -7,7 +7,7 @@ from pathlib import Path
 
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import inspect, text
+from sqlalchemy import Text, inspect, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import create_async_engine
 
@@ -75,6 +75,17 @@ class MigrationIntegrationTests(unittest.IsolatedAsyncioTestCase):
                             ).get_indexes("analysis_queue_job")
                         )
                     }
+                    analysis_columns = {
+                        item["name"]: item
+                        for item in await connection.run_sync(
+                            lambda sync_connection: inspect(
+                                sync_connection
+                            ).get_columns("word_cloud_analysis")
+                        )
+                    }
+                    revision = await connection.scalar(
+                        text("SELECT version_num FROM alembic_version")
+                    )
 
                 self.assertTrue(
                     {
@@ -93,6 +104,11 @@ class MigrationIntegrationTests(unittest.IsolatedAsyncioTestCase):
                         "ix_analysis_queue_job_lease_expiry",
                     }.issubset(queue_indexes)
                 )
+                self.assertIsInstance(
+                    analysis_columns["model_version"]["type"],
+                    Text,
+                )
+                self.assertEqual(revision, "20261005_0003")
             finally:
                 await engine.dispose()
 
