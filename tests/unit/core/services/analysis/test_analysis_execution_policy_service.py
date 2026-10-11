@@ -15,6 +15,10 @@ class _Config:
             "analysis.limits.max_total_characters_per_analysis": 20,
             "analysis.sync_threshold.max_documents": 2,
             "analysis.sync_threshold.max_total_characters": 8,
+            "analysis.sync_threshold.max_estimated_candidates": 20,
+            "analysis.sync_threshold.course_max_total_characters": 8,
+            "analysis.sync_threshold.course_max_estimated_candidates": 12,
+            "analysis.sync_threshold.processing_timeout_seconds": 5,
         }
         self._values.update(overrides or {})
 
@@ -58,6 +62,61 @@ class AnalysisExecutionPolicyServiceTests(unittest.TestCase):
         )
 
         self.assertEqual(result.resolved_execution_mode, "async")
+
+    def test_course_auto_resolves_to_async_when_candidate_cost_is_exceeded(self) -> None:
+        result = asyncio.run(
+            self._service(
+                {
+                    "analysis.limits.max_characters_per_document": 100,
+                    "analysis.limits.max_total_characters_per_analysis": 100,
+                    "analysis.sync_threshold.max_total_characters": 100,
+                    "analysis.sync_threshold.course_max_total_characters": 100,
+                    "analysis.sync_threshold.course_max_estimated_candidates": 8,
+                }
+            ).evaluate_async(
+                execution_mode="auto",
+                analysis_type="COURSE",
+                documents=[
+                    {
+                        "document_id": "a",
+                        "text": "یک دو سه چهار پنج",
+                    },
+                ],
+            )
+        )
+
+        self.assertEqual(result.resolved_execution_mode, "async")
+
+    def test_explicit_course_sync_rejects_candidate_cost_over_budget(self) -> None:
+        with self.assertRaises(AnalysisExecutionPolicyError) as context:
+            asyncio.run(
+                self._service(
+                    {
+                        "analysis.limits.max_characters_per_document": 100,
+                        "analysis.limits.max_total_characters_per_analysis": 100,
+                        "analysis.sync_threshold.max_total_characters": 100,
+                        "analysis.sync_threshold.course_max_total_characters": 100,
+                        "analysis.sync_threshold.course_max_estimated_candidates": 8,
+                    }
+                ).evaluate_async(
+                    execution_mode="sync",
+                    analysis_type="COURSE",
+                    documents=[
+                        {
+                            "document_id": "a",
+                            "text": "یک دو سه چهار پنج",
+                        },
+                    ],
+                )
+            )
+
+        self.assertEqual(context.exception.code, "sync_threshold_exceeded")
+
+    def test_sync_processing_timeout_is_configured(self) -> None:
+        self.assertEqual(
+            self._service().sync_processing_timeout_seconds(),
+            5,
+        )
 
     def test_explicit_sync_over_threshold_is_rejected(self) -> None:
         with self.assertRaises(AnalysisExecutionPolicyError) as context:

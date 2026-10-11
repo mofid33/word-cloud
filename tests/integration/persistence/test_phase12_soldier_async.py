@@ -91,6 +91,10 @@ class _PolicyConfig:
         "analysis.limits.max_total_characters_per_analysis": 10000000,
         "analysis.sync_threshold.max_documents": 20,
         "analysis.sync_threshold.max_total_characters": 100000,
+        "analysis.sync_threshold.max_estimated_candidates": 1500,
+        "analysis.sync_threshold.course_max_total_characters": 8000,
+        "analysis.sync_threshold.course_max_estimated_candidates": 1200,
+        "analysis.sync_threshold.processing_timeout_seconds": 240,
     }
 
     def require(self, key):

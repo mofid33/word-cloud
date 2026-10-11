@@ -70,12 +70,20 @@ class AnalysisExecutionPolicyService:
         sync_max_total_characters = self._positive_int(
             "analysis.sync_threshold.max_total_characters"
         )
+        sync_max_estimated_candidates = self._positive_int(
+            "analysis.sync_threshold.max_estimated_candidates"
+        )
         if analysis_type == "COURSE":
             sync_max_total_characters = min(
                 sync_max_total_characters,
-                self._positive_int_or_default(
-                    "analysis.sync_threshold.course_max_total_characters",
-                    sync_max_total_characters,
+                self._positive_int(
+                    "analysis.sync_threshold.course_max_total_characters"
+                ),
+            )
+            sync_max_estimated_candidates = min(
+                sync_max_estimated_candidates,
+                self._positive_int(
+                    "analysis.sync_threshold.course_max_estimated_candidates"
                 ),
             )
 
@@ -105,9 +113,11 @@ class AnalysisExecutionPolicyService:
                 f"maximum allowed is {max_total_characters}",
             )
 
+        estimated_candidate_count = self._estimate_candidate_count(documents)
         fits_sync = (
             document_count <= sync_max_documents
             and total_characters <= sync_max_total_characters
+            and estimated_candidate_count <= sync_max_estimated_candidates
         )
 
         if execution_mode == "sync" and not fits_sync:
@@ -127,14 +137,29 @@ class AnalysisExecutionPolicyService:
             total_characters=total_characters,
         )
 
-    def _positive_int(self, key: str) -> int:
-        value = int(self._config.require(key))
-        if value <= 0:
-            raise ValueError(f"Configuration value must be positive: {key}")
-        return value
+    def sync_processing_timeout_seconds(self) -> int:
+        return self._positive_int(
+            "analysis.sync_threshold.processing_timeout_seconds"
+        )
 
-    def _positive_int_or_default(self, key: str, default: int) -> int:
-        try:
-            return self._positive_int(key)
-        except KeyError:
-            return default
+    @staticmethod
+    def _estimate_candidate_count(
+        documents: list[dict[str, Any]],
+    ) -> int:
+        estimated = 0
+        for document in documents:
+            token_count = len(str(document.get("text", "")).split())
+            estimated += (
+                token_count
+                + max(token_count - 1, 0)
+                + max(token_count - 2, 0)
+            )
+        return estimated
+
+    def _positive_int(self, key: str) -> int:
+        value = self._config.require(key)
+        if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+            raise ValueError(
+                f"Configuration '{key}' must be an integer > 0"
+            )
+        return value

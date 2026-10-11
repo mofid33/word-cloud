@@ -21,6 +21,10 @@ class _Config:
             "analysis.limits.max_total_characters_per_analysis": 20,
             "analysis.sync_threshold.max_documents": 2,
             "analysis.sync_threshold.max_total_characters": 8,
+            "analysis.sync_threshold.max_estimated_candidates": 20,
+            "analysis.sync_threshold.course_max_total_characters": 8,
+            "analysis.sync_threshold.course_max_estimated_candidates": 12,
+            "analysis.sync_threshold.processing_timeout_seconds": 5,
         }
 
     def require(self, key: str) -> int:

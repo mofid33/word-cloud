@@ -10,7 +10,10 @@ from uuid import uuid4
 from src.core.services.analysis.analysis_execution_policy_service import (
     AnalysisExecutionPolicyService,
 )
-from src.core.services.analysis.analysis_processor_service import AnalysisProcessorService
+from src.core.services.analysis.analysis_processor_service import (
+    AnalysisProcessingTimeoutError,
+    AnalysisProcessorService,
+)
 from src.core.services.analysis.providers.analysis_queue_provider import (
     AnalysisQueueJob,
     AnalysisQueueProvider,
@@ -43,6 +46,13 @@ class AnalysisResultUnavailableError(RuntimeError):
         super().__init__(message)
         self.code = code
         self.message = message
+
+
+class AnalysisSyncTimeoutError(RuntimeError):
+    def __init__(self):
+        super().__init__("Synchronous analysis processing timed out")
+        self.code = "analysis_sync_timeout"
+        self.message = "Synchronous analysis processing timed out"
 
 
 @dataclass(frozen=True)
@@ -283,11 +293,18 @@ class AnalysisService:
         )
 
         if validation.resolved_execution_mode == "sync":
-            await self._analysis_processor_service.process_async(
-                analysis_id=analysis.id,
-                analysis_type=analysis_type,
-                documents=documents,
-            )
+            try:
+                await self._analysis_processor_service.process_async(
+                    analysis_id=analysis.id,
+                    analysis_type=analysis_type,
+                    documents=documents,
+                    timeout_seconds=(
+                        self._execution_policy_service
+                        .sync_processing_timeout_seconds()
+                    ),
+                )
+            except AnalysisProcessingTimeoutError as exc:
+                raise AnalysisSyncTimeoutError() from exc
             completed = await self._analysis_repository.get_aggregate_by_id_async(
                 analysis.id
             )

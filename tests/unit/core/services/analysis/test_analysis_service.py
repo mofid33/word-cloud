@@ -7,11 +7,15 @@ from src.core.services.analysis.analysis_execution_policy_service import (
     AnalysisExecutionPolicyError,
     AnalysisExecutionPolicyService,
 )
+from src.core.services.analysis.analysis_processor_service import (
+    AnalysisProcessingTimeoutError,
+)
 from src.core.services.analysis.analysis_service import (
     AnalysisNotFoundError,
     AnalysisRequestValidationError,
     AnalysisResultUnavailableError,
     AnalysisService,
+    AnalysisSyncTimeoutError,
 )
 
 
@@ -23,7 +27,10 @@ class _Config:
             "analysis.limits.max_total_characters_per_analysis": 20,
             "analysis.sync_threshold.max_documents": 2,
             "analysis.sync_threshold.max_total_characters": 8,
+            "analysis.sync_threshold.max_estimated_candidates": 20,
             "analysis.sync_threshold.course_max_total_characters": 8,
+            "analysis.sync_threshold.course_max_estimated_candidates": 12,
+            "analysis.sync_threshold.processing_timeout_seconds": 5,
         }
 
     def require(self, key: str) -> int:
@@ -91,12 +98,26 @@ class _Processor:
         self._repository = repository
         self.calls = []
 
-    async def process_async(self, *, analysis_id, analysis_type, documents):
-        self.calls.append((analysis_id, analysis_type, documents))
+    async def process_async(
+        self,
+        *,
+        analysis_id,
+        analysis_type,
+        documents,
+        timeout_seconds=None,
+    ):
+        self.calls.append(
+            (analysis_id, analysis_type, documents, timeout_seconds)
+        )
         self._repository.analysis.status = "completed"
         self._repository.analysis.model_version = "model-v1"
         self._repository.analysis.scoring_version = "score-v1"
         self._repository.analysis.completed_at = datetime.now(UTC)
+
+
+class _TimeoutProcessor:
+    async def process_async(self, **kwargs):
+        raise AnalysisProcessingTimeoutError()
 
 
 class _Queue:
@@ -346,6 +367,40 @@ class AnalysisServiceTests(unittest.TestCase):
         self.assertFalse(
             self.repository.last_create["persist_raw_text"]
         )
+
+    def test_sync_create_passes_internal_processing_timeout(self) -> None:
+        asyncio.run(
+            self.service.create_async(
+                analysis_type="COURSE",
+                execution_mode="sync",
+                documents=[
+                    {"document_id": "a", "text": "abc", "metadata": {}},
+                ],
+            )
+        )
+
+        self.assertEqual(self.processor.calls[0][3], 5)
+
+    def test_sync_processing_timeout_is_exposed_as_service_error(self) -> None:
+        service = AnalysisService(
+            AnalysisExecutionPolicyService(_Config()),
+            _TimeoutProcessor(),
+            self.repository,
+            self.queue,
+        )
+
+        with self.assertRaises(AnalysisSyncTimeoutError) as context:
+            asyncio.run(
+                service.create_async(
+                    analysis_type="COURSE",
+                    execution_mode="sync",
+                    documents=[
+                        {"document_id": "a", "text": "abc", "metadata": {}},
+                    ],
+                )
+            )
+
+        self.assertEqual(context.exception.code, "analysis_sync_timeout")
 
     def test_async_create_persists_processing_input_and_enqueues_identifier_job(self) -> None:
         result = asyncio.run(

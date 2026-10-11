@@ -17,6 +17,7 @@ from src.core.services.analysis.analysis_service import (
     AnalysisRequestValidationError,
     AnalysisResultUnavailableError,
     AnalysisService,
+    AnalysisSyncTimeoutError,
 )
 from src.infrastructure.di.inject import inject
 
@@ -91,6 +92,10 @@ class AnalysisController:
                     "model": ApiErrorEnvelopeDto,
                     "description": "Request contract or execution policy validation failed",
                 },
+                status.HTTP_504_GATEWAY_TIMEOUT: {
+                    "model": ApiErrorEnvelopeDto,
+                    "description": "Synchronous analysis exceeded its processing budget",
+                },
             },
             summary="Create an analysis lifecycle resource",
         )
@@ -110,6 +115,14 @@ class AnalysisController:
                 )
             except (AnalysisExecutionPolicyError, AnalysisRequestValidationError) as exc:
                 self._raise_request_error(exc)
+            except AnalysisSyncTimeoutError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+                    detail={
+                        "code": exc.code,
+                        "message": exc.message,
+                    },
+                ) from exc
 
             return AnalysisStatusResponseDto.model_validate(result)
 

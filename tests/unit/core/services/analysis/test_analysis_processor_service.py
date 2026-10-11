@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import asyncio
 import unittest
 
 from src.core.services.analysis.analysis_processor_service import (
     AnalysisProcessingError,
+    AnalysisProcessingTimeoutError,
     AnalysisProcessorService,
 )
 from src.core.services.analysis.profile_result import (
@@ -60,6 +62,13 @@ class _Profile:
             scoring_version="score-v1",
             topics=(topic,),
         )
+
+
+class _SlowProfile(_Profile):
+    async def analyze_async(self, documents):
+        self.calls += 1
+        await asyncio.sleep(0.05)
+        return await super().analyze_async(documents)
 
 
 class _Repository:
@@ -128,6 +137,58 @@ class AnalysisProcessorServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn(raw, str(context.exception))
         self.assertEqual(repository.failed[0][1]["error_message"], "Analysis processing failed")
         self.assertNotIn(raw, repr(repository.failed))
+
+    async def test_sync_timeout_marks_analysis_failed_before_raise(self):
+        repository = _Repository()
+        processor = AnalysisProcessorService(
+            _SlowProfile("COURSE"),
+            _Profile("SOLDIER_CONCERN"),
+            _Profile("MEDIA"),
+            repository,
+        )
+
+        with self.assertRaises(AnalysisProcessingTimeoutError) as context:
+            await processor.process_async(
+                analysis_id="analysis-timeout",
+                analysis_type="COURSE",
+                documents=[{"document_id": "d", "text": "safe", "metadata": {}}],
+                timeout_seconds=0.01,
+            )
+
+        self.assertEqual(context.exception.code, "analysis_sync_timeout")
+        self.assertEqual(
+            repository.failed,
+            [
+                (
+                    "analysis-timeout",
+                    {
+                        "error_code": "analysis_sync_timeout",
+                        "error_message": "Synchronous analysis processing timed out",
+                    },
+                )
+            ],
+        )
+        self.assertEqual(repository.saved, [])
+
+    async def test_invalid_timeout_is_rejected_without_running_profile(self):
+        course = _Profile("COURSE")
+        repository = _Repository()
+        processor = AnalysisProcessorService(
+            course,
+            _Profile("SOLDIER_CONCERN"),
+            _Profile("MEDIA"),
+            repository,
+        )
+
+        with self.assertRaisesRegex(ValueError, "timeout_seconds"):
+            await processor.process_async(
+                analysis_id="analysis-timeout",
+                analysis_type="COURSE",
+                documents=[{"document_id": "d", "text": "safe", "metadata": {}}],
+                timeout_seconds=0,
+            )
+
+        self.assertEqual(course.calls, 0)
 
     async def test_unknown_profile_does_not_start_processing(self):
         repository = _Repository()

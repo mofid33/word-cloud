@@ -46,7 +46,10 @@ analysis:
   sync_threshold:
     max_documents: 20
     max_total_characters: 100000
+    max_estimated_candidates: 1500
     course_max_total_characters: 8000
+    course_max_estimated_candidates: 1200
+    processing_timeout_seconds: 240
 
 analysis_queue:
   backend: "postgres"

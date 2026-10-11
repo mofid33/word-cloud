@@ -22,6 +22,13 @@ class AnalysisProcessingError(RuntimeError):
         self.message = "Analysis processing failed"
 
 
+class AnalysisProcessingTimeoutError(RuntimeError):
+    def __init__(self):
+        super().__init__("Synchronous analysis processing timed out")
+        self.code = "analysis_sync_timeout"
+        self.message = "Synchronous analysis processing timed out"
+
+
 @inject
 class AnalysisProcessorService:
     def __init__(
@@ -42,21 +49,48 @@ class AnalysisProcessorService:
         analysis_id: str,
         analysis_type: str,
         documents: list[dict[str, Any]],
+        timeout_seconds: float | None = None,
     ) -> StructuredProfileResult:
         self._service_for(analysis_type)
+        timeout_value = (
+            None
+            if timeout_seconds is None
+            else self._validate_timeout_seconds(timeout_seconds)
+        )
         await self._repository.mark_processing_async(analysis_id)
         try:
-            return await self.process_claimed_async(
-                analysis_id=analysis_id,
-                analysis_type=analysis_type,
-                documents=documents,
-            )
+            if timeout_value is None:
+                return await self.process_claimed_async(
+                    analysis_id=analysis_id,
+                    analysis_type=analysis_type,
+                    documents=documents,
+                )
+
+            timeout_context = asyncio.timeout(timeout_value)
+            try:
+                async with timeout_context:
+                    return await self.process_claimed_async(
+                        analysis_id=analysis_id,
+                        analysis_type=analysis_type,
+                        documents=documents,
+                    )
+            except TimeoutError as exc:
+                if not timeout_context.expired():
+                    raise
+                await self._repository.mark_failed_async(
+                    analysis_id,
+                    error_code="analysis_sync_timeout",
+                    error_message="Synchronous analysis processing timed out",
+                )
+                raise AnalysisProcessingTimeoutError() from exc
         except asyncio.CancelledError:
             await self._repository.mark_failed_async(
                 analysis_id,
                 error_code="analysis_processing_cancelled",
                 error_message="Analysis processing was cancelled",
             )
+            raise
+        except AnalysisProcessingTimeoutError:
             raise
         except AnalysisProcessingError:
             await self._repository.mark_failed_async(
@@ -130,6 +164,15 @@ class AnalysisProcessorService:
             raise
         except Exception as exc:
             raise AnalysisProcessingError() from exc
+
+    @staticmethod
+    def _validate_timeout_seconds(value: float) -> float:
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError("timeout_seconds must be numeric")
+        numeric = float(value)
+        if numeric <= 0.0:
+            raise ValueError("timeout_seconds must be greater than zero")
+        return numeric
 
     def _service_for(self, analysis_type: str):
         if analysis_type == "COURSE":

@@ -53,6 +53,32 @@ class ConfigReaderTests(unittest.TestCase):
                     config.get("analysis.sync_threshold.max_documents"),
                     20,
                 )
+                self.assertGreater(
+                    config.get(
+                        "analysis.sync_threshold.max_estimated_candidates"
+                    ),
+                    0,
+                )
+                self.assertGreater(
+                    config.get(
+                        "analysis.sync_threshold.course_max_estimated_candidates"
+                    ),
+                    0,
+                )
+                self.assertLessEqual(
+                    config.get(
+                        "analysis.sync_threshold.course_max_estimated_candidates"
+                    ),
+                    config.get(
+                        "analysis.sync_threshold.max_estimated_candidates"
+                    ),
+                )
+                self.assertGreater(
+                    config.get(
+                        "analysis.sync_threshold.processing_timeout_seconds"
+                    ),
+                    0,
+                )
                 self.assertEqual(
                     config.get("analysis_queue.backend"),
                     "postgres",
